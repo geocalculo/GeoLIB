@@ -9,8 +9,6 @@
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
   />
 
   <style>
@@ -31,139 +29,128 @@
     }
 
     header {
-      background: #0b1120;
+      background: #020617;
       color: #e5e7eb;
-      padding: 10px 16px;
+      border-bottom: 1px solid #111827;
+      padding: 10px 16px 12px 16px;
     }
 
     .header-inner {
-      max-width: 1150px;
+      max-width: 1400px;
       margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: space-between;
-      align-items: baseline;
     }
 
-    .title {
+    .header-title {
       font-size: 1.1rem;
       font-weight: 600;
+      letter-spacing: 0.04em;
     }
 
-    .coords {
+    .header-subtitle {
+      margin-top: 4px;
       font-size: 0.85rem;
+      color: #d1d5db;
+    }
+
+    .header-source {
+      margin-top: 4px;
+      font-size: 0.8rem;
       color: #9ca3af;
+      text-align: right;
     }
 
     main {
       flex: 1;
       display: flex;
       justify-content: center;
-      padding: 12px;
+      padding: 16px;
     }
 
     .layout {
       width: 100%;
-      max-width: 1150px;
+      max-width: 1400px;
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr);
-      gap: 10px;
-    }
-
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: minmax(0, 1fr);
-      }
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 16px;
     }
 
     .card {
-      background: #ffffff;
-      border-radius: 0.75rem;
-      box-shadow: 0 16px 30px -18px rgba(15, 23, 42, 0.6);
-      border: 1px solid #d1d5db;
-      padding: 10px 12px;
+      background: #f9fafb;
+      border-radius: 16px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      padding: 16px 18px 18px 18px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
+      min-height: 0;
     }
 
     .card-title {
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-weight: 600;
-      color: #111827;
+      margin-bottom: 4px;
+      color: #0f172a;
     }
 
     .card-subtitle {
       font-size: 0.8rem;
       color: #6b7280;
+      margin-bottom: 10px;
     }
 
     #map {
-      width: 100%;
-      height: 360px;
-      border-radius: 0.6rem;
+      flex: 1;
+      min-height: 280px;
+      border-radius: 12px;
       overflow: hidden;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 12px;
     }
 
-    .badges {
+    .summary-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 2px;
-    }
-
-    .badge {
-      font-size: 0.75rem;
-      border-radius: 999px;
-      padding: 3px 8px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
-      margin-top: 4px;
-    }
-
-    @media (max-width: 600px) {
-      .summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
     }
 
     .summary-card {
-      background: #f9fafb;
-      border-radius: 0.75rem;
-      padding: 8px 10px;
+      flex: 1;
+      min-width: 140px;
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 8px 12px;
       border: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .summary-label {
       font-size: 0.75rem;
       color: #6b7280;
+      margin-bottom: 2px;
     }
 
     .summary-value {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 600;
       color: #111827;
+    }
+
+    .table-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 0.8rem;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
     }
 
     thead {
@@ -171,421 +158,469 @@
     }
 
     th, td {
-      padding: 6px 4px;
+      padding: 6px 8px;
       border-bottom: 1px solid #e5e7eb;
+      text-align: left;
     }
 
     th {
-      text-align: left;
       font-weight: 600;
       color: #374151;
-      position: sticky;
-      top: 0;
-      background: #f3f4f6;
-      z-index: 1;
+      font-size: 0.75rem;
+      white-space: nowrap;
     }
 
     tbody tr:nth-child(even) {
       background: #f9fafb;
     }
 
-    .text-right {
+    tbody tr:hover {
+      background: #eef2ff;
+    }
+
+    .col-num {
+      width: 28px;
       text-align: right;
     }
 
-    .chip-estado {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 6px;
-      border-radius: 999px;
+    .col-dist {
+      white-space: nowrap;
+    }
+
+    .note {
+      margin-top: 6px;
       font-size: 0.7rem;
+      color: #6b7280;
+    }
+
+    .status-ok {
+      color: #16a34a;
       font-weight: 500;
     }
 
-    .estado-aprobado {
-      background: #dcfce7;
-      color: #166534;
+    .status-warn {
+      color: #ea580c;
+      font-weight: 500;
     }
 
-    .estado-rechazado {
-      background: #fee2e2;
+    .status-error {
       color: #b91c1c;
+      font-weight: 500;
     }
 
-    .estado-otro {
-      background: #e5e7eb;
-      color: #374151;
+    .message-inline {
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+      color: #6b7280;
     }
 
-    a.link {
-      color: #1d4ed8;
+    a {
+      color: #2563eb;
       text-decoration: none;
     }
 
-    a.link:hover {
+    a:hover {
       text-decoration: underline;
     }
 
-    .scroll-table {
-      max-height: 360px;
-      overflow: auto;
-      border-radius: 0.5rem;
-      border: 1px solid #e5e7eb;
-      background: #ffffff;
-    }
-
-    .small {
+    footer {
+      background: #020617;
+      border-top: 1px solid #111827;
+      padding: 6px 12px;
       font-size: 0.75rem;
       color: #6b7280;
+      text-align: right;
+    }
+
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      header {
+        padding-bottom: 10px;
+      }
+
+      .header-source {
+        text-align: left;
+      }
     }
   </style>
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <div>
-        <div class="title">SEA Mining - Reporte de proyectos cercanos</div>
-        <div class="coords" id="coordText">
-          Punto consultado: cargando coordenadas...
-        </div>
+      <div class="header-title">
+        SEA Mining - Reporte de proyectos cercanos
       </div>
-      <div class="coords">
-        Fuente: proyectos_atacama.json · Región de Atacama
+      <div class="header-subtitle">
+        Punto consultado (WGS84): <span id="ubicacion">cargando coordenadas…</span>
+      </div>
+      <div class="header-subtitle">
+        UTM 19S (EPSG:32719): E=
+        <span id="utm-e-display">-</span> m · N=
+        <span id="utm-n-display">-</span> m
+      </div>
+      <div class="header-source">
+        Fuente: <strong>proyectos_atacama.json</strong> · Región de Atacama
       </div>
     </div>
   </header>
 
   <main>
     <div class="layout">
-      <!-- Columna izquierda: mapa + resumen -->
+      <!-- Panel izquierdo: mapa + resumen -->
       <section class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Distribución espacial de los proyectos</div>
-            <div class="card-subtitle">
-              Se muestran los 10 proyectos más cercanos al punto consultado.
-            </div>
-          </div>
+        <div class="card-title">Distribución espacial de los proyectos</div>
+        <div class="card-subtitle">
+          Se muestran los 10 proyectos más cercanos al punto consultado (distancia en metros en UTM 19S).
         </div>
+
         <div id="map"></div>
-        <div class="badges" id="badgesInfo">
-          <!-- Se completa por JS -->
-        </div>
-        <div class="summary-grid">
+
+        <div class="summary-row">
           <div class="summary-card">
             <div class="summary-label">Total inversión (conjunto)</div>
-            <div class="summary-value" id="totalConjunto">-</div>
+            <div class="summary-value" id="invTotal">-</div>
           </div>
           <div class="summary-card">
             <div class="summary-label">Inversión aprobados</div>
-            <div class="summary-value" id="totalAprobados">-</div>
+            <div class="summary-value" id="invAprobados">-</div>
           </div>
           <div class="summary-card">
             <div class="summary-label">Inversión rechazados</div>
-            <div class="summary-value" id="totalRechazados">-</div>
+            <div class="summary-value" id="invRechazados">-</div>
           </div>
         </div>
       </section>
 
-      <!-- Columna derecha: tabla -->
+      <!-- Panel derecho: tabla -->
       <section class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Detalle de proyectos del conjunto consultado</div>
-            <div class="card-subtitle">
-              Listado ordenado por distancia al punto (en km).
-            </div>
-          </div>
+        <div class="card-title">Detalle de proyectos del conjunto consultado</div>
+        <div class="card-subtitle">
+          Listado ordenado por distancia al punto (en metros, proyección UTM 19S).
         </div>
 
-        <div class="scroll-table">
+        <div class="table-wrapper">
+          <div id="mensajeEstado" class="message-inline"></div>
+
           <table>
             <thead>
               <tr>
-                <th>#</th>
+                <th class="col-num">#</th>
                 <th>Proyecto</th>
                 <th>Estado</th>
-                <th class="text-right">Dist. (km)</th>
-                <th class="text-right">Inversión (MMUS$)</th>
+                <th class="col-dist">Dist. (m)</th>
+                <th>Inversión (MMUS$)</th>
                 <th>Comuna</th>
                 <th>Año</th>
                 <th>Ficha SEA</th>
               </tr>
             </thead>
-            <tbody id="tablaProyectos">
-              <!-- Filas generadas por JS -->
-            </tbody>
+            <tbody id="tablaProyectosBody"></tbody>
           </table>
-        </div>
 
-        <div class="small" style="margin-top:6px;">
-          Nota: los montos de inversión corresponden a los valores declarados en el SEA para cada proyecto
-          (en millones de dólares estadounidenses).
+          <div class="note">
+            Nota: los montos de inversión corresponden a los valores declarados
+            en el SEA para cada proyecto (en millones de dólares estadounidenses).
+          </div>
         </div>
       </section>
     </div>
   </main>
 
+  <footer>
+    GeoLIB / GeoIPT &copy; <span id="year"></span>
+  </footer>
+
   <!-- Leaflet JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+t1r0WZBbCi2Ee0E="
-    crossorigin=""
-  ></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // --- Utilidades ---
+    // ================== CONFIGURACIÓN DE CAMPOS DEL JSON ==================
+    const FIELD_LAT = "lat";
+    const FIELD_LNG = "lng";
+    const FIELD_ID = "id_expediente";
+    const FIELD_NOMBRE = "nombre_proyecto";
+    const FIELD_ESTADO = "estado_actual";
+    const FIELD_MONTO = "monto_inversion"; // en MMUS$
+    const FIELD_COMUNA = "comuna";
+    const FIELD_ANO = "ano"; // también se intentará con "año"
+    const FIELD_URL = "url_ficha"; // opcional
+    const JSON_FILE = "proyectos_atacama.json";
 
-    function getQueryCoords() {
-      const params = new URLSearchParams(window.location.search);
-      const lat = parseFloat(params.get("lat"));
-      const lon = parseFloat(params.get("lon"));
-      if (isNaN(lat) || isNaN(lon)) {
-        return null;
-      }
-      return { lat, lon };
+    // ================== UTILIDADES GENERALES ==================
+    function toNumber(value) {
+      if (value === null || value === undefined) return NaN;
+      if (typeof value === "number") return value;
+      const normalized = String(value).replace(",", ".");
+      return parseFloat(normalized);
     }
 
-    // Distancia Haversine en km entre dos pares lat/lon
-    function distanciaKm(lat1, lon1, lat2, lon2) {
-      const R = 6371; // km
-      const toRad = (v) => (v * Math.PI) / 180;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) *
-          Math.cos(toRad(lat2)) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    function clasificarEstado(estado) {
-      const e = (estado || "").toLowerCase();
-      if (
-        e.includes("aprob") ||
-        e.includes("calificado favorable")
-      ) {
-        return "aprobado";
-      }
-      if (
-        e.includes("rechaz") ||
-        e.includes("desfavor")
-      ) {
-        return "rechazado";
-      }
-      return "otro";
-    }
-
-    function formatMMUS(value) {
-      if (value === null || value === undefined || isNaN(value)) {
-        return "-";
-      }
-      return Number(value).toLocaleString("es-CL", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+    function formatNumber(num) {
+      if (isNaN(num)) return "-";
+      return num.toLocaleString("es-CL", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1
       });
     }
 
-    // --- Lógica principal ---
-
-    const poi = getQueryCoords();
-    const coordText = document.getElementById("coordText");
-
-    if (!poi) {
-      coordText.textContent =
-        "Punto consultado: coordenadas no válidas (faltan parámetros lat/lon).";
-    } else {
-      coordText.textContent = `Punto consultado · Lat: ${poi.lat.toFixed(
-        5
-      )} · Lon: ${poi.lon.toFixed(5)}`;
+    function formatMeters(m) {
+      if (isNaN(m)) return "-";
+      return m.toLocaleString("es-CL", {
+        maximumFractionDigits: 0
+      });
     }
 
-    // Mapa
-    const map = L.map("map", {
-      zoomControl: true,
-    }).setView(poi ? [poi.lat, poi.lon] : [-27.3668, -70.3322], 9);
+    // ================== CONVERSIÓN WGS84 -> UTM 19S (EPSG:32719) ==================
+    function wgs84ToUTM19S(latDeg, lonDeg) {
+      // Basado en tu función actualizarUTM, pero retornando valores numéricos
+      // Constantes WGS84
+      const a = 6378137.0;
+      const f = 1 / 298.257223563;
+      const k0 = 0.9996;
+      const e2 = f * (2 - f);
+      const ep2 = e2 / (1 - e2);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map);
+      // Zona UTM 19S
+      const zoneNumber = 19;
+      const lon0Deg = zoneNumber * 6 - 183;
+      const lon0 = (lon0Deg * Math.PI) / 180;
 
-    let poiMarker = null;
-    if (poi) {
-      poiMarker = L.marker([poi.lat, poi.lon], {
-        title: "Punto consultado",
-      }).addTo(map);
-      poiMarker.bindPopup("Punto consultado").openPopup();
+      // Radianes
+      const lat = (latDeg * Math.PI) / 180;
+      const lon = (lonDeg * Math.PI) / 180;
+
+      const sinLat = Math.sin(lat);
+      const cosLat = Math.cos(lat);
+      const tanLat = Math.tan(lat);
+
+      const N = a / Math.sqrt(1 - e2 * sinLat * sinLat);
+      const T = tanLat * tanLat;
+      const C = ep2 * cosLat * cosLat;
+      const A = cosLat * (lon - lon0);
+
+      const e4 = e2 * e2;
+      const e6 = e4 * e2;
+
+      const M =
+        a *
+        ((1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256) * lat -
+          (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024) * Math.sin(2 * lat) +
+          (15 * e4 / 256 + 45 * e6 / 1024) * Math.sin(4 * lat) -
+          (35 * e6 / 3072) * Math.sin(6 * lat));
+
+      let x =
+        k0 *
+          N *
+          (A +
+            ((1 - T + C) * Math.pow(A, 3)) / 6 +
+            (5 - 18 * T + T * T + 72 * C - 58 * ep2) * Math.pow(A, 5) / 120) +
+        500000;
+
+      let y =
+        k0 *
+        (M +
+          N *
+            tanLat *
+            (A * A / 2 +
+              (5 - T + 9 * C + 4 * C * C) * Math.pow(A, 4) / 24 +
+              (61 - 58 * T + T * T + 600 * C - 330 * ep2) * Math.pow(A, 6) / 720));
+
+      // Hemisferio Sur
+      if (latDeg < 0) {
+        y += 10000000;
+      }
+
+      return { E: x, N: y };
     }
 
-    // Cargar proyectos desde JSON
-    async function cargarYProcesar() {
-      if (!poi) return;
-
+    function actualizarUTMDisplay(latDeg, lonDeg) {
       try {
-        // Ajusta la ruta si el JSON está en otra carpeta
-        const resp = await fetch("proyectos_atacama.json");
+        const utm = wgs84ToUTM19S(latDeg, lonDeg);
+        const este = Math.round(utm.E)
+          .toString()
+          .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        const norte = Math.round(utm.N)
+          .toString()
+          .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        document.getElementById("utm-e-display").textContent = este;
+        document.getElementById("utm-n-display").textContent = norte;
+      } catch (e) {
+        console.error("Error UTM:", e);
+      }
+    }
+
+    // ================== ESTADO GLOBAL ==================
+    let map;
+    let consultaMarker;
+
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    const params = new URLSearchParams(window.location.search);
+    const latStr = params.get("lat");
+    const lngStr = params.get("lng");
+
+    const lat = toNumber(latStr);
+    const lng = toNumber(lngStr);
+
+    const ubicacionSpan = document.getElementById("ubicacion");
+    const mensajeEstado = document.getElementById("mensajeEstado");
+
+    function initMap(centerLatLng) {
+      const fallbackCenter = [-27.366, -70.333]; // Copiapó
+      const center = centerLatLng || fallbackCenter;
+      const zoom = centerLatLng ? 9 : 7;
+
+      map = L.map("map").setView(center, zoom);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      if (centerLatLng) {
+        consultaMarker = L.marker(centerLatLng).addTo(map);
+        consultaMarker.bindPopup("Punto consultado").openPopup();
+      }
+    }
+
+    async function cargarProyectos(lat, lng, utmConsulta) {
+      try {
+        mensajeEstado.textContent =
+          "Cargando proyectos desde " + JSON_FILE + "…";
+
+        const resp = await fetch(JSON_FILE);
         if (!resp.ok) {
-          throw new Error("No se pudo cargar proyectos_atacama.json");
+          throw new Error("No se pudo cargar " + JSON_FILE);
         }
-        const proyectos = await resp.json();
 
-        // Calcular distancia a cada proyecto
-        const conDist = proyectos
-          .filter(
-            (p) =>
-              typeof p.lat === "number" &&
-              typeof p.lon === "number" &&
-              !isNaN(p.lat) &&
-              !isNaN(p.lon)
-          )
-          .map((p) => {
-            const dist = distanciaKm(p.lat, p.lon, poi.lat, poi.lon);
-            return { ...p, dist_km: dist };
+        const data = await resp.json();
+        if (!Array.isArray(data)) {
+          throw new Error("El JSON no es un arreglo de proyectos.");
+        }
+
+        const proyectosConDist = [];
+        for (const p of data) {
+          const plat = toNumber(p[FIELD_LAT]);
+          const plng = toNumber(p[FIELD_LNG]);
+          if (isNaN(plat) || isNaN(plng)) continue;
+
+          const utmP = wgs84ToUTM19S(plat, plng);
+          const dE = utmP.E - utmConsulta.E;
+          const dN = utmP.N - utmConsulta.N;
+          const distM = Math.sqrt(dE * dE + dN * dN);
+
+          proyectosConDist.push({
+            proyecto: p,
+            distM,
+            utmE: utmP.E,
+            utmN: utmP.N
           });
+        }
 
-        // Ordenar por distancia y tomar los 10 más cercanos
-        conDist.sort((a, b) => a.dist_km - b.dist_km);
-        const top10 = conDist.slice(0, 10);
+        proyectosConDist.sort((a, b) => a.distM - b.distM);
+        const top10 = proyectosConDist.slice(0, 10);
 
-        mostrarEnMapa(top10);
-        poblarTablaYResumen(top10);
+        dibujarProyectos(top10);
+        mensajeEstado.textContent =
+          top10.length > 0
+            ? `Se muestran ${top10.length} proyectos más cercanos al punto consultado.`
+            : "No se encontraron proyectos cercanos en el archivo JSON.";
       } catch (err) {
         console.error(err);
-        alert(
-          "No fue posible cargar la base de proyectos (proyectos_atacama.json). Revisa la ruta del archivo."
-        );
+        mensajeEstado.innerHTML =
+          '<span class="status-error">Error al cargar proyectos: ' +
+          err.message +
+          "</span>";
       }
     }
 
-    function mostrarEnMapa(proyectos) {
-      if (!proyectos || proyectos.length === 0) return;
-
-      const group = L.featureGroup();
-
-      proyectos.forEach((p, idx) => {
-        const marker = L.circleMarker([p.lat, p.lon], {
-          radius: 6,
-          weight: 1,
-        });
-        marker.bindPopup(
-          `<strong>${idx + 1}. ${p.nombre}</strong><br>` +
-            `Distancia: ${p.dist_km.toFixed(2)} km<br>` +
-            `Estado: ${p.estado || "-"}<br>` +
-            `Inversión: ${formatMMUS(p.inversion_mmus)} MMUS$`
-        );
-        marker.addTo(group);
-      });
-
-      if (poiMarker) {
-        group.addLayer(poiMarker);
-      }
-
-      group.addTo(map);
-      map.fitBounds(group.getBounds().pad(0.2));
-    }
-
-    function poblarTablaYResumen(proyectos) {
-      const tbody = document.getElementById("tablaProyectos");
+    function dibujarProyectos(lista) {
+      const tbody = document.getElementById("tablaProyectosBody");
       tbody.innerHTML = "";
 
-      let totalConjunto = 0;
-      let totalAprobados = 0;
-      let totalRechazados = 0;
+      let total = 0;
+      let totalAprob = 0;
+      let totalRech = 0;
 
-      proyectos.forEach((p, idx) => {
-        const cat = clasificarEstado(p.estado);
-        const inv = Number(p.inversion_mmus) || 0;
-        totalConjunto += inv;
-        if (cat === "aprobado") totalAprobados += inv;
-        if (cat === "rechazado") totalRechazados += inv;
+      lista.forEach((item, idx) => {
+        const p = item.proyecto;
+        const distM = item.distM;
 
-        const tr = document.createElement("tr");
+        const nombre = p[FIELD_NOMBRE] || "-";
+        const estado = (p[FIELD_ESTADO] || "").trim();
+        const monto = toNumber(p[FIELD_MONTO]);
+        const comuna = p[FIELD_COMUNA] || "-";
+        const ano = p[FIELD_ANO] || p["año"] || "-";
+        const idExp = p[FIELD_ID];
 
-        const tdIdx = document.createElement("td");
-        tdIdx.textContent = idx + 1;
-
-        const tdNombre = document.createElement("td");
-        tdNombre.textContent = p.nombre || "-";
-
-        const tdEstado = document.createElement("td");
-        const spanEstado = document.createElement("span");
-        spanEstado.classList.add("chip-estado");
-        if (cat === "aprobado") spanEstado.classList.add("estado-aprobado");
-        else if (cat === "rechazado")
-          spanEstado.classList.add("estado-rechazado");
-        else spanEstado.classList.add("estado-otro");
-        spanEstado.textContent = p.estado || "Sin info";
-        tdEstado.appendChild(spanEstado);
-
-        const tdDist = document.createElement("td");
-        tdDist.classList.add("text-right");
-        tdDist.textContent = p.dist_km.toFixed(2);
-
-        const tdInv = document.createElement("td");
-        tdInv.classList.add("text-right");
-        tdInv.textContent = formatMMUS(p.inversion_mmus);
-
-        const tdComuna = document.createElement("td");
-        tdComuna.textContent = p.comuna || "-";
-
-        const tdAnio = document.createElement("td");
-        const anio =
-          p.fecha_ingreso && typeof p.fecha_ingreso === "string"
-            ? p.fecha_ingreso.slice(0, 4)
-            : "";
-        tdAnio.textContent = anio;
-
-        const tdLink = document.createElement("td");
-        if (p.url_ficha) {
-          const a = document.createElement("a");
-          a.href = p.url_ficha;
-          a.target = "_blank";
-          a.className = "link";
-          a.textContent = "Ver ficha";
-          tdLink.appendChild(a);
-        } else {
-          tdLink.textContent = "-";
+        let urlFicha = p[FIELD_URL];
+        if (!urlFicha && idExp) {
+          urlFicha =
+            "https://seia.sea.gob.cl/expediente/ficha/fichaPrincipal.php?modo=normal&id_expediente=" +
+            encodeURIComponent(String(idExp));
         }
 
-        tr.appendChild(tdIdx);
-        tr.appendChild(tdNombre);
-        tr.appendChild(tdEstado);
-        tr.appendChild(tdDist);
-        tr.appendChild(tdInv);
-        tr.appendChild(tdComuna);
-        tr.appendChild(tdAnio);
-        tr.appendChild(tdLink);
+        if (!isNaN(monto)) {
+          total += monto;
+          const estadoLower = estado.toLowerCase();
+          if (estadoLower.includes("aprob")) totalAprob += monto;
+          if (estadoLower.includes("rechaz")) totalRech += monto;
+        }
 
+        const plat = toNumber(p[FIELD_LAT]);
+        const plng = toNumber(p[FIELD_LNG]);
+        if (map && !isNaN(plat) && !isNaN(plng)) {
+          const marker = L.circleMarker([plat, plng], {
+            radius: 6
+          }).addTo(map);
+
+          marker.bindPopup(
+            `<strong>${nombre}</strong><br/>Distancia: ${formatMeters(
+              distM
+            )} m<br/>Estado: ${estado || "-"}`
+          );
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="col-num">${idx + 1}</td>
+          <td>${nombre}</td>
+          <td>${estado || "-"}</td>
+          <td class="col-dist">${formatMeters(distM)}</td>
+          <td>${formatNumber(monto)}</td>
+          <td>${comuna}</td>
+          <td>${ano}</td>
+          <td>${urlFicha ? `<a href="${urlFicha}" target="_blank">Ver ficha</a>` : "-"}</td>
+        `;
         tbody.appendChild(tr);
       });
 
-      // Resumen numérico
-      document.getElementById("totalConjunto").textContent =
-        formatMMUS(totalConjunto) + " MMUS$";
-      document.getElementById("totalAprobados").textContent =
-        formatMMUS(totalAprobados) + " MMUS$";
-      document.getElementById("totalRechazados").textContent =
-        formatMMUS(totalRechazados) + " MMUS$";
-
-      const badgesInfo = document.getElementById("badgesInfo");
-      badgesInfo.innerHTML = "";
-      const b1 = document.createElement("div");
-      b1.className = "badge";
-      b1.textContent = `Proyectos en el conjunto: ${proyectos.length}`;
-      badgesInfo.appendChild(b1);
-
-      const b2 = document.createElement("div");
-      b2.className = "badge";
-      b2.textContent = "Agrupación por estado: Aprobados / Rechazados / Otros";
-      badgesInfo.appendChild(b2);
+      document.getElementById("invTotal").textContent = formatNumber(total);
+      document.getElementById("invAprobados").textContent =
+        formatNumber(totalAprob);
+      document.getElementById("invRechazados").textContent =
+        formatNumber(totalRech);
     }
 
-    // Lanzar flujo
-    cargarYProcesar();
+    // ================== FLUJO PRINCIPAL ==================
+    if (latStr === null || lngStr === null || isNaN(lat) || isNaN(lng)) {
+      ubicacionSpan.textContent =
+        "coordenadas no válidas (faltan parámetros lat/lon).";
+      initMap(null);
+      mensajeEstado.innerHTML =
+        '<span class="status-warn">No se pudo leer el punto consultado. Abra este reporte desde el mapa principal.</span>';
+    } else {
+      ubicacionSpan.textContent =
+        "Lat: " + lat.toFixed(6) + ", Lng: " + lng.toFixed(6);
+      actualizarUTMDisplay(lat, lng);
+      initMap([lat, lng]);
+
+      const utmConsulta = wgs84ToUTM19S(lat, lng);
+      cargarProyectos(lat, lng, utmConsulta);
+    }
   </script>
 </body>
 </html>
