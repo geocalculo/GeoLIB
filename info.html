@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>SEA Mining - Reporte de proyectos cercanos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      background: #e5e7eb;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #0b1120;
+      color: #e5e7eb;
+      padding: 10px 16px;
+    }
+
+    .header-inner {
+      max-width: 1150px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .coords {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .layout {
+      width: 100%;
+      max-width: 1150px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 0.75rem;
+      box-shadow: 0 16px 30px -18px rgba(15, 23, 42, 0.6);
+      border: 1px solid #d1d5db;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    #map {
+      width: 100%;
+      height: 360px;
+      border-radius: 0.6rem;
+      overflow: hidden;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 600px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .summary-card {
+      background: #f9fafb;
+      border-radius: 0.75rem;
+      padding: 8px 10px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .summary-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    .summary-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    thead {
+      background: #f3f4f6;
+    }
+
+    th, td {
+      padding: 6px 4px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    th {
+      text-align: left;
+      font-weight: 600;
+      color: #374151;
+      position: sticky;
+      top: 0;
+      background: #f3f4f6;
+      z-index: 1;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .chip-estado {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 500;
+    }
+
+    .estado-aprobado {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .estado-rechazado {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .estado-otro {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    a.link {
+      color: #1d4ed8;
+      text-decoration: none;
+    }
+
+    a.link:hover {
+      text-decoration: underline;
+    }
+
+    .scroll-table {
+      max-height: 360px;
+      overflow: auto;
+      border-radius: 0.5rem;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+    }
+
+    .small {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <div class="title">SEA Mining - Reporte de proyectos cercanos</div>
+        <div class="coords" id="coordText">
+          Punto consultado: cargando coordenadas...
+        </div>
+      </div>
+      <div class="coords">
+        Fuente: proyectos_atacama.json · Región de Atacama
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="layout">
+      <!-- Columna izquierda: mapa + resumen -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Distribución espacial de los proyectos</div>
+            <div class="card-subtitle">
+              Se muestran los 10 proyectos más cercanos al punto consultado.
+            </div>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div class="badges" id="badgesInfo">
+          <!-- Se completa por JS -->
+        </div>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Total inversión (conjunto)</div>
+            <div class="summary-value" id="totalConjunto">-</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Inversión aprobados</div>
+            <div class="summary-value" id="totalAprobados">-</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Inversión rechazados</div>
+            <div class="summary-value" id="totalRechazados">-</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Columna derecha: tabla -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Detalle de proyectos del conjunto consultado</div>
+            <div class="card-subtitle">
+              Listado ordenado por distancia al punto (en km).
+            </div>
+          </div>
+        </div>
+
+        <div class="scroll-table">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Proyecto</th>
+                <th>Estado</th>
+                <th class="text-right">Dist. (km)</th>
+                <th class="text-right">Inversión (MMUS$)</th>
+                <th>Comuna</th>
+                <th>Año</th>
+                <th>Ficha SEA</th>
+              </tr>
+            </thead>
+            <tbody id="tablaProyectos">
+              <!-- Filas generadas por JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="small" style="margin-top:6px;">
+          Nota: los montos de inversión corresponden a los valores declarados en el SEA para cada proyecto
+          (en millones de dólares estadounidenses).
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+t1r0WZBbCi2Ee0E="
+    crossorigin=""
+  ></script>
+
+  <script>
+    // --- Utilidades ---
+
+    function getQueryCoords() {
+      const params = new URLSearchParams(window.location.search);
+      const lat = parseFloat(params.get("lat"));
+      const lon = parseFloat(params.get("lon"));
+      if (isNaN(lat) || isNaN(lon)) {
+        return null;
+      }
+      return { lat, lon };
+    }
+
+    // Distancia Haversine en km entre dos pares lat/lon
+    function distanciaKm(lat1, lon1, lat2, lon2) {
+      const R = 6371; // km
+      const toRad = (v) => (v * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function clasificarEstado(estado) {
+      const e = (estado || "").toLowerCase();
+      if (
+        e.includes("aprob") ||
+        e.includes("calificado favorable")
+      ) {
+        return "aprobado";
+      }
+      if (
+        e.includes("rechaz") ||
+        e.includes("desfavor")
+      ) {
+        return "rechazado";
+      }
+      return "otro";
+    }
+
+    function formatMMUS(value) {
+      if (value === null || value === undefined || isNaN(value)) {
+        return "-";
+      }
+      return Number(value).toLocaleString("es-CL", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+
+    // --- Lógica principal ---
+
+    const poi = getQueryCoords();
+    const coordText = document.getElementById("coordText");
+
+    if (!poi) {
+      coordText.textContent =
+        "Punto consultado: coordenadas no válidas (faltan parámetros lat/lon).";
+    } else {
+      coordText.textContent = `Punto consultado · Lat: ${poi.lat.toFixed(
+        5
+      )} · Lon: ${poi.lon.toFixed(5)}`;
+    }
+
+    // Mapa
+    const map = L.map("map", {
+      zoomControl: true,
+    }).setView(poi ? [poi.lat, poi.lon] : [-27.3668, -70.3322], 9);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    let poiMarker = null;
+    if (poi) {
+      poiMarker = L.marker([poi.lat, poi.lon], {
+        title: "Punto consultado",
+      }).addTo(map);
+      poiMarker.bindPopup("Punto consultado").openPopup();
+    }
+
+    // Cargar proyectos desde JSON
+    async function cargarYProcesar() {
+      if (!poi) return;
+
+      try {
+        // Ajusta la ruta si el JSON está en otra carpeta
+        const resp = await fetch("proyectos_atacama.json");
+        if (!resp.ok) {
+          throw new Error("No se pudo cargar proyectos_atacama.json");
+        }
+        const proyectos = await resp.json();
+
+        // Calcular distancia a cada proyecto
+        const conDist = proyectos
+          .filter(
+            (p) =>
+              typeof p.lat === "number" &&
+              typeof p.lon === "number" &&
+              !isNaN(p.lat) &&
+              !isNaN(p.lon)
+          )
+          .map((p) => {
+            const dist = distanciaKm(p.lat, p.lon, poi.lat, poi.lon);
+            return { ...p, dist_km: dist };
+          });
+
+        // Ordenar por distancia y tomar los 10 más cercanos
+        conDist.sort((a, b) => a.dist_km - b.dist_km);
+        const top10 = conDist.slice(0, 10);
+
+        mostrarEnMapa(top10);
+        poblarTablaYResumen(top10);
+      } catch (err) {
+        console.error(err);
+        alert(
+          "No fue posible cargar la base de proyectos (proyectos_atacama.json). Revisa la ruta del archivo."
+        );
+      }
+    }
+
+    function mostrarEnMapa(proyectos) {
+      if (!proyectos || proyectos.length === 0) return;
+
+      const group = L.featureGroup();
+
+      proyectos.forEach((p, idx) => {
+        const marker = L.circleMarker([p.lat, p.lon], {
+          radius: 6,
+          weight: 1,
+        });
+        marker.bindPopup(
+          `<strong>${idx + 1}. ${p.nombre}</strong><br>` +
+            `Distancia: ${p.dist_km.toFixed(2)} km<br>` +
+            `Estado: ${p.estado || "-"}<br>` +
+            `Inversión: ${formatMMUS(p.inversion_mmus)} MMUS$`
+        );
+        marker.addTo(group);
+      });
+
+      if (poiMarker) {
+        group.addLayer(poiMarker);
+      }
+
+      group.addTo(map);
+      map.fitBounds(group.getBounds().pad(0.2));
+    }
+
+    function poblarTablaYResumen(proyectos) {
+      const tbody = document.getElementById("tablaProyectos");
+      tbody.innerHTML = "";
+
+      let totalConjunto = 0;
+      let totalAprobados = 0;
+      let totalRechazados = 0;
+
+      proyectos.forEach((p, idx) => {
+        const cat = clasificarEstado(p.estado);
+        const inv = Number(p.inversion_mmus) || 0;
+        totalConjunto += inv;
+        if (cat === "aprobado") totalAprobados += inv;
+        if (cat === "rechazado") totalRechazados += inv;
+
+        const tr = document.createElement("tr");
+
+        const tdIdx = document.createElement("td");
+        tdIdx.textContent = idx + 1;
+
+        const tdNombre = document.createElement("td");
+        tdNombre.textContent = p.nombre || "-";
+
+        const tdEstado = document.createElement("td");
+        const spanEstado = document.createElement("span");
+        spanEstado.classList.add("chip-estado");
+        if (cat === "aprobado") spanEstado.classList.add("estado-aprobado");
+        else if (cat === "rechazado")
+          spanEstado.classList.add("estado-rechazado");
+        else spanEstado.classList.add("estado-otro");
+        spanEstado.textContent = p.estado || "Sin info";
+        tdEstado.appendChild(spanEstado);
+
+        const tdDist = document.createElement("td");
+        tdDist.classList.add("text-right");
+        tdDist.textContent = p.dist_km.toFixed(2);
+
+        const tdInv = document.createElement("td");
+        tdInv.classList.add("text-right");
+        tdInv.textContent = formatMMUS(p.inversion_mmus);
+
+        const tdComuna = document.createElement("td");
+        tdComuna.textContent = p.comuna || "-";
+
+        const tdAnio = document.createElement("td");
+        const anio =
+          p.fecha_ingreso && typeof p.fecha_ingreso === "string"
+            ? p.fecha_ingreso.slice(0, 4)
+            : "";
+        tdAnio.textContent = anio;
+
+        const tdLink = document.createElement("td");
+        if (p.url_ficha) {
+          const a = document.createElement("a");
+          a.href = p.url_ficha;
+          a.target = "_blank";
+          a.className = "link";
+          a.textContent = "Ver ficha";
+          tdLink.appendChild(a);
+        } else {
+          tdLink.textContent = "-";
+        }
+
+        tr.appendChild(tdIdx);
+        tr.appendChild(tdNombre);
+        tr.appendChild(tdEstado);
+        tr.appendChild(tdDist);
+        tr.appendChild(tdInv);
+        tr.appendChild(tdComuna);
+        tr.appendChild(tdAnio);
+        tr.appendChild(tdLink);
+
+        tbody.appendChild(tr);
+      });
+
+      // Resumen numérico
+      document.getElementById("totalConjunto").textContent =
+        formatMMUS(totalConjunto) + " MMUS$";
+      document.getElementById("totalAprobados").textContent =
+        formatMMUS(totalAprobados) + " MMUS$";
+      document.getElementById("totalRechazados").textContent =
+        formatMMUS(totalRechazados) + " MMUS$";
+
+      const badgesInfo = document.getElementById("badgesInfo");
+      badgesInfo.innerHTML = "";
+      const b1 = document.createElement("div");
+      b1.className = "badge";
+      b1.textContent = `Proyectos en el conjunto: ${proyectos.length}`;
+      badgesInfo.appendChild(b1);
+
+      const b2 = document.createElement("div");
+      b2.className = "badge";
+      b2.textContent = "Agrupación por estado: Aprobados / Rechazados / Otros";
+      badgesInfo.appendChild(b2);
+    }
+
+    // Lanzar flujo
+    cargarYProcesar();
+  </script>
+</body>
+</html>
