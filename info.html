@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>SEA Mining - Reporte de proyectos cercanos</title>
+  <title>SEA Mining - Proyectos cercanos a un punto</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
@@ -21,8 +21,8 @@
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
-      background: #e5e7eb;
-      color: #0f172a;
+      background: #020617;
+      color: #e5e7eb;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -30,197 +30,40 @@
 
     header {
       background: #020617;
-      color: #e5e7eb;
       border-bottom: 1px solid #111827;
-      padding: 10px 16px 12px 16px;
+      padding: 12px 16px 10px 16px;
     }
 
     .header-inner {
-      max-width: 1400px;
+      max-width: 1200px;
       margin: 0 auto;
+      text-align: center;
     }
 
-    .header-title {
-      font-size: 1.1rem;
+    .title {
+      font-size: 1.15rem;
       font-weight: 600;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
     }
 
-    .header-subtitle {
+    .subtitle {
       margin-top: 4px;
-      font-size: 0.85rem;
-      color: #d1d5db;
-    }
-
-    .header-source {
-      margin-top: 4px;
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       color: #9ca3af;
-      text-align: right;
     }
 
     main {
       flex: 1;
       display: flex;
-      justify-content: center;
-      padding: 16px;
-    }
-
-    .layout {
-      width: 100%;
-      max-width: 1400px;
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
-      gap: 16px;
-    }
-
-    .card {
-      background: #f9fafb;
-      border-radius: 16px;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-      padding: 16px 18px 18px 18px;
-      display: flex;
       flex-direction: column;
       min-height: 0;
-    }
-
-    .card-title {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: #0f172a;
-    }
-
-    .card-subtitle {
-      font-size: 0.8rem;
-      color: #6b7280;
-      margin-bottom: 10px;
     }
 
     #map {
       flex: 1;
-      min-height: 280px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid #e5e7eb;
-      margin-bottom: 12px;
-    }
-
-    .summary-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .summary-card {
-      flex: 1;
-      min-width: 140px;
-      background: #ffffff;
-      border-radius: 999px;
-      padding: 8px 12px;
-      border: 1px solid #e5e7eb;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .summary-label {
-      font-size: 0.75rem;
-      color: #6b7280;
-      margin-bottom: 2px;
-    }
-
-    .summary-value {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #111827;
-    }
-
-    .table-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    table {
       width: 100%;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-      background: #ffffff;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid #e5e7eb;
-    }
-
-    thead {
-      background: #f3f4f6;
-    }
-
-    th, td {
-      padding: 6px 8px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
-    }
-
-    th {
-      font-weight: 600;
-      color: #374151;
-      font-size: 0.75rem;
-      white-space: nowrap;
-    }
-
-    tbody tr:nth-child(even) {
-      background: #f9fafb;
-    }
-
-    tbody tr:hover {
-      background: #eef2ff;
-    }
-
-    .col-num {
-      width: 28px;
-      text-align: right;
-    }
-
-    .col-dist {
-      white-space: nowrap;
-    }
-
-    .note {
-      margin-top: 6px;
-      font-size: 0.7rem;
-      color: #6b7280;
-    }
-
-    .status-ok {
-      color: #16a34a;
-      font-weight: 500;
-    }
-
-    .status-warn {
-      color: #ea580c;
-      font-weight: 500;
-    }
-
-    .status-error {
-      color: #b91c1c;
-      font-weight: 500;
-    }
-
-    .message-inline {
-      margin-bottom: 6px;
-      font-size: 0.8rem;
-      color: #6b7280;
-    }
-
-    a {
-      color: #2563eb;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
+      min-height: 400px;
+      background: #000;
     }
 
     footer {
@@ -232,101 +75,27 @@
       text-align: right;
     }
 
-    @media (max-width: 960px) {
-      .layout {
-        grid-template-columns: minmax(0, 1fr);
-      }
+    a {
+      color: #38bdf8;
+    }
 
-      header {
-        padding-bottom: 10px;
-      }
-
-      .header-source {
-        text-align: left;
-      }
+    a:hover {
+      color: #0ea5e9;
     }
   </style>
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <div class="header-title">
-        SEA Mining - Reporte de proyectos cercanos
-      </div>
-      <div class="header-subtitle">
-        Punto consultado (WGS84): <span id="ubicacion">cargando coordenadas…</span>
-      </div>
-      <div class="header-subtitle">
-        UTM 19S (EPSG:32719): E=
-        <span id="utm-e-display">-</span> m · N=
-        <span id="utm-n-display">-</span> m
-      </div>
-      <div class="header-source">
-        Fuente: <strong>proyectos_atacama.json</strong> · Región de Atacama
+      <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
+      <div class="subtitle">
+        Haz clic en cualquier parte del mapa para generar el reporte de proyectos más cercanos.
       </div>
     </div>
   </header>
 
   <main>
-    <div class="layout">
-      <!-- Panel izquierdo: mapa + resumen -->
-      <section class="card">
-        <div class="card-title">Distribución espacial de los proyectos</div>
-        <div class="card-subtitle">
-          Se muestran los 10 proyectos más cercanos al punto consultado (distancia en metros en UTM 19S).
-        </div>
-
-        <div id="map"></div>
-
-        <div class="summary-row">
-          <div class="summary-card">
-            <div class="summary-label">Total inversión (conjunto)</div>
-            <div class="summary-value" id="invTotal">-</div>
-          </div>
-          <div class="summary-card">
-            <div class="summary-label">Inversión aprobados</div>
-            <div class="summary-value" id="invAprobados">-</div>
-          </div>
-          <div class="summary-card">
-            <div class="summary-label">Inversión rechazados</div>
-            <div class="summary-value" id="invRechazados">-</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Panel derecho: tabla -->
-      <section class="card">
-        <div class="card-title">Detalle de proyectos del conjunto consultado</div>
-        <div class="card-subtitle">
-          Listado ordenado por distancia al punto (en metros, proyección UTM 19S).
-        </div>
-
-        <div class="table-wrapper">
-          <div id="mensajeEstado" class="message-inline"></div>
-
-          <table>
-            <thead>
-              <tr>
-                <th class="col-num">#</th>
-                <th>Proyecto</th>
-                <th>Estado</th>
-                <th class="col-dist">Dist. (m)</th>
-                <th>Inversión (MMUS$)</th>
-                <th>Comuna</th>
-                <th>Año</th>
-                <th>Ficha SEA</th>
-              </tr>
-            </thead>
-            <tbody id="tablaProyectosBody"></tbody>
-          </table>
-
-          <div class="note">
-            Nota: los montos de inversión corresponden a los valores declarados
-            en el SEA para cada proyecto (en millones de dólares estadounidenses).
-          </div>
-        </div>
-      </section>
-    </div>
+    <div id="map"></div>
   </main>
 
   <footer>
@@ -337,290 +106,23 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // ================== CONFIGURACIÓN DE CAMPOS DEL JSON ==================
-    const FIELD_LAT = "lat";
-    const FIELD_LNG = "lng";
-    const FIELD_ID = "id_expediente";
-    const FIELD_NOMBRE = "nombre_proyecto";
-    const FIELD_ESTADO = "estado_actual";
-    const FIELD_MONTO = "monto_inversion"; // en MMUS$
-    const FIELD_COMUNA = "comuna";
-    const FIELD_ANO = "ano"; // también se intentará con "año"
-    const FIELD_URL = "url_ficha"; // opcional
-    const JSON_FILE = "proyectos_atacama.json";
-
-    // ================== UTILIDADES GENERALES ==================
-    function toNumber(value) {
-      if (value === null || value === undefined) return NaN;
-      if (typeof value === "number") return value;
-      const normalized = String(value).replace(",", ".");
-      return parseFloat(normalized);
-    }
-
-    function formatNumber(num) {
-      if (isNaN(num)) return "-";
-      return num.toLocaleString("es-CL", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 1
-      });
-    }
-
-    function formatMeters(m) {
-      if (isNaN(m)) return "-";
-      return m.toLocaleString("es-CL", {
-        maximumFractionDigits: 0
-      });
-    }
-
-    // ================== CONVERSIÓN WGS84 -> UTM 19S (EPSG:32719) ==================
-    function wgs84ToUTM19S(latDeg, lonDeg) {
-      // Basado en tu función actualizarUTM, pero retornando valores numéricos
-      // Constantes WGS84
-      const a = 6378137.0;
-      const f = 1 / 298.257223563;
-      const k0 = 0.9996;
-      const e2 = f * (2 - f);
-      const ep2 = e2 / (1 - e2);
-
-      // Zona UTM 19S
-      const zoneNumber = 19;
-      const lon0Deg = zoneNumber * 6 - 183;
-      const lon0 = (lon0Deg * Math.PI) / 180;
-
-      // Radianes
-      const lat = (latDeg * Math.PI) / 180;
-      const lon = (lonDeg * Math.PI) / 180;
-
-      const sinLat = Math.sin(lat);
-      const cosLat = Math.cos(lat);
-      const tanLat = Math.tan(lat);
-
-      const N = a / Math.sqrt(1 - e2 * sinLat * sinLat);
-      const T = tanLat * tanLat;
-      const C = ep2 * cosLat * cosLat;
-      const A = cosLat * (lon - lon0);
-
-      const e4 = e2 * e2;
-      const e6 = e4 * e2;
-
-      const M =
-        a *
-        ((1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256) * lat -
-          (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024) * Math.sin(2 * lat) +
-          (15 * e4 / 256 + 45 * e6 / 1024) * Math.sin(4 * lat) -
-          (35 * e6 / 3072) * Math.sin(6 * lat));
-
-      let x =
-        k0 *
-          N *
-          (A +
-            ((1 - T + C) * Math.pow(A, 3)) / 6 +
-            (5 - 18 * T + T * T + 72 * C - 58 * ep2) * Math.pow(A, 5) / 120) +
-        500000;
-
-      let y =
-        k0 *
-        (M +
-          N *
-            tanLat *
-            (A * A / 2 +
-              (5 - T + 9 * C + 4 * C * C) * Math.pow(A, 4) / 24 +
-              (61 - 58 * T + T * T + 600 * C - 330 * ep2) * Math.pow(A, 6) / 720));
-
-      // Hemisferio Sur
-      if (latDeg < 0) {
-        y += 10000000;
-      }
-
-      return { E: x, N: y };
-    }
-
-    function actualizarUTMDisplay(latDeg, lonDeg) {
-      try {
-        const utm = wgs84ToUTM19S(latDeg, lonDeg);
-        const este = Math.round(utm.E)
-          .toString()
-          .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        const norte = Math.round(utm.N)
-          .toString()
-          .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        document.getElementById("utm-e-display").textContent = este;
-        document.getElementById("utm-n-display").textContent = norte;
-      } catch (e) {
-        console.error("Error UTM:", e);
-      }
-    }
-
-    // ================== ESTADO GLOBAL ==================
-    let map;
-    let consultaMarker;
-
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    const params = new URLSearchParams(window.location.search);
-    const latStr = params.get("lat");
-    const lngStr = params.get("lng");
+    const centroCopiapo = [-27.366, -70.333];
+    const map = L.map("map").setView(centroCopiapo, 8);
 
-    const lat = toNumber(latStr);
-    const lng = toNumber(lngStr);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-    const ubicacionSpan = document.getElementById("ubicacion");
-    const mensajeEstado = document.getElementById("mensajeEstado");
-
-    function initMap(centerLatLng) {
-      const fallbackCenter = [-27.366, -70.333]; // Copiapó
-      const center = centerLatLng || fallbackCenter;
-      const zoom = centerLatLng ? 9 : 7;
-
-      map = L.map("map").setView(center, zoom);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
-
-      if (centerLatLng) {
-        consultaMarker = L.marker(centerLatLng).addTo(map);
-        consultaMarker.bindPopup("Punto consultado").openPopup();
-      }
-    }
-
-    async function cargarProyectos(lat, lng, utmConsulta) {
-      try {
-        mensajeEstado.textContent =
-          "Cargando proyectos desde " + JSON_FILE + "…";
-
-        const resp = await fetch(JSON_FILE);
-        if (!resp.ok) {
-          throw new Error("No se pudo cargar " + JSON_FILE);
-        }
-
-        const data = await resp.json();
-        if (!Array.isArray(data)) {
-          throw new Error("El JSON no es un arreglo de proyectos.");
-        }
-
-        const proyectosConDist = [];
-        for (const p of data) {
-          const plat = toNumber(p[FIELD_LAT]);
-          const plng = toNumber(p[FIELD_LNG]);
-          if (isNaN(plat) || isNaN(plng)) continue;
-
-          const utmP = wgs84ToUTM19S(plat, plng);
-          const dE = utmP.E - utmConsulta.E;
-          const dN = utmP.N - utmConsulta.N;
-          const distM = Math.sqrt(dE * dE + dN * dN);
-
-          proyectosConDist.push({
-            proyecto: p,
-            distM,
-            utmE: utmP.E,
-            utmN: utmP.N
-          });
-        }
-
-        proyectosConDist.sort((a, b) => a.distM - b.distM);
-        const top10 = proyectosConDist.slice(0, 10);
-
-        dibujarProyectos(top10);
-        mensajeEstado.textContent =
-          top10.length > 0
-            ? `Se muestran ${top10.length} proyectos más cercanos al punto consultado.`
-            : "No se encontraron proyectos cercanos en el archivo JSON.";
-      } catch (err) {
-        console.error(err);
-        mensajeEstado.innerHTML =
-          '<span class="status-error">Error al cargar proyectos: ' +
-          err.message +
-          "</span>";
-      }
-    }
-
-    function dibujarProyectos(lista) {
-      const tbody = document.getElementById("tablaProyectosBody");
-      tbody.innerHTML = "";
-
-      let total = 0;
-      let totalAprob = 0;
-      let totalRech = 0;
-
-      lista.forEach((item, idx) => {
-        const p = item.proyecto;
-        const distM = item.distM;
-
-        const nombre = p[FIELD_NOMBRE] || "-";
-        const estado = (p[FIELD_ESTADO] || "").trim();
-        const monto = toNumber(p[FIELD_MONTO]);
-        const comuna = p[FIELD_COMUNA] || "-";
-        const ano = p[FIELD_ANO] || p["año"] || "-";
-        const idExp = p[FIELD_ID];
-
-        let urlFicha = p[FIELD_URL];
-        if (!urlFicha && idExp) {
-          urlFicha =
-            "https://seia.sea.gob.cl/expediente/ficha/fichaPrincipal.php?modo=normal&id_expediente=" +
-            encodeURIComponent(String(idExp));
-        }
-
-        if (!isNaN(monto)) {
-          total += monto;
-          const estadoLower = estado.toLowerCase();
-          if (estadoLower.includes("aprob")) totalAprob += monto;
-          if (estadoLower.includes("rechaz")) totalRech += monto;
-        }
-
-        const plat = toNumber(p[FIELD_LAT]);
-        const plng = toNumber(p[FIELD_LNG]);
-        if (map && !isNaN(plat) && !isNaN(plng)) {
-          const marker = L.circleMarker([plat, plng], {
-            radius: 6
-          }).addTo(map);
-
-          marker.bindPopup(
-            `<strong>${nombre}</strong><br/>Distancia: ${formatMeters(
-              distM
-            )} m<br/>Estado: ${estado || "-"}`
-          );
-        }
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="col-num">${idx + 1}</td>
-          <td>${nombre}</td>
-          <td>${estado || "-"}</td>
-          <td class="col-dist">${formatMeters(distM)}</td>
-          <td>${formatNumber(monto)}</td>
-          <td>${comuna}</td>
-          <td>${ano}</td>
-          <td>${urlFicha ? `<a href="${urlFicha}" target="_blank">Ver ficha</a>` : "-"}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      document.getElementById("invTotal").textContent = formatNumber(total);
-      document.getElementById("invAprobados").textContent =
-        formatNumber(totalAprob);
-      document.getElementById("invRechazados").textContent =
-        formatNumber(totalRech);
-    }
-
-    // ================== FLUJO PRINCIPAL ==================
-    if (latStr === null || lngStr === null || isNaN(lat) || isNaN(lng)) {
-      ubicacionSpan.textContent =
-        "coordenadas no válidas (faltan parámetros lat/lon).";
-      initMap(null);
-      mensajeEstado.innerHTML =
-        '<span class="status-warn">No se pudo leer el punto consultado. Abra este reporte desde el mapa principal.</span>';
-    } else {
-      ubicacionSpan.textContent =
-        "Lat: " + lat.toFixed(6) + ", Lng: " + lng.toFixed(6);
-      actualizarUTMDisplay(lat, lng);
-      initMap([lat, lng]);
-
-      const utmConsulta = wgs84ToUTM19S(lat, lng);
-      cargarProyectos(lat, lng, utmConsulta);
-    }
+    map.on("click", function (e) {
+      const lat = e.latlng.lat.toFixed(6);
+      const lng = e.latlng.lng.toFixed(6);
+      const url = `info.html?lat=${lat}&lng=${lng}`;
+      window.location.href = url;   // sin popup, pasa directo al reporte
+    });
   </script>
 </body>
 </html>
