@@ -14,127 +14,48 @@
   />
 
   <style>
-    * {
-      box-sizing: border-box;
+    body {
       margin: 0;
       padding: 0;
-    }
-
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        Roboto, Helvetica, Arial, sans-serif;
+      font-family: system-ui, sans-serif;
       background: #0b1120;
       color: #e5e7eb;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
     }
 
     header {
+      padding: 16px;
       background: #020617;
-      border-bottom: 1px solid #111827;
-      padding: 8px 16px;
+      border-bottom: 1px solid #1e293b;
+      text-align: center;
     }
 
-    .header-inner {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .title {
-      font-size: 1.1rem;
-      font-weight: 600;
+    h1 {
+      margin: 0;
+      font-size: 1.2rem;
     }
 
     .subtitle {
       font-size: 0.85rem;
-      color: #9ca3af;
-    }
-
-    .pill {
-      font-size: 0.8rem;
-      border-radius: 999px;
-      border: 1px solid #1f2937;
-      padding: 4px 10px;
-      background: #020617;
-      color: #e5e7eb;
-      white-space: nowrap;
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: stretch;
-      padding: 10px;
-    }
-
-    .map-wrapper {
-      width: 100%;
-      max-width: 1100px;
-      border-radius: 0.75rem;
-      overflow: hidden;
-      box-shadow: 0 20px 25px -10px rgba(0, 0, 0, 0.6);
-      border: 1px solid #111827;
-      background: #020617;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .map-header {
-      padding: 8px 12px;
-      border-bottom: 1px solid #111827;
-      font-size: 0.9rem;
-      color: #9ca3af;
+      color: #94a3b8;
     }
 
     #map {
-      flex: 1;
-      min-height: 480px;
-    }
-
-    .hint {
-      margin-top: 6px;
-      font-size: 0.8rem;
-      color: #9ca3af;
-    }
-
-    @media (max-width: 640px) {
-      .map-wrapper {
-        border-radius: 0;
-      }
+      width: 100%;
+      height: calc(100vh - 90px);
+      background: #000;
     }
   </style>
 </head>
+
 <body>
   <header>
-    <div class="header-inner">
-      <div>
-        <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
-        <div class="subtitle">
-          Haz clic en el mapa para consultar los 10 proyectos mineros más cercanos en la Región de Atacama.
-        </div>
-      </div>
-      <div class="pill">Versión demo · Centro en Copiapó</div>
+    <h1>SEA Mining - Proyectos cercanos a un punto</h1>
+    <div class="subtitle">
+      Haz clic en cualquier parte del mapa para consultar los 10 proyectos más cercanos.
     </div>
   </header>
 
-  <main>
-    <section class="map-wrapper">
-      <div class="map-header">
-        <strong>Paso 1.</strong> Haz clic en cualquier punto del mapa. Se abrirá un reporte con los proyectos cercanos.
-        <div class="hint">
-          El reporte mostrará el conjunto de puntos consultados y el resumen de montos de inversión por estado (Aprobados / Rechazados).
-        </div>
-      </div>
-      <div id="map"></div>
-    </section>
-  </main>
+  <div id="map"></div>
 
   <!-- Leaflet JS -->
   <script
@@ -144,35 +65,33 @@
   ></script>
 
   <script>
-    // Centro aproximado en Copiapó
-    const initialCenter = [-27.3668, -70.3322];
-    const initialZoom = 9;
+    // Ubicación central: Copiapó
+    const center = [-27.3668, -70.3322];
 
     const map = L.map("map", {
       zoomControl: true,
-    }).setView(initialCenter, initialZoom);
+    }).setView(center, 9);
 
+    // Fondo de mapa
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
+      attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
 
-    let poiMarker = null;
+    // Marcador temporal del punto consultado
+    let marker = null;
 
     map.on("click", (e) => {
       const { lat, lng } = e.latlng;
 
-      // Marcador local para feedback
-      if (poiMarker) {
-        poiMarker.setLatLng(e.latlng);
-      } else {
-        poiMarker = L.marker(e.latlng).addTo(map);
-      }
-      poiMarker.bindPopup(
-        `Punto consultado<br>Lat: ${lat.toFixed(5)}<br>Lon: ${lng.toFixed(5)}`
+      if (marker) marker.setLatLng(e.latlng);
+      else marker = L.marker(e.latlng).addTo(map);
+
+      marker.bindPopup(
+        `Consulta:<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lng.toFixed(6)}`
       ).openPopup();
 
-      // Abrir reporte en nueva pestaña (info.html)
+      // Abrir reporte info.html en nueva pestaña
       const url = `info.html?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`;
       window.open(url, "_blank");
     });
