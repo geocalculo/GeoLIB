@@ -2,98 +2,161 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>SEA Mining - Consulta de proyectos cercanos</title>
+  <title>SEA Mining - Proyectos cercanos a un punto</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
   />
 
   <style>
-    body {
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: system-ui, sans-serif;
-      background: #0b1120;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      background: #020617;
       color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     header {
-      padding: 16px;
       background: #020617;
-      border-bottom: 1px solid #1e293b;
+      border-bottom: 1px solid #111827;
+      padding: 12px 16px 10px 16px;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
       text-align: center;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 1.2rem;
+    .title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
     }
 
     .subtitle {
-      font-size: 0.85rem;
-      color: #94a3b8;
+      margin-top: 4px;
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     #map {
+      flex: 1;
       width: 100%;
-      height: calc(100vh - 90px);
+      min-height: 400px;
       background: #000;
+    }
+
+    footer {
+      background: #020617;
+      border-top: 1px solid #111827;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-align: right;
+    }
+
+    a {
+      color: #38bdf8;
+    }
+
+    a:hover {
+      color: #0ea5e9;
     }
   </style>
 </head>
-
 <body>
   <header>
-    <h1>SEA Mining - Proyectos cercanos a un punto</h1>
-    <div class="subtitle">
-      Haz clic en cualquier parte del mapa para consultar los 10 proyectos más cercanos.
+    <div class="header-inner">
+      <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
+      <div class="subtitle">
+        Haz clic en cualquier parte del mapa para consultar los 10 proyectos más cercanos.
+      </div>
     </div>
   </header>
 
-  <div id="map"></div>
+  <main>
+    <div id="map"></div>
+  </main>
+
+  <footer>
+    GeoLIB / GeoIPT &copy; <span id="year"></span>
+  </footer>
 
   <!-- Leaflet JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+t1r0WZBbCi2Ee0E="
-    crossorigin=""
-  ></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Ubicación central: Copiapó
-    const center = [-27.3668, -70.3322];
+    // Año en el pie de página
+    document.getElementById("year").textContent = new Date().getFullYear();
 
-    const map = L.map("map", {
-      zoomControl: true,
-    }).setView(center, 9);
+    // Coordenadas aproximadas de Copiapó
+    const centroCopiapo = [-27.366, -70.333];
 
-    // Fondo de mapa
+    // Inicializar mapa
+    const map = L.map("map").setView(centroCopiapo, 9);
+
+    // Capa base OpenStreetMap
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors",
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // Marcador temporal del punto consultado
-    let marker = null;
+    let consultaMarker = null;
 
-    map.on("click", (e) => {
-      const { lat, lng } = e.latlng;
+    // Manejar clic en el mapa
+    map.on("click", function (e) {
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
 
-      if (marker) marker.setLatLng(e.latlng);
-      else marker = L.marker(e.latlng).addTo(map);
+      // Eliminar marcador previo
+      if (consultaMarker) {
+        map.removeLayer(consultaMarker);
+      }
 
-      marker.bindPopup(
-        `Consulta:<br>Lat: ${lat.toFixed(6)}<br>Lon: ${lng.toFixed(6)}`
-      ).openPopup();
+      // Crear nuevo marcador
+      consultaMarker = L.marker([lat, lng]).addTo(map);
 
-      // Abrir reporte info.html en nueva pestaña
-      const url = `info.html?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}`;
-      window.open(url, "_blank");
+      const latStr = lat.toFixed(6);
+      const lngStr = lng.toFixed(6);
+
+      // URL a info.html con parámetros
+      const infoUrl = `info.html?lat=${latStr}&lng=${lngStr}`;
+
+      const popupHtml = `
+        <div style="font-size: 0.9rem;">
+          <div><strong>Punto consultado</strong></div>
+          <div>Lat: ${latStr}</div>
+          <div>Lng: ${lngStr}</div>
+          <div style="margin-top:6px;">
+            <a href="${infoUrl}" target="_blank">
+              Ver proyectos cercanos (10 más próximos)
+            </a>
+          </div>
+        </div>
+      `;
+
+      consultaMarker.bindPopup(popupHtml).openPopup();
     });
   </script>
 </body>
