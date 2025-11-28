@@ -444,16 +444,7 @@
         `;
       }
 
-      // Fila total proyectos dentro del radio
-      tbody.innerHTML += `
-        <tr style="font-weight:600; background:#f9fafb;">
-          <td>Total proyectos dentro del radio</td>
-          <td>${totales.cantidadTotal}</td>
-          <td>${formatNumber(totales.inversionTotal)}</td>
-          <td>-</td>
-          <td>-</td>
-        </tr>
-      `;
+
 
       // Filas por estado
       tbody.innerHTML += fila("Aprobado", resumen.apr);
