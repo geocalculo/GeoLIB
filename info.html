@@ -91,13 +91,19 @@
       margin-bottom: 8px;
     }
 
-    #map {
+    /* Contenedor cuadrado para el mapa */
+    .map-wrapper {
       width: 100%;
-      min-height: 320px;
+      aspect-ratio: 1 / 1; /* cuadrado perfecto */
       border-radius: 12px;
       overflow: hidden;
       border: 1px solid #e5e7eb;
       margin-bottom: 12px;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
     }
 
     .summary-row {
@@ -135,6 +141,44 @@
       margin-bottom: 6px;
       font-size: 0.8rem;
       color: #6b7280;
+    }
+
+    /* Área de gráficos */
+    .charts-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .chart-card {
+      flex: 1;
+      min-width: 260px;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 8px 10px 12px 10px;
+      border: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+
+    .chart-subtitle {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 220px;
     }
 
     table {
@@ -221,7 +265,9 @@
         (<span id="radio-km">-</span> km).
       </div>
 
-      <div id="map"></div>
+      <div class="map-wrapper">
+        <div id="map"></div>
+      </div>
 
       <div class="summary-row">
         <div class="summary-card">
@@ -242,6 +288,24 @@
 
       <div id="mensajeEstado" class="message-inline"></div>
 
+      <!-- Gráficos -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Distribución de inversión por estado</div>
+          <div class="chart-subtitle">Montos de inversión (MMUS$) dentro del radio.</div>
+          <div class="chart-wrapper">
+            <canvas id="chartInversion"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Cantidad de proyectos por estado</div>
+          <div class="chart-subtitle">Número de proyectos dentro del radio.</div>
+          <div class="chart-wrapper">
+            <canvas id="chartCantidad"></canvas>
+          </div>
+        </div>
+      </div>
+
       <h3 style="font-size:0.95rem; color:#0f172a; font-weight:600; margin-top:4px;">
         Resumen por estado dentro del radio de análisis
       </h3>
@@ -249,7 +313,7 @@
       <table>
         <thead>
           <tr>
-            <th>Estado / categoría</th>
+            <th>Estado</th>
             <th>Cantidad</th>
             <th>Total inversión (MMUS$)</th>
             <th>Inversión promedio (MMUS$)</th>
@@ -274,6 +338,8 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     const EXCEL_FILE = "capas/SEA_Atacama_Proyectos.xlsx";
@@ -289,6 +355,9 @@
     const COL_LNG    = "Longitud Punto Representativo";
 
     document.getElementById("year").textContent = new Date().getFullYear();
+
+    let chartInversion = null;
+    let chartCantidad = null;
 
     function toNumber(value) {
       if (value === null || value === undefined) return NaN;
@@ -423,15 +492,15 @@
       });
     }
 
-    function dibujarCuadroResumenEstados(resumen, totales) {
+    function dibujarCuadroResumenEstados(resumen) {
       const tbody = document.getElementById("tablaEstadosBody");
       tbody.innerHTML = "";
 
-      function fila(nombre, r, mostrarStats = true) {
+      function fila(nombre, r) {
         const cant = r.cantidad ?? 0;
-        const total = mostrarStats ? formatNumber(r.total) : "-";
-        const promInv = mostrarStats ? formatNumber(r.promedioInv) : "-";
-        const promDist = mostrarStats ? formatMeters(r.promedioDist) : "-";
+        const total = formatNumber(r.total);
+        const promInv = formatNumber(r.promedioInv);
+        const promDist = formatMeters(r.promedioDist);
 
         return `
           <tr>
@@ -444,12 +513,78 @@
         `;
       }
 
-
-
-      // Filas por estado
       tbody.innerHTML += fila("Aprobado", resumen.apr);
       tbody.innerHTML += fila("En evaluación", resumen.eval);
       tbody.innerHTML += fila("Rechazado", resumen.rech);
+    }
+
+    function actualizarGraficos(resApr, resEval, resRech) {
+      const labels = ["Aprobado", "En evaluación", "Rechazado"];
+      const dataInv = [resApr.total, resEval.total, resRech.total];
+      const dataCant = [resApr.cantidad, resEval.cantidad, resRech.cantidad];
+
+      // Gráfico de inversión (torta)
+      const ctxInv = document.getElementById("chartInversion").getContext("2d");
+      if (chartInversion) chartInversion.destroy();
+      chartInversion = new Chart(ctxInv, {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [
+            {
+              data: dataInv
+            }
+          ]
+        },
+        options: {
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const valor = context.parsed;
+                  return `${context.label}: ${formatNumber(valor)} MMUS$`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Gráfico de cantidad (barras)
+      const ctxCant = document.getElementById("chartCantidad").getContext("2d");
+      if (chartCantidad) chartCantidad.destroy();
+      chartCantidad = new Chart(ctxCant, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              data: dataCant
+            }
+          ]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  return `${context.parsed.y} proyectos`;
+                }
+              }
+            }
+          }
+        }
+      });
     }
 
     function mapRowToProyecto(row) {
@@ -618,16 +753,13 @@
       const resRech = calcularEstadisticas(rechDentro);
 
       const totalRadio = resApr.total + resEval.total + resRech.total;
-      const cantidadTotal = resApr.cantidad + resEval.cantidad + resRech.cantidad;
 
       document.getElementById("invTotal").textContent      = formatNumber(totalRadio);
       document.getElementById("invAprobados").textContent  = formatNumber(resApr.total);
       document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
 
-      dibujarCuadroResumenEstados(
-        { apr: resApr, eval: resEval, rech: resRech },
-        { cantidadTotal, inversionTotal: totalRadio }
-      );
+      dibujarCuadroResumenEstados({ apr: resApr, eval: resEval, rech: resRech });
+      actualizarGraficos(resApr, resEval, resRech);
 
       mensajeEstado.textContent +=
         " · Se utilizaron " + top10Apr.length +
