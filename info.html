@@ -216,14 +216,13 @@
         Se utilizan los 10 proyectos <strong>aprobados</strong> más cercanos para definir el radio de análisis.
         Dentro de ese radio se evalúan proyectos aprobados, en evaluación y rechazados.
       </div>
-      <div class="card-subtitle" id="resumenRadio">
+      <div class="card-subtitle">
         Radio de análisis: <span id="radio-metros">-</span> m
         (<span id="radio-km">-</span> km).
       </div>
 
       <div id="map"></div>
 
-      <!-- OVERVIEW tipo GeoIPT -->
       <div class="summary-row">
         <div class="summary-card">
           <div class="summary-label">
@@ -276,23 +275,20 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
-    // ================== CONFIG ==================
     const EXCEL_FILE = "capas/SEA_Atacama_Proyectos.xlsx";
 
-    // Ajusta estos nombres si no coinciden con tu planilla
-    const COL_ID      = "id_expediente";
-    const COL_NOMBRE  = "nombre_proyecto";
-    const COL_ESTADO  = "estado_actual";
-    const COL_MONTO   = "monto_inversion"; // MMUS$
-    const COL_COMUNA  = "comuna";
-    const COL_ANO     = "ano";             // o "año"
-    const COL_LAT     = "lat";
-    const COL_LNG     = "lng";
-    const COL_URL     = "url_ficha";
+    // Nombres EXACTOS de columnas en el Excel
+    const COL_NOMBRE = "Nombre del Proyecto";
+    const COL_WEB    = "WEB";
+    const COL_ESTADO = "Estado del Proyecto";
+    const COL_MONTO  = "Inversión (MMU$)";
+    const COL_COMUNA = "Comuna";
+    const COL_FECHA  = "Fecha Presentación";
+    const COL_LAT    = "Latitud Punto Representativo";
+    const COL_LNG    = "Longitud Punto Representativo";
 
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    // ================== UTILIDADES ==================
     function toNumber(value) {
       if (value === null || value === undefined) return NaN;
       if (typeof value === "number") return value;
@@ -315,13 +311,13 @@
 
     function getColorByEstado(estado) {
       const e = (estado || "").toLowerCase();
-      if (e.includes("rechaz")) return "#ef4444";   // rojo
-      if (e.includes("eval"))   return "#eab308";   // amarillo
-      if (e.includes("aprob"))  return "#22c55e";   // verde
-      return "#6b7280";                             // gris
+      if (e.includes("rechaz")) return "#ef4444";
+      if (e.includes("eval"))   return "#eab308";
+      if (e.includes("aprob"))  return "#22c55e";
+      return "#6b7280";
     }
 
-    // ---- WGS84 -> UTM 19S
+    // WGS84 -> UTM 19S
     function wgs84ToUTM19S(latDeg, lonDeg) {
       const a = 6378137.0;
       const f = 1 / 298.257223563;
@@ -404,7 +400,7 @@
       let totalDist = 0;
 
       lista.forEach(item => {
-        const monto = toNumber(item.proyecto[COL_MONTO]);
+        const monto = toNumber(item.proyecto.monto);
         if (!isNaN(monto)) totalInv += monto;
         totalDist += item.distM;
       });
@@ -418,7 +414,7 @@
 
     function filtrarPorEstado(lista, estadoBuscado, radio) {
       return lista.filter(item => {
-        const est = (item.proyecto[COL_ESTADO] || "").toLowerCase();
+        const est = (item.proyecto.estado || "").toLowerCase();
         return est.includes(estadoBuscado) && item.distM <= radio;
       });
     }
@@ -443,29 +439,33 @@
       tbody.innerHTML += fila("Rechazado", resumen.rech);
     }
 
-    // ---- Excel → proyecto estándar
     function mapRowToProyecto(row) {
       const p = {};
-      p[COL_ID]     = row[COL_ID];
-      p[COL_NOMBRE] = row[COL_NOMBRE];
-      p[COL_ESTADO] = row[COL_ESTADO];
-      p[COL_MONTO]  = row[COL_MONTO];
-      p[COL_COMUNA] = row[COL_COMUNA];
-      p[COL_ANO]    = row[COL_ANO] ?? row["año"];
-      p[COL_LAT]    = row[COL_LAT];
-      p[COL_LNG]    = row[COL_LNG];
-      p[COL_URL]    = row[COL_URL];
 
-      if (!p[COL_URL] && p[COL_ID]) {
-        p[COL_URL] =
-          "https://seia.sea.gob.cl/expediente/ficha/fichaPrincipal.php?modo=normal&id_expediente=" +
-          encodeURIComponent(String(p[COL_ID]));
+      p.id      = row[COL_WEB] || row[COL_NOMBRE];
+      p.nombre  = row[COL_NOMBRE];
+      p.estado  = row[COL_ESTADO];
+      p.monto   = row[COL_MONTO];
+      p.comuna  = row[COL_COMUNA];
+      p.anoRaw  = row[COL_FECHA];
+
+      p.lat = toNumber(row[COL_LAT]);
+      p.lng = toNumber(row[COL_LNG]);
+
+      p.url = row[COL_WEB];
+
+      // extraer año (si lo quieres usar después)
+      if (p.anoRaw) {
+        const m = String(p.anoRaw).match(/[0-9]{4}/);
+        p.ano = m ? m[0] : p.anoRaw;
+      } else {
+        p.ano = "";
       }
 
       return p;
     }
 
-    // ================== MAPA & PARÁMETROS ==================
+    // ========= mapa & parámetros =========
     let map;
 
     const params = new URLSearchParams(window.location.search);
@@ -483,13 +483,7 @@
     function initMap(centerLatLng, zoomOverride) {
       const fallbackCenter = [-27.366, -70.333];
       const center = centerLatLng || fallbackCenter;
-
-      let zoom;
-      if (!isNaN(zoomOverride)) {
-        zoom = zoomOverride;
-      } else {
-        zoom = centerLatLng ? 8 : 7;
-      }
+      let zoom = !isNaN(zoomOverride) ? zoomOverride : (centerLatLng ? 8 : 7);
 
       map = L.map("map").setView(center, zoom);
 
@@ -527,11 +521,9 @@
 
         rows.forEach(row => {
           const p = mapRowToProyecto(row);
-          const plat = toNumber(p[COL_LAT]);
-          const plng = toNumber(p[COL_LNG]);
-          if (isNaN(plat) || isNaN(plng)) return;
+          if (isNaN(p.lat) || isNaN(p.lng)) return;
 
-          const utmP = wgs84ToUTM19S(plat, plng);
+          const utmP = wgs84ToUTM19S(p.lat, p.lng);
           const dE = utmP.E - utmConsulta.E;
           const dN = utmP.N - utmConsulta.N;
           const distM = Math.sqrt(dE * dE + dN * dN);
@@ -544,6 +536,9 @@
           });
         });
 
+        mensajeEstado.textContent =
+          "Se cargaron " + lista.length + " proyectos desde el archivo Excel.";
+
         procesarResultados(lista);
       } catch (err) {
         console.error(err);
@@ -555,16 +550,14 @@
     }
 
     function procesarResultados(lista) {
-      // 1) Dibujar todos los puntos con colores por estado
+      // 1) Dibujar todos los proyectos
       lista.forEach(item => {
         const p = item.proyecto;
-        const plat = toNumber(p[COL_LAT]);
-        const plng = toNumber(p[COL_LNG]);
-        if (isNaN(plat) || isNaN(plng)) return;
+        if (isNaN(p.lat) || isNaN(p.lng)) return;
 
-        const color = getColorByEstado(p[COL_ESTADO]);
+        const color = getColorByEstado(p.estado);
 
-        L.circleMarker([plat, plng], {
+        L.circleMarker([p.lat, p.lng], {
           radius: 6,
           color,
           fillColor: color,
@@ -573,19 +566,15 @@
         })
           .addTo(map)
           .bindPopup(
-            `<strong>${p[COL_NOMBRE] || "-"}</strong><br/>
-             Estado: ${p[COL_ESTADO] || "-"}<br/>
+            `<strong>${p.nombre || "-"}</strong><br/>
+             Estado: ${p.estado || "-"}<br/>
              Distancia: ${formatMeters(item.distM)} m`
           );
       });
 
-      // 2) Solo aprobados: top 10 más cercanos
+      // 2) Top 10 aprobados
       const aprobados = lista
-        .filter(it =>
-          (it.proyecto[COL_ESTADO] || "")
-            .toLowerCase()
-            .includes("aprob")
-        )
+        .filter(it => (it.proyecto.estado || "").toLowerCase().includes("aprob"))
         .sort((a, b) => a.distM - b.distM);
 
       const top10Apr = aprobados.slice(0, 10);
@@ -595,13 +584,12 @@
         radio = top10Apr[top10Apr.length - 1].distM;
       }
 
-      document.getElementById("radio-metros").textContent =
-        formatMeters(radio);
+      document.getElementById("radio-metros").textContent = formatMeters(radio);
       document.getElementById("radio-km").textContent = (
         radio / 1000
       ).toLocaleString("es-CL", { maximumFractionDigits: 2 });
 
-      // 3) Filtrar por estado dentro del radio
+      // 3) Resumen por estado dentro del radio
       const aprDentro  = filtrarPorEstado(lista, "aprob", radio);
       const evalDentro = filtrarPorEstado(lista, "eval",  radio);
       const rechDentro = filtrarPorEstado(lista, "rechaz", radio);
@@ -610,32 +598,28 @@
       const resEval = calcularEstadisticas(evalDentro);
       const resRech = calcularEstadisticas(rechDentro);
 
-      const resumen = { apr: resApr, eval: resEval, rech: resRech };
-
-      // 4) Totales overview
       const totalRadio = resApr.total + resEval.total + resRech.total;
 
       document.getElementById("invTotal").textContent      = formatNumber(totalRadio);
       document.getElementById("invAprobados").textContent  = formatNumber(resApr.total);
       document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
 
-      dibujarCuadroResumenEstados(resumen);
+      dibujarCuadroResumenEstados({ apr: resApr, eval: resEval, rech: resRech });
 
-      mensajeEstado.textContent =
-        "Se utilizaron " +
-        top10Apr.length +
+      mensajeEstado.textContent +=
+        " · Se utilizaron " + top10Apr.length +
         " proyectos aprobados más cercanos para definir el radio de análisis.";
     }
 
-    // ================== ARRANQUE ==================
+    // ========= ARRANQUE =========
     if (latStr === null || lngStr === null || isNaN(lat) || isNaN(lng)) {
-      ubicacionSpan.textContent =
+      document.getElementById("ubicacion").textContent =
         "coordenadas no válidas (faltan parámetros lat/lon).";
       initMap(null, NaN);
       mensajeEstado.innerHTML =
         '<span style="color:#ea580c;">No se pudo leer el punto consultado. Abra este reporte desde el mapa principal.</span>';
     } else {
-      ubicacionSpan.textContent =
+      document.getElementById("ubicacion").textContent =
         "Lat: " + lat.toFixed(6) + ", Lng: " + lng.toFixed(6);
       actualizarUTMDisplay(lat, lng);
       initMap([lat, lng], zoomFromUrl);
