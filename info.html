@@ -324,13 +324,13 @@
 
     // Columnas reales
     const COL_NOMBRE = "Nombre del Proyecto";
-    const COL_WEB = "WEB";
+    const COL_WEB    = "WEB";
     const COL_ESTADO = "Estado del Proyecto";
-    const COL_MONTO = "Inversión (MMU$)";
+    const COL_MONTO  = "Inversión (MMU$)";
     const COL_COMUNA = "Comuna";
-    const COL_FECHA = "Fecha Presentación";
-    const COL_LAT = "Latitud Punto Representativo";
-    const COL_LNG = "Longitud Punto Representativo";
+    const COL_FECHA  = "Fecha Presentación";
+    const COL_LAT    = "Latitud Punto Representativo";
+    const COL_LNG    = "Longitud Punto Representativo";
 
     function toNumber(v) {
       if (v === null || v === undefined) return NaN;
@@ -429,11 +429,10 @@
           <td>${formatNumber(r.total)}</td>
           <td>${formatNumber(r.promedioInv)}</td>
           <td>${formatMeters(r.promedioDist)}</td>
-        </tr>
-        `;
+        </tr>`;
       }
 
-      tbody.innerHTML += fila("Aprobado", res.apr);
+      tbody.innerHTML += fila("Aprobado",   res.apr);
       tbody.innerHTML += fila("En evaluación", res.eval);
       tbody.innerHTML += fila("Rechazado", res.rech);
     }
@@ -442,10 +441,9 @@
 
     function actualizarGraficos(res) {
       const labels = ["Aprobado", "En evaluación", "Rechazado"];
-      const inv = [res.apr.total, res.eval.total, res.rech.total];
-      const cant = [res.apr.cantidad, res.eval.cantidad, res.rech.cantidad];
+      const inv   = [res.apr.total, res.eval.total, res.rech.total];
+      const cant  = [res.apr.cantidad, res.eval.cantidad, res.rech.cantidad];
 
-      // Pie
       if (chartInversion) chartInversion.destroy();
       chartInversion = new Chart(document.getElementById("chartInversion"), {
         type:"pie",
@@ -453,7 +451,6 @@
         options:{ plugins:{ legend:{position:"bottom"} } }
       });
 
-      // Barras
       if (chartCantidad) chartCantidad.destroy();
       chartCantidad = new Chart(document.getElementById("chartCantidad"), {
         type:"bar",
@@ -468,17 +465,18 @@
     let map;
     function initMap(center, zoom) {
       const z = isNaN(zoom) ? 10 : zoom;
-
       map = L.map("map").setView(center, z);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom:19
       }).addTo(map);
 
+      // Punto consultado (siempre visible)
       L.circleMarker(center, {
-        radius:6,
-        color:"#0ea5e9",
-        fillColor:"#38bdf8",
-        fillOpacity:0.9
+        radius: 7,
+        color: "#0ea5e9",
+        fillColor: "#38bdf8",
+        fillOpacity: 0.9,
+        weight: 2
       }).addTo(map);
     }
 
@@ -487,12 +485,13 @@
     const lng = parseFloat(url.get("lng"));
     const zoom = parseInt(url.get("z"));
 
-    // arranque
+    const mensajeEstado = document.getElementById("mensajeEstado");
+
     if (isNaN(lat) || isNaN(lng)) {
       document.getElementById("ubicacion").textContent = "coordenadas inválidas";
     } else {
       document.getElementById("ubicacion").textContent =
-        `Lat: ${lat.toFixed(6)}, Lng:${lng.toFixed(6)}`;
+        `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
 
       const utm = wgs84ToUTM19S(lat,lng);
       document.getElementById("utm-e-display").textContent = formatMeters(utm.E);
@@ -500,7 +499,6 @@
 
       initMap([lat,lng], zoom);
 
-      // cargar excel
       fetch(EXCEL_FILE)
       .then(r => r.arrayBuffer())
       .then(buf => {
@@ -515,18 +513,33 @@
           if (!isNaN(p.lat) && !isNaN(p.lng)) {
             const u = wgs84ToUTM19S(p.lat,p.lng);
             const d = Math.hypot(u.E - utm.E, u.N - utm.N);
-
             lista.push({ proyecto:p, distM:d });
           }
         });
 
-        // Top 10 aprobados
+        // Top 10 aprobados => radio
         const aprob = lista
           .filter(i => (i.proyecto.estado||"").toLowerCase().includes("aprob"))
           .sort((a,b) => a.distM - b.distM)
           .slice(0,10);
 
         const radio = aprob.length ? aprob[aprob.length-1].distM : 0;
+
+        if (radio > 0) {
+          // Círculo de overview en torno al punto consultado
+          L.circle([lat, lng], {
+            radius: radio,
+            color: "#0ea5e9",
+            weight: 1.5,
+            fillOpacity: 0
+          }).addTo(map);
+
+          mensajeEstado.textContent =
+            `Radio de análisis: ${formatMeters(radio)} m (${(radio/1000).toFixed(2)} km).`;
+        } else {
+          mensajeEstado.textContent =
+            "No se encontraron proyectos aprobados en el entorno inmediato.";
+        }
 
         // Filtrar dentro del radio
         const evaluacion = lista.filter(i =>
@@ -539,7 +552,7 @@
           i.distM <= radio
         );
 
-        // markers
+        // Markers: 10 aprobados + eval + rechazados
         aprob.forEach(i => {
           L.circleMarker([i.proyecto.lat, i.proyecto.lng], {
             radius:6, color:"#22c55e", fillColor:"#22c55e", fillOpacity:0.9
@@ -558,19 +571,18 @@
           }).addTo(map);
         });
 
-        // resumen
-        const resApr = calcularStats(aprob);
+        // Resúmenes
+        const resApr  = calcularStats(aprob);
         const resEval = calcularStats(evaluacion);
         const resRech = calcularStats(rechaz);
 
         const totalInv = resApr.total + resEval.total + resRech.total;
-        document.getElementById("invTotal").textContent = formatNumber(totalInv);
-        document.getElementById("invAprobados").textContent = formatNumber(resApr.total);
+        document.getElementById("invTotal").textContent      = formatNumber(totalInv);
+        document.getElementById("invAprobados").textContent  = formatNumber(resApr.total);
         document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
 
         dibujarResumen({apr:resApr, eval:resEval, rech:resRech});
         actualizarGraficos({apr:resApr, eval:resEval, rech:resRech});
-
       });
     }
   </script>
