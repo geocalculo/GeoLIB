@@ -478,6 +478,41 @@
         fillOpacity: 0.9,
         weight: 2
       }).addTo(map);
+
+proyectos.forEach(p => {
+  // p.lat, p.lng, p.estado, p.nombre_proyecto, p.url_expediente
+
+  const color =
+    p.estado === "Aprobado"   ? "#22c55e" :   // verde
+    p.estado === "Rechazado"  ? "#ef4444" :   // rojo
+                                "#eab308";    // amarillo (en evaluación / otro)
+
+  const marker = L.circleMarker([p.lat, p.lng], {
+    radius: 7,
+    color,
+    weight: 2,
+    fillColor: color,
+    fillOpacity: 0.9
+  });
+
+  marker.bindPopup(`
+    <strong>${p.nombre_proyecto}</strong><br>
+    Estado: ${p.estado}<br>
+    <a href="${p.url_expediente}"
+       target="_blank"
+       rel="noopener noreferrer">
+       Ver expediente SEIA
+    </a>
+  `);
+
+  // (Opcional) que al hacer clic en el punto abra directamente el expediente:
+  // marker.on("click", () => window.open(p.url_expediente, "_blank"));
+
+  marker.addTo(mapaProyectos);
+});
+
+
+      
     }
 
     const url = new URLSearchParams(window.location.search);
