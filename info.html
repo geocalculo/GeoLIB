@@ -249,7 +249,8 @@
       <table>
         <thead>
           <tr>
-            <th>Estado</th>
+            <th>Estado / categoría</th>
+            <th>Cantidad</th>
             <th>Total inversión (MMUS$)</th>
             <th>Inversión promedio (MMUS$)</th>
             <th>Distancia promedio (m)</th>
@@ -311,10 +312,10 @@
 
     function getColorByEstado(estado) {
       const e = (estado || "").toLowerCase();
-      if (e.includes("rechaz")) return "#ef4444";
-      if (e.includes("eval"))   return "#eab308";
-      if (e.includes("aprob"))  return "#22c55e";
-      return "#6b7280";
+      if (e.includes("rechaz")) return "#ef4444"; // rojo
+      if (e.includes("eval"))   return "#eab308"; // amarillo
+      if (e.includes("aprob"))  return "#22c55e"; // verde
+      return "#6b7280";                       // gris
     }
 
     // WGS84 -> UTM 19S
@@ -393,7 +394,7 @@
 
     function calcularEstadisticas(lista) {
       if (!lista || lista.length === 0) {
-        return { total: 0, promedioInv: 0, promedioDist: 0 };
+        return { total: 0, promedioInv: 0, promedioDist: 0, cantidad: 0 };
       }
 
       let totalInv = 0;
@@ -405,10 +406,13 @@
         totalDist += item.distM;
       });
 
+      const cantidad = lista.length;
+
       return {
         total: totalInv,
-        promedioInv: totalInv / lista.length,
-        promedioDist: totalDist / lista.length
+        promedioInv: cantidad > 0 ? totalInv / cantidad : 0,
+        promedioDist: cantidad > 0 ? totalDist / cantidad : 0,
+        cantidad
       };
     }
 
@@ -419,21 +423,39 @@
       });
     }
 
-    function dibujarCuadroResumenEstados(resumen) {
+    function dibujarCuadroResumenEstados(resumen, totales) {
       const tbody = document.getElementById("tablaEstadosBody");
       tbody.innerHTML = "";
 
-      function fila(nombre, r) {
+      function fila(nombre, r, mostrarStats = true) {
+        const cant = r.cantidad ?? 0;
+        const total = mostrarStats ? formatNumber(r.total) : "-";
+        const promInv = mostrarStats ? formatNumber(r.promedioInv) : "-";
+        const promDist = mostrarStats ? formatMeters(r.promedioDist) : "-";
+
         return `
           <tr>
             <td>${nombre}</td>
-            <td>${formatNumber(r.total)}</td>
-            <td>${formatNumber(r.promedioInv)}</td>
-            <td>${formatMeters(r.promedioDist)}</td>
+            <td>${cant}</td>
+            <td>${total}</td>
+            <td>${promInv}</td>
+            <td>${promDist}</td>
           </tr>
         `;
       }
 
+      // Fila total proyectos dentro del radio
+      tbody.innerHTML += `
+        <tr style="font-weight:600; background:#f9fafb;">
+          <td>Total proyectos dentro del radio</td>
+          <td>${totales.cantidadTotal}</td>
+          <td>${formatNumber(totales.inversionTotal)}</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      `;
+
+      // Filas por estado
       tbody.innerHTML += fila("Aprobado", resumen.apr);
       tbody.innerHTML += fila("En evaluación", resumen.eval);
       tbody.innerHTML += fila("Rechazado", resumen.rech);
@@ -454,7 +476,6 @@
 
       p.url = row[COL_WEB];
 
-      // extraer año (si lo quieres usar después)
       if (p.anoRaw) {
         const m = String(p.anoRaw).match(/[0-9]{4}/);
         p.ano = m ? m[0] : p.anoRaw;
@@ -550,34 +571,12 @@
     }
 
     function procesarResultados(lista) {
-      // 1) Dibujar todos los proyectos
-      lista.forEach(item => {
-        const p = item.proyecto;
-        if (isNaN(p.lat) || isNaN(p.lng)) return;
-
-        const color = getColorByEstado(p.estado);
-
-        L.circleMarker([p.lat, p.lng], {
-          radius: 6,
-          color,
-          fillColor: color,
-          fillOpacity: 0.8,
-          weight: 1
-        })
-          .addTo(map)
-          .bindPopup(
-            `<strong>${p.nombre || "-"}</strong><br/>
-             Estado: ${p.estado || "-"}<br/>
-             Distancia: ${formatMeters(item.distM)} m`
-          );
-      });
-
-      // 2) Top 10 aprobados
-      const aprobados = lista
+      // 1) Top 10 aprobados (definen radio)
+      const aprobadosOrdenados = lista
         .filter(it => (it.proyecto.estado || "").toLowerCase().includes("aprob"))
         .sort((a, b) => a.distM - b.distM);
 
-      const top10Apr = aprobados.slice(0, 10);
+      const top10Apr = aprobadosOrdenados.slice(0, 10);
 
       let radio = 0;
       if (top10Apr.length > 0) {
@@ -589,22 +588,55 @@
         radio / 1000
       ).toLocaleString("es-CL", { maximumFractionDigits: 2 });
 
-      // 3) Resumen por estado dentro del radio
-      const aprDentro  = filtrarPorEstado(lista, "aprob", radio);
+      // 2) Proyectos por estado dentro del radio
+      const aprDentro  = top10Apr; // solo los 10 aprobados
       const evalDentro = filtrarPorEstado(lista, "eval",  radio);
       const rechDentro = filtrarPorEstado(lista, "rechaz", radio);
 
+      // 3) Dibujar SOLO esos puntos en el mapa
+      function agregarMarkers(arr, colorEstado) {
+        arr.forEach(item => {
+          const p = item.proyecto;
+          if (isNaN(p.lat) || isNaN(p.lng)) return;
+
+          const color = colorEstado || getColorByEstado(p.estado);
+
+          L.circleMarker([p.lat, p.lng], {
+            radius: 6,
+            color,
+            fillColor: color,
+            fillOpacity: 0.8,
+            weight: 1
+          })
+            .addTo(map)
+            .bindPopup(
+              `<strong>${p.nombre || "-"}</strong><br/>
+               Estado: ${p.estado || "-"}<br/>
+               Distancia: ${formatMeters(item.distM)} m`
+            );
+        });
+      }
+
+      agregarMarkers(aprDentro,  "#22c55e"); // verde
+      agregarMarkers(evalDentro, "#eab308"); // amarillo
+      agregarMarkers(rechDentro, "#ef4444"); // rojo
+
+      // 4) Estadísticas
       const resApr  = calcularEstadisticas(aprDentro);
       const resEval = calcularEstadisticas(evalDentro);
       const resRech = calcularEstadisticas(rechDentro);
 
       const totalRadio = resApr.total + resEval.total + resRech.total;
+      const cantidadTotal = resApr.cantidad + resEval.cantidad + resRech.cantidad;
 
       document.getElementById("invTotal").textContent      = formatNumber(totalRadio);
       document.getElementById("invAprobados").textContent  = formatNumber(resApr.total);
       document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
 
-      dibujarCuadroResumenEstados({ apr: resApr, eval: resEval, rech: resRech });
+      dibujarCuadroResumenEstados(
+        { apr: resApr, eval: resEval, rech: resRech },
+        { cantidadTotal, inversionTotal: totalRadio }
+      );
 
       mensajeEstado.textContent +=
         " · Se utilizaron " + top10Apr.length +
