@@ -89,7 +89,8 @@
     <div class="header-inner">
       <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
       <div class="subtitle">
-        Haz clic en cualquier parte del mapa para generar el reporte de proyectos más cercanos.
+        Haz clic en cualquier parte del mapa para generar el reporte de proyectos más cercanos
+        (el reporte se abrirá en una pestaña nueva).
       </div>
     </div>
   </header>
@@ -106,30 +107,30 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-  document.getElementById("year").textContent = new Date().getFullYear();
+    // Año en el footer
+    document.getElementById("year").textContent = new Date().getFullYear();
 
-  const centroCopiapo = [-27.366, -70.333];
-  const map = L.map("map").setView(centroCopiapo, 8);
+    // Mapa centrado en Copiapó
+    const centroCopiapo = [-27.366, -70.333];
+    const map = L.map("map").setView(centroCopiapo, 8);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-  map.on("click", function (e) {
-    const lat  = e.latlng.lat.toFixed(6);
-    const lng  = e.latlng.lng.toFixed(6);
-    const zoom = map.getZoom();              // <<< tomamos el zoom actual
+    // Click en el mapa => abrir info.html en pestaña nueva con lat, lng, z
+    map.on("click", function (e) {
+      const lat  = e.latlng.lat.toFixed(6);
+      const lng  = e.latlng.lng.toFixed(6);
+      const zoom = map.getZoom();
 
-    const url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}`;
+      const url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}`;
 
-    // Abrir info.html en una pestaña nueva
-    window.open(url, "_blank");
-  });
-</script>
-
-
-  
+      // Importante: abrir en pestaña nueva
+      window.open(url, "_blank");
+    });
+  </script>
 </body>
 </html>
