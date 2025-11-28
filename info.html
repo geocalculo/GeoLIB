@@ -204,7 +204,7 @@
         <span id="utm-n-display">-</span> m
       </div>
       <div class="header-source">
-        Fuente: <strong>proyectos_atacama.json</strong> · Región de Atacama
+        Fuente: <strong>capas/SEA_Atacama_Proyectos.kml</strong> · Región de Atacama
       </div>
     </div>
   </header>
@@ -223,7 +223,7 @@
 
       <div id="map"></div>
 
-      <!-- OVERVIEW TIPO GEOIPT -->
+      <!-- OVERVIEW tipo GeoIPT -->
       <div class="summary-row">
         <div class="summary-card">
           <div class="summary-label">
@@ -274,7 +274,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // ================== CONFIGURACIÓN DE CAMPOS DEL JSON ==================
+    // ================== CONFIG ==================
     const FIELD_LAT = "lat";
     const FIELD_LNG = "lng";
     const FIELD_ID = "id_expediente";
@@ -283,10 +283,9 @@
     const FIELD_MONTO = "monto_inversion"; // en MMUS$
     const FIELD_COMUNA = "comuna";
     const FIELD_ANO = "ano"; // también se intentará con "año"
-    const FIELD_URL = "url_ficha"; // opcional
-    const JSON_FILE = "proyectos_atacama.json";
+    const FIELD_URL = "url_ficha";
+    const KML_FILE = "capas/SEA_Atacama_Proyectos.kml";
 
-    // ================== UTILIDADES ==================
     function toNumber(value) {
       if (value === null || value === undefined) return NaN;
       if (typeof value === "number") return value;
@@ -311,13 +310,13 @@
 
     function getColorByEstado(estado) {
       const e = (estado || "").toLowerCase();
-      if (e.includes("rechaz")) return "#ef4444";      // rojo
-      if (e.includes("eval")) return "#eab308";        // amarillo
-      if (e.includes("aprob")) return "#22c55e";       // verde
-      return "#6b7280";                                // gris
+      if (e.includes("rechaz")) return "#ef4444";   // rojo
+      if (e.includes("eval")) return "#eab308";     // amarillo
+      if (e.includes("aprob")) return "#22c55e";    // verde
+      return "#6b7280";
     }
 
-    // ================== WGS84 -> UTM 19S (EPSG:32719) ==================
+    // ---- WGS84 -> UTM 19S
     function wgs84ToUTM19S(latDeg, lonDeg) {
       const a = 6378137.0;
       const f = 1 / 298.257223563;
@@ -439,7 +438,52 @@
       tbody.innerHTML += fila("Rechazado", resumen.rech);
     }
 
-    // ================== MAPA & FLUJO PRINCIPAL ==================
+    // ---- Parseo KML -> arreglo de proyectos
+    function parseKMLProyectos(kmlText) {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(kmlText, "application/xml");
+      const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
+      const proyectos = [];
+
+      placemarks.forEach(pm => {
+        const nombre = pm.getElementsByTagName("name")[0]?.textContent.trim() || "";
+
+        const coordNode = pm.getElementsByTagName("coordinates")[0];
+        if (!coordNode) return;
+        const coords = coordNode.textContent.trim().split(",");
+        const lng = parseFloat(coords[0]);
+        const lat = parseFloat(coords[1]);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const p = {
+          [FIELD_NOMBRE]: nombre,
+          [FIELD_LAT]: lat,
+          [FIELD_LNG]: lng
+        };
+
+        const simpleData = Array.from(pm.getElementsByTagName("SimpleData"));
+        simpleData.forEach(sd => {
+          const key = sd.getAttribute("name");
+          const val = sd.textContent.trim();
+          if (key) {
+            p[key] = val;
+          }
+        });
+
+        // si no viene url_ficha, construir con id_expediente
+        if (!p[FIELD_URL] && p[FIELD_ID]) {
+          p[FIELD_URL] =
+            "https://seia.sea.gob.cl/expediente/ficha/fichaPrincipal.php?modo=normal&id_expediente=" +
+            encodeURIComponent(String(p[FIELD_ID]));
+        }
+
+        proyectos.push(p);
+      });
+
+      return proyectos;
+    }
+
+    // ================== MAPA & FLUJO ==================
     let map;
 
     document.getElementById("year").textContent = new Date().getFullYear();
@@ -472,24 +516,22 @@
       }
     }
 
-    async function cargarProyectos(lat, lng, utmConsulta) {
+    async function cargarProyectosDesdeKML(lat, lng, utmConsulta) {
       try {
         mensajeEstado.textContent =
-          "Cargando proyectos desde " + JSON_FILE + "…";
+          "Cargando proyectos desde " + KML_FILE + "…";
 
-        const resp = await fetch(JSON_FILE);
+        const resp = await fetch(KML_FILE);
         if (!resp.ok) {
-          throw new Error("No se pudo cargar " + JSON_FILE);
+          throw new Error("No se pudo cargar " + KML_FILE);
         }
 
-        const data = await resp.json();
-        if (!Array.isArray(data)) {
-          throw new Error("El JSON no es un arreglo de proyectos.");
-        }
+        const kmlText = await resp.text();
+        const proyectos = parseKMLProyectos(kmlText);
 
         const lista = [];
 
-        data.forEach(p => {
+        proyectos.forEach(p => {
           const plat = toNumber(p[FIELD_LAT]);
           const plng = toNumber(p[FIELD_LNG]);
           if (isNaN(plat) || isNaN(plng)) return;
@@ -518,7 +560,7 @@
     }
 
     function procesarResultados(lista) {
-      // 1) Dibujar TODOS los puntos con colores por estado
+      // 1) Dibujar todos los puntos con colores por estado
       lista.forEach(item => {
         const p = item.proyecto;
         const plat = toNumber(p[FIELD_LAT]);
@@ -542,7 +584,7 @@
           );
       });
 
-      // 2) Solo aprobados: obtener los 10 más cercanos
+      // 2) Solo aprobados: top 10 más cercanos
       const aprobados = lista
         .filter(it =>
           (it.proyecto[FIELD_ESTADO] || "")
@@ -579,8 +621,7 @@
       };
 
       // 4) Totales overview
-      const totalRadio =
-        resApr.total + resEval.total + resRech.total;
+      const totalRadio = resApr.total + resEval.total + resRech.total;
 
       document.getElementById("invTotal").textContent =
         formatNumber(totalRadio);
@@ -611,7 +652,7 @@
       initMap([lat, lng]);
 
       const utmConsulta = wgs84ToUTM19S(lat, lng);
-      cargarProyectos(lat, lng, utmConsulta);
+      cargarProyectosDesdeKML(lat, lng, utmConsulta);
     }
   </script>
 </body>
