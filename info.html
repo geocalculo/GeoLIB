@@ -272,14 +272,14 @@
 
   <!-- Leaflet -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- SheetJS (leer Excel en el navegador) -->
+  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
     // ================== CONFIG ==================
     const EXCEL_FILE = "capas/SEA_Atacama_Proyectos.xlsx";
 
-    // Ajusta estos nombres para que coincidan con los encabezados de tu Excel
+    // Ajusta estos nombres si no coinciden con tu planilla
     const COL_ID      = "id_expediente";
     const COL_NOMBRE  = "nombre_proyecto";
     const COL_ESTADO  = "estado_actual";
@@ -443,10 +443,9 @@
       tbody.innerHTML += fila("Rechazado", resumen.rech);
     }
 
-    // ---- Excel → proyectos estándar
+    // ---- Excel → proyecto estándar
     function mapRowToProyecto(row) {
       const p = {};
-
       p[COL_ID]     = row[COL_ID];
       p[COL_NOMBRE] = row[COL_NOMBRE];
       p[COL_ESTADO] = row[COL_ESTADO];
@@ -457,7 +456,6 @@
       p[COL_LNG]    = row[COL_LNG];
       p[COL_URL]    = row[COL_URL];
 
-      // Si no viene URL y sí viene id_expediente, construir link al SEA
       if (!p[COL_URL] && p[COL_ID]) {
         p[COL_URL] =
           "https://seia.sea.gob.cl/expediente/ficha/fichaPrincipal.php?modo=normal&id_expediente=" +
@@ -467,23 +465,31 @@
       return p;
     }
 
-    // ================== MAPA & FLUJO ==================
+    // ================== MAPA & PARÁMETROS ==================
     let map;
 
     const params = new URLSearchParams(window.location.search);
     const latStr = params.get("lat");
     const lngStr = params.get("lng");
+    const zStr   = params.get("z");
 
     const lat = toNumber(latStr);
     const lng = toNumber(lngStr);
+    const zoomFromUrl = parseInt(zStr, 10);
 
     const ubicacionSpan = document.getElementById("ubicacion");
     const mensajeEstado = document.getElementById("mensajeEstado");
 
-    function initMap(centerLatLng) {
+    function initMap(centerLatLng, zoomOverride) {
       const fallbackCenter = [-27.366, -70.333];
       const center = centerLatLng || fallbackCenter;
-      const zoom = centerLatLng ? 8 : 7;
+
+      let zoom;
+      if (!isNaN(zoomOverride)) {
+        zoom = zoomOverride;
+      } else {
+        zoom = centerLatLng ? 8 : 7;
+      }
 
       map = L.map("map").setView(center, zoom);
 
@@ -521,7 +527,6 @@
 
         rows.forEach(row => {
           const p = mapRowToProyecto(row);
-
           const plat = toNumber(p[COL_LAT]);
           const plng = toNumber(p[COL_LNG]);
           if (isNaN(plat) || isNaN(plng)) return;
@@ -610,9 +615,9 @@
       // 4) Totales overview
       const totalRadio = resApr.total + resEval.total + resRech.total;
 
-      document.getElementById("invTotal").textContent     = formatNumber(totalRadio);
-      document.getElementById("invAprobados").textContent = formatNumber(resApr.total);
-      document.getElementById("invRechazados").textContent= formatNumber(resRech.total);
+      document.getElementById("invTotal").textContent      = formatNumber(totalRadio);
+      document.getElementById("invAprobados").textContent  = formatNumber(resApr.total);
+      document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
 
       dibujarCuadroResumenEstados(resumen);
 
@@ -624,16 +629,16 @@
 
     // ================== ARRANQUE ==================
     if (latStr === null || lngStr === null || isNaN(lat) || isNaN(lng)) {
-      document.getElementById("ubicacion").textContent =
+      ubicacionSpan.textContent =
         "coordenadas no válidas (faltan parámetros lat/lon).";
-      initMap(null);
+      initMap(null, NaN);
       mensajeEstado.innerHTML =
         '<span style="color:#ea580c;">No se pudo leer el punto consultado. Abra este reporte desde el mapa principal.</span>';
     } else {
-      document.getElementById("ubicacion").textContent =
+      ubicacionSpan.textContent =
         "Lat: " + lat.toFixed(6) + ", Lng: " + lng.toFixed(6);
       actualizarUTMDisplay(lat, lng);
-      initMap([lat, lng]);
+      initMap([lat, lng], zoomFromUrl);
 
       const utmConsulta = wgs84ToUTM19S(lat, lng);
       cargarProyectosDesdeExcel(lat, lng, utmConsulta);
