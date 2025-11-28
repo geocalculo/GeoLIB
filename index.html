@@ -106,23 +106,30 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    document.getElementById("year").textContent = new Date().getFullYear();
+  document.getElementById("year").textContent = new Date().getFullYear();
 
-    const centroCopiapo = [-27.366, -70.333];
-    const map = L.map("map").setView(centroCopiapo, 8);
+  const centroCopiapo = [-27.366, -70.333];
+  const map = L.map("map").setView(centroCopiapo, 8);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
 
-    map.on("click", function (e) {
-      const lat = e.latlng.lat.toFixed(6);
-      const lng = e.latlng.lng.toFixed(6);
-      const url = `info.html?lat=${lat}&lng=${lng}`;
-      window.location.href = url;   // sin popup, pasa directo al reporte
-    });
-  </script>
+  map.on("click", function (e) {
+    const lat  = e.latlng.lat.toFixed(6);
+    const lng  = e.latlng.lng.toFixed(6);
+    const zoom = map.getZoom();              // <<< tomamos el zoom actual
+
+    const url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}`;
+
+    // Abrir info.html en una pestaña nueva
+    window.open(url, "_blank");
+  });
+</script>
+
+
+  
 </body>
 </html>
