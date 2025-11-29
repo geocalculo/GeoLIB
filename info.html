@@ -20,6 +20,9 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+  <!-- SheetJS (para leer el Excel) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
     body {
       background-color: #f3f4f6;
@@ -235,7 +238,7 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- GeoLib (utilidades propias) -->
+  <!-- GeoLib -->
   <script src="geolib.js"></script>
 
   <script>
@@ -253,7 +256,7 @@
     // ==========================
     // Configuración general
     // ==========================
-    const DATA_URL = "proyectos_cercanos.json"; // AJUSTAR al nombre real exportado por tu extractor
+    const DATA_XLSX_URL = "capas/SEA_Atacama_Proyectos.xlsx";
 
     let proyectosOriginal = [];
     let proyectosEnRadio = [];
@@ -270,7 +273,6 @@
     // ==========================
     // Funciones auxiliares
     // ==========================
-
     function normalizarEstado(estadoRaw) {
       if (!estadoRaw) return "Sin información";
       const e = estadoRaw.toLowerCase();
@@ -442,10 +444,10 @@
         tdNombre.textContent = p.nombre_proyecto || "-";
 
         const tdRegion = document.createElement("td");
-        tdRegion.textContent = p.region || p.Region || "-";
+        tdRegion.textContent = p.region || "-";
 
         const tdComuna = document.createElement("td");
-        tdComuna.textContent = p.comuna || p.Comuna || "-";
+        tdComuna.textContent = p.comuna || "-";
 
         const tdTipo = document.createElement("td");
         tdTipo.textContent = p.tipo_proyecto || "-";
@@ -587,33 +589,99 @@
       .addEventListener("click", quitarFiltro);
 
     // ==========================
-    // Carga de datos
+    // Carga de datos desde Excel
     // ==========================
     async function cargarDatos() {
       try {
-        const resp = await fetch(DATA_URL);
+        const resp = await fetch(DATA_XLSX_URL);
         if (!resp.ok) {
-          console.error("No se pudo cargar el JSON de proyectos");
+          console.error("No se pudo cargar el Excel de proyectos");
           return;
         }
-        const data = await resp.json();
 
-        proyectosOriginal = (data.proyectos || data) .map(p => {
-          const lat = p.lat != null ? Number(p.lat) : Number(p.Lat);
-          const lon = p.lon != null ? Number(p.lon) : Number(p.Lng || p.lng);
+        const arrayBuffer = await resp.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
 
-          const montoNum =
-            p.monto_inversion_num != null
-              ? Number(p.monto_inversion_num)
-              : parseMontoInversion(p.monto_inversion);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        // Cada fila del Excel será un objeto JS
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+        proyectosOriginal = rows.map(r => {
+          const lat = Number(
+            r.lat ||
+            r.Lat ||
+            r.LAT ||
+            r.Latitud ||
+            r.LATITUD
+          );
+
+          const lon = Number(
+            r.lng ||
+            r.Lng ||
+            r.LNG ||
+            r.Longitud ||
+            r.LONGITUD
+          );
+
+          const estado_actual =
+            r.estado_actual ||
+            r.Estado ||
+            r["Estado actual"] ||
+            r["Estado"];
+
+          const nombre_proyecto =
+            r.nombre_proyecto ||
+            r["Nombre del Proyecto"] ||
+            r["Nombre proyecto"];
+
+          const tipo_proyecto =
+            r.tipo_proyecto ||
+            r["Tipo de Proyecto"] ||
+            r["Tipo de proyecto"];
+
+          const forma_presentacion =
+            r.forma_presentacion ||
+            r["Tipo de Presentación"] ||
+            r["Forma de Presentación"];
+
+          const region =
+            r.region ||
+            r["Región"];
+
+          const comuna =
+            r.comuna ||
+            r["Comuna"];
+
+          const montoRaw =
+            r.monto_inversion ||
+            r["Inversión (MMU$)"] ||
+            r["Inversion (MMU$)"];
+
+          const id_expediente =
+            r.id_expediente ||
+            r["ID expediente"] ||
+            r["Id_Expediente"] ||
+            r["id_exp"];
+
+          const montoNum = parseMontoInversion(montoRaw);
 
           return {
-            ...p,
+            ...r,
             lat,
             lon,
+            estado_actual,
+            nombre_proyecto,
+            tipo_proyecto,
+            forma_presentacion,
+            region,
+            comuna,
             monto_inversion_num: montoNum,
+            id_expediente,
           };
-        });
+        }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
 
         // 1) Filtrar aprobados y obtener los 10 más cercanos
         const aprobados = proyectosOriginal.filter(p =>
@@ -638,7 +706,7 @@
         actualizarGraficos();
         dibujarOverview();
       } catch (err) {
-        console.error("Error cargando datos de proyectos:", err);
+        console.error("Error cargando datos de proyectos desde Excel:", err);
       }
     }
 
