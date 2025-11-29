@@ -11,6 +11,12 @@
     rel="stylesheet"
   />
 
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
@@ -44,6 +50,28 @@
       padding-top: 0.75rem;
       padding-bottom: 0.75rem;
     }
+
+    /* Overview cuadrado, mitad de ancho en PC */
+    .map-wrapper {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    @media (min-width: 992px) {
+      .map-wrapper {
+        width: 50%;
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+
+    #mapOverview {
+      width: 100%;
+      height: 100%;
+    }
   </style>
 </head>
 <body>
@@ -68,7 +96,7 @@
               Resumen de proyectos alrededor del punto consultado
             </h1>
             <p class="text-muted mb-1" id="texto-radio">
-              <!-- Texto de radio o zoom -->
+              Radio de análisis alrededor del punto consultado.
             </p>
           </div>
           <div class="text-end">
@@ -81,6 +109,23 @@
             <button class="btn btn-outline-secondary btn-sm ms-2" id="btn-limpiar-filtro">
               Quitar filtro
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overview con mapa -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="h6 mb-2">Distribución espacial de los proyectos</h2>
+            <p class="text-muted small mb-3" id="texto-mapa">
+              Mapa de overview definido por los 10 proyectos aprobados más cercanos.
+            </p>
+            <div class="map-wrapper">
+              <div id="mapOverview"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -194,10 +239,17 @@
     </div>
   </main>
 
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
     // ============================================================
     // 1. LECTURA BÁSICA DE QUERYSTRING (lat, lng, z opcional)
     // ============================================================
+    let latConsulta = null;
+    let lngConsulta = null;
+    let zoomConsulta = null;
+
     (function leerQuery() {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -206,15 +258,18 @@
         const z = params.get("z");
 
         if (lat && lng) {
+          latConsulta = Number(lat);
+          lngConsulta = Number(lng);
           document.getElementById("info-coord").textContent =
-            `Coordenadas consulta: lat ${Number(lat).toFixed(6)}, lng ${Number(lng).toFixed(6)}`;
+            `Coordenadas consulta: lat ${latConsulta.toFixed(6)}, lng ${lngConsulta.toFixed(6)}`;
         } else {
           document.getElementById("info-coord").textContent = "";
         }
 
         if (z) {
+          zoomConsulta = Number(z);
           document.getElementById("texto-radio").textContent =
-            `Zoom de análisis: ${z}.`;
+            `Zoom inicial de análisis: ${z}.`;
         } else {
           document.getElementById("texto-radio").textContent =
             "Radio de análisis alrededor del punto consultado.";
@@ -227,17 +282,18 @@
     // ============================================================
     // 2. DATOS DE ENTRADA
     // ============================================================
-    // IMPORTANTE:
-    // Reemplaza este arreglo por el JSON que generas desde Python.
-    // Estructura mínima por proyecto:
-    // {
-    //   id_expediente: "2163984847",
-    //   nombre: "Nombre del proyecto",
-    //   estado: "Aprobado" | "En evaluación" | "Rechazado",
-    //   sector: "Energía" | "Minería" | ...,
-    //   inversion_mm: 204.0,
-    //   distancia_m: 15849
-    // }
+    // Reemplaza este arreglo por el JSON real generado desde Python.
+    // IMPORTANTE: idealmente incluir también lat y lng para dibujar marcadores:
+    //  {
+    //    id_expediente: "2163984847",
+    //    nombre: "Proyecto X",
+    //    estado: "Aprobado",
+    //    sector: "Energía",
+    //    inversion_mm: 204.0,
+    //    distancia_m: 15849,
+    //    lat: -27.123456,
+    //    lng: -70.123456
+    //  }
 
     const proyectos = [
       {
@@ -246,7 +302,9 @@
         estado: "Aprobado",
         sector: "Energía",
         inversion_mm: 204,
-        distancia_m: 15849
+        distancia_m: 15849,
+        lat: -27.123,
+        lng: -70.123
       },
       {
         id_expediente: "2161111111",
@@ -254,7 +312,9 @@
         estado: "Rechazado",
         sector: "Agropecuario",
         inversion_mm: 254,
-        distancia_m: 19807
+        distancia_m: 19807,
+        lat: -27.20,
+        lng: -70.10
       },
       {
         id_expediente: "2162222222",
@@ -262,7 +322,9 @@
         estado: "Aprobado",
         sector: "Saneamiento Ambiental",
         inversion_mm: 256.4,
-        distancia_m: 12000
+        distancia_m: 12000,
+        lat: -27.18,
+        lng: -70.15
       }
       // <-- AQUÍ se insertan los demás proyectos reales
     ];
@@ -271,12 +333,13 @@
     // 3. VARIABLES GLOBALES
     // ============================================================
     const estadosOrden = ["Aprobado", "En evaluación", "Rechazado"];
-    let proyectosFull = Array.isArray(proyectos) ? [...proyectos] : [];
+
+    const proyectosBase = Array.isArray(proyectos) ? [...proyectos] : [];
+    let proyectosFull = [];   // se llenará con los proyectos dentro del radio
     let filtroEstado = null;
 
-    // Badge inicial de total
-    document.getElementById("badge-total").textContent =
-      "Total proyectos: " + proyectosFull.length;
+    let mapOverview = null;
+    let circleRadio = null;
 
     // ============================================================
     // 4. FUNCIONES HELPER
@@ -338,7 +401,124 @@
     }
 
     // ============================================================
-    // 5. CREACIÓN DE GRÁFICOS
+    // 5. MAPA OVERVIEW
+    // ============================================================
+    function initMapOverviewIfNeeded() {
+      if (!latConsulta || !lngConsulta) {
+        document.getElementById("texto-mapa").textContent =
+          "No se pudieron leer las coordenadas del punto consultado.";
+        return;
+      }
+
+      if (mapOverview) return;
+
+      const center = [latConsulta, lngConsulta];
+      const z = isNaN(zoomConsulta) ? 10 : zoomConsulta;
+
+      mapOverview = L.map("mapOverview").setView(center, z);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19
+      }).addTo(mapOverview);
+
+      // Punto consultado
+      L.circleMarker(center, {
+        radius: 7,
+        color: "#0ea5e9",
+        fillColor: "#38bdf8",
+        fillOpacity: 0.9,
+        weight: 2
+      }).addTo(mapOverview);
+    }
+
+    function agregarMarkerProyectoMapa(p) {
+      if (!mapOverview) return;
+      if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
+
+      let color = "#6b7280"; // gris por defecto
+      const estado = (p.estado || "").toLowerCase();
+      if (estado.includes("aprob")) color = "#22c55e";       // verde
+      else if (estado.includes("eval")) color = "#eab308";   // amarillo
+      else if (estado.includes("rechaz")) color = "#ef4444"; // rojo
+
+      const marker = L.circleMarker([p.lat, p.lng], {
+        radius: 6,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.9
+      }).addTo(mapOverview);
+
+      const popupHtml = `
+        <strong>${p.nombre || "Proyecto sin nombre"}</strong><br>
+        Estado: ${p.estado || "-"}<br>
+        Distancia: ${formatearNumero(p.distancia_m || 0, 0)} m
+      `;
+      marker.bindPopup(popupHtml);
+    }
+
+    function prepararRadioYMapa() {
+      initMapOverviewIfNeeded();
+
+      if (!proyectosBase.length) {
+        document.getElementById("texto-mapa").textContent =
+          "No se encontraron proyectos en el entorno inmediato.";
+        proyectosFull = [];
+        return;
+      }
+
+      // 10 aprobados más cercanos (igual que versión antigua)
+      const aprobados = proyectosBase
+        .filter(p => (p.estado || "").toLowerCase().includes("aprob"))
+        .sort((a, b) => (a.distancia_m || 0) - (b.distancia_m || 0))
+        .slice(0, 10);
+
+      let radio = 0;
+      if (aprobados.length) {
+        const ultimo = aprobados[aprobados.length - 1];
+        radio = Number(ultimo.distancia_m || 0);
+      }
+
+      if (radio > 0 && mapOverview && latConsulta && lngConsulta) {
+        if (circleRadio) {
+          mapOverview.removeLayer(circleRadio);
+        }
+        circleRadio = L.circle([latConsulta, lngConsulta], {
+          radius: radio,
+          color: "#0ea5e9",
+          weight: 1.5,
+          fillOpacity: 0
+        }).addTo(mapOverview);
+
+        mapOverview.fitBounds(circleRadio.getBounds(), { padding: [20, 20] });
+
+        document.getElementById("texto-mapa").textContent =
+          `Radio de análisis definido por los 10 proyectos aprobados más cercanos: ` +
+          `${formatearNumero(radio, 0)} m (${(radio / 1000).toFixed(2)} km).`;
+
+        document.getElementById("texto-radio").textContent =
+          `Radio de análisis alrededor del punto consultado: ${formatearNumero(radio, 0)} m.`;
+      } else {
+        document.getElementById("texto-mapa").textContent =
+          "No se encontraron proyectos aprobados para definir el radio de análisis. Se muestran todos los proyectos.";
+        if (mapOverview && latConsulta && lngConsulta) {
+          mapOverview.setView([latConsulta, lngConsulta], isNaN(zoomConsulta) ? 10 : zoomConsulta);
+        }
+      }
+
+      // Proyectos dentro del radio (o todos si radio = 0)
+      proyectosFull = proyectosBase.filter(p =>
+        radio === 0 ? true : (p.distancia_m || 0) <= radio
+      );
+
+      // Dibujar marcadores dentro del radio
+      proyectosFull.forEach(p => agregarMarkerProyectoMapa(p));
+
+      // Actualizar badge de total
+      document.getElementById("badge-total").textContent =
+        "Total proyectos: " + proyectosFull.length;
+    }
+
+    // ============================================================
+    // 6. CREACIÓN DE GRÁFICOS
     // ============================================================
     const ctxPie = document.getElementById("chartInversionEstado");
     const ctxBar = document.getElementById("chartCantidadEstado");
@@ -424,7 +604,7 @@
     });
 
     // ============================================================
-    // 6. ACTUALIZAR GRÁFICOS Y TABLAS
+    // 7. ACTUALIZAR GRÁFICOS Y TABLAS
     // ============================================================
     function actualizarTodo(lista) {
       const resumenEst = resumenPorEstado(lista);
@@ -515,7 +695,7 @@
     }
 
     // ============================================================
-    // 7. FILTRO TIPO POWER BI
+    // 8. FILTRO TIPO POWER BI
     // ============================================================
     function actualizarBadgeFiltro() {
       const badge = document.getElementById("badge-filtro");
@@ -555,10 +735,15 @@
       });
 
     // ============================================================
-    // 8. INICIALIZACIÓN
+    // 9. INICIALIZACIÓN GENERAL
     // ============================================================
-    actualizarBadgeFiltro();
-    actualizarTodo(proyectosFull);
+    function init() {
+      prepararRadioYMapa();           // define radio, proyectosFull y dibuja overview
+      actualizarBadgeFiltro();
+      actualizarTodo(proyectosFull);  // gráficos y tablas con proyectos dentro del radio
+    }
+
+    init();
   </script>
 </body>
 </html>
