@@ -284,9 +284,16 @@
             <canvas id="chartCantidad"></canvas>
           </div>
         </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Inversión por sector económico</div>
+          <div class="chart-wrapper">
+            <canvas id="chartSector"></canvas>
+          </div>
+        </div>
       </div>
 
-      <h3 style="font-size:0.95rem; color:#0f172a; font-weight:600;">Resumen</h3>
+      <h3 style="font-size:0.95rem; color:#0f172a; font-weight:600;">Resumen por estado</h3>
 
       <table>
         <thead>
@@ -299,6 +306,20 @@
           </tr>
         </thead>
         <tbody id="tablaEstadosBody"></tbody>
+      </table>
+
+      <h3 style="font-size:0.95rem; color:#0f172a; font-weight:600; margin-top:12px;">
+        Inversión por sector económico
+      </h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Sector económico</th>
+            <th>Total inversión (MMUS$)</th>
+          </tr>
+        </thead>
+        <tbody id="tablaSectorBody"></tbody>
       </table>
 
       <div class="note">
@@ -332,6 +353,9 @@
     const COL_FECHA  = "Fecha Presentación";
     const COL_LAT    = "Latitud Punto Representativo";
     const COL_LNG    = "Longitud Punto Representativo";
+
+    // 👉 Ajusta este nombre al encabezado real del sector económico (columna N)
+    const COL_SECTOR = "Sector Económico";  // ej. "Tipo de Proyecto" si así se llama tu columna
 
     function toNumber(v) {
       if (v === null || v === undefined) return NaN;
@@ -391,13 +415,14 @@
     function mapRow(r) {
       return {
         nombre: r[COL_NOMBRE],
-        web: r[COL_WEB],              // URL completa del expediente (ya limpiada en Excel)
+        web: r[COL_WEB],              // URL completa del expediente
         estado: r[COL_ESTADO],
         monto: toNumber(r[COL_MONTO]),
         comuna: r[COL_COMUNA],
         fecha: r[COL_FECHA],
         lat: toNumber(r[COL_LAT]),
-        lng: toNumber(r[COL_LNG])
+        lng: toNumber(r[COL_LNG]),
+        sector: r[COL_SECTOR] || "Sin sector"
       };
     }
 
@@ -419,39 +444,23 @@
       };
     }
 
-    // Agrega un marker con popup y link al expediente (WEB)
-    function agregarMarkerProyecto(p, color) {
-      const marker = L.circleMarker([p.lat, p.lng], {
-        radius: 6,
-        color: color,
-        fillColor: color,
-        fillOpacity: 0.9
-      }).addTo(map);
+    // Agrupa por sector económico (suma de montos)
+    function calcularPorSector(lista) {
+      const acumulado = {};
+      lista.forEach(i => {
+        const p = i.proyecto;
+        if (isNaN(p.monto)) return;
+        const sector = p.sector || "Sin sector";
+        acumulado[sector] = (acumulado[sector] || 0) + p.monto;
+      });
 
-      const urlExp = p.web;
+      const sectores = Object.keys(acumulado).sort();
+      const totales = sectores.map(s => acumulado[s]);
 
-      let popupHtml = `
-        <strong>${p.nombre || "Proyecto sin nombre"}</strong><br>
-        Estado: ${p.estado || "-"}
-      `;
-
-      if (urlExp) {
-        popupHtml += `
-          <br>
-          <a href="${urlExp}"
-             target="_blank"
-             rel="noopener noreferrer">
-             Ver expediente SEIA
-          </a>
-        `;
-
-        // clic directo abre el expediente
-        marker.on("click", () => window.open(urlExp, "_blank"));
-      }
-
-      marker.bindPopup(popupHtml);
+      return { sectores, totales };
     }
 
+    // Tabla resumen por estado
     function dibujarResumen(res) {
       const tbody = document.getElementById("tablaEstadosBody");
       tbody.innerHTML = "";
@@ -472,9 +481,22 @@
       tbody.innerHTML += fila("Rechazado", res.rech);
     }
 
-    let chartInversion, chartCantidad;
+    // Tabla por sector económico
+    function dibujarTablaSector(sectorData) {
+      const tbody = document.getElementById("tablaSectorBody");
+      tbody.innerHTML = "";
+      sectorData.sectores.forEach((s, idx) => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${s}</td>
+            <td>${formatNumber(sectorData.totales[idx])}</td>
+          </tr>`;
+      });
+    }
 
-    function actualizarGraficos(res) {
+    let chartInversion, chartCantidad, chartSector;
+
+    function actualizarGraficosEstado(res) {
       const labels = ["Aprobado", "En evaluación", "Rechazado"];
       const inv   = [res.apr.total, res.eval.total, res.rech.total];
       const cant  = [res.apr.cantidad, res.eval.cantidad, res.rech.cantidad];
@@ -490,6 +512,21 @@
       chartCantidad = new Chart(document.getElementById("chartCantidad"), {
         type:"bar",
         data:{ labels, datasets:[{data:cant}] },
+        options:{
+          plugins:{ legend:{display:false} },
+          scales:{ y:{beginAtZero:true} }
+        }
+      });
+    }
+
+    function actualizarGraficoSector(sectorData) {
+      if (chartSector) chartSector.destroy();
+      chartSector = new Chart(document.getElementById("chartSector"), {
+        type:"bar",
+        data:{
+          labels: sectorData.sectores,
+          datasets:[{ data: sectorData.totales }]
+        },
         options:{
           plugins:{ legend:{display:false} },
           scales:{ y:{beginAtZero:true} }
@@ -514,6 +551,36 @@
         fillOpacity: 0.9,
         weight: 2
       }).addTo(map);
+    }
+
+    function agregarMarkerProyecto(p, color) {
+      const marker = L.circleMarker([p.lat, p.lng], {
+        radius: 6,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.9
+      }).addTo(map);
+
+      const urlExp = p.web;
+
+      let popupHtml = `
+        <strong>${p.nombre || "Proyecto sin nombre"}</strong><br>
+        Estado: ${p.estado || "-"}
+      `;
+
+      if (urlExp) {
+        popupHtml += `
+          <br>
+          <a href="${urlExp}"
+             target="_blank"
+             rel="noopener noreferrer">
+             Ver expediente SEIA
+          </a>
+        `;
+        marker.on("click", () => window.open(urlExp, "_blank"));
+      }
+
+      marker.bindPopup(popupHtml);
     }
 
     const url = new URLSearchParams(window.location.search);
@@ -577,31 +644,23 @@
               "No se encontraron proyectos aprobados en el entorno inmediato.";
           }
 
-          // Filtrar dentro del radio
-          const evaluacion = lista.filter(i =>
-            (i.proyecto.estado||"").toLowerCase().includes("eval") &&
-            i.distM <= radio
+          // Filtrar dentro del radio (cualquier estado)
+          const dentroRadio = lista.filter(i => i.distM <= radio || radio === 0);
+
+          const evaluacion = dentroRadio.filter(i =>
+            (i.proyecto.estado||"").toLowerCase().includes("eval")
           );
 
-          const rechaz = lista.filter(i =>
-            (i.proyecto.estado||"").toLowerCase().includes("rechaz") &&
-            i.distM <= radio
+          const rechaz = dentroRadio.filter(i =>
+            (i.proyecto.estado||"").toLowerCase().includes("rechaz")
           );
 
-          // Markers: 10 aprobados + evaluados + rechazados, con link al expediente
-          aprob.forEach(i => {
-            agregarMarkerProyecto(i.proyecto, "#22c55e");   // verde
-          });
+          // Markers: 10 aprobados + eval + rechazados
+          aprob.forEach(i => agregarMarkerProyecto(i.proyecto, "#22c55e"));   // verde
+          evaluacion.forEach(i => agregarMarkerProyecto(i.proyecto, "#eab308")); // amarillo
+          rechaz.forEach(i => agregarMarkerProyecto(i.proyecto, "#ef4444"));  // rojo
 
-          evaluacion.forEach(i => {
-            agregarMarkerProyecto(i.proyecto, "#eab308");   // amarillo
-          });
-
-          rechaz.forEach(i => {
-            agregarMarkerProyecto(i.proyecto, "#ef4444");   // rojo
-          });
-
-          // Resúmenes
+          // Resúmenes por estado
           const resApr  = calcularStats(aprob);
           const resEval = calcularStats(evaluacion);
           const resRech = calcularStats(rechaz);
@@ -612,7 +671,12 @@
           document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
 
           dibujarResumen({apr:resApr, eval:resEval, rech:resRech});
-          actualizarGraficos({apr:resApr, eval:resEval, rech:resRech});
+          actualizarGraficosEstado({apr:resApr, eval:resEval, rech:resRech});
+
+          // Resumen por sector económico (usando todos los proyectos dentro del radio)
+          const sectorData = calcularPorSector(dentroRadio);
+          dibujarTablaSector(sectorData);
+          actualizarGraficoSector(sectorData);
         });
     }
   </script>
