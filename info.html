@@ -125,4 +125,406 @@
                   <tr>
                     <th>Estado</th>
                     <th class="text-end">Cantidad</th>
-                    <th class="text-end">Total
+                    <th class="text-end">Total inversión (MMUS$)</th>
+                    <th class="text-end">Promedio (MMUS$)</th>
+                    <th class="text-end">Dist. promedio (m)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyResumenEstado">
+                  <!-- se rellena con JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-body">
+            <h2 class="h6 mb-3">Inversión por sector económico</h2>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Sector económico</th>
+                    <th class="text-end">Total inversión (MMUS$)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyResumenSector">
+                  <!-- se rellena con JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla detalle de proyectos -->
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h2 class="h6 mb-0">Detalle de proyectos</h2>
+              <span class="text-muted small" id="texto-detalle"></span>
+            </div>
+            <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="sticky-header">
+                  <tr>
+                    <th>ID expediente</th>
+                    <th>Nombre proyecto</th>
+                    <th>Estado</th>
+                    <th>Sector</th>
+                    <th class="text-end">Inversión (MMUS$)</th>
+                    <th class="text-end">Distancia (m)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyDetalleProyectos">
+                  <!-- se rellena con JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ============================================================
+    // 1. DATOS DE ENTRADA
+    // ============================================================
+    // ==> AQUÍ debes inyectar desde Python tus proyectos reales.
+    // Cada proyecto debe tener al menos:
+    // id_expediente, nombre, estado, sector, inversion_mm (número), distancia_m (número)
+    //
+    // EJEMPLO (BORRAR Y REEMPLAZAR POR TUS DATOS REALES):
+    const proyectos = [
+      {
+        id_expediente: "2163984847",
+        nombre: "Adecuación Proyecto Parque Candelaria Solar",
+        estado: "Aprobado",
+        sector: "Energía",
+        inversion_mm: 204,
+        distancia_m: 15849
+      },
+      {
+        id_expediente: "2161111111",
+        nombre: "Sistema de Riego Agrícola",
+        estado: "Rechazado",
+        sector: "Agropecuario",
+        inversion_mm: 254,
+        distancia_m: 19807
+      },
+      {
+        id_expediente: "2162222222",
+        nombre: "Planta de Tratamiento de Aguas",
+        estado: "Aprobado",
+        sector: "Saneamiento Ambiental",
+        inversion_mm: 256.4,
+        distancia_m: 12000
+      }
+      // ...
+    ];
+    // ============================================================
+
+    // Si quieres, desde Python puedes también setear estos textos:
+    document.getElementById("texto-radio").textContent =
+      "Radio de análisis: 28.164 m (28,16 km).";
+    document.getElementById("info-coord").textContent =
+      "Coordenadas consulta: lat -27.4158, lng -70.7643";
+
+    // Variables globales
+    const estadosOrden = ["Aprobado", "En evaluación", "Rechazado"];
+    let proyectosFull = [...proyectos];
+    let filtroEstado = null;
+
+    // Badges iniciales
+    document.getElementById("badge-total").textContent =
+      "Total proyectos: " + proyectosFull.length;
+
+    // ============================================================
+    // 2. HELPERS
+    // ============================================================
+    function formatearNumero(x, dec = 0) {
+      if (x === null || x === undefined || isNaN(x)) return "0";
+      return x
+        .toLocaleString("es-CL", {
+          minimumFractionDigits: dec,
+          maximumFractionDigits: dec
+        });
+    }
+
+    function resumenPorEstado(lista) {
+      const res = {};
+      estadosOrden.forEach(est => {
+        res[est] = {
+          estado: est,
+          cantidad: 0,
+          totalInv: 0,
+          promInv: 0,
+          promDist: 0
+        };
+      });
+
+      lista.forEach(p => {
+        const clave = p.estado || "Sin información";
+        if (!res[clave]) {
+          res[clave] = {
+            estado: clave,
+            cantidad: 0,
+            totalInv: 0,
+            promInv: 0,
+            promDist: 0
+          };
+        }
+        res[clave].cantidad += 1;
+        res[clave].totalInv += Number(p.inversion_mm || 0);
+        res[clave].promDist += Number(p.distancia_m || 0);
+      });
+
+      Object.values(res).forEach(r => {
+        if (r.cantidad > 0) {
+          r.promInv = r.totalInv / r.cantidad;
+          r.promDist = r.promDist / r.cantidad;
+        }
+      });
+
+      return res;
+    }
+
+    function resumenPorSector(lista) {
+      const res = {};
+      lista.forEach(p => {
+        const sec = p.sector || "Sin información";
+        if (!res[sec]) res[sec] = 0;
+        res[sec] += Number(p.inversion_mm || 0);
+      });
+      return res;
+    }
+
+    // ============================================================
+    // 3. CREACIÓN DE GRÁFICOS
+    // ============================================================
+    const ctxPie = document.getElementById("chartInversionEstado");
+    const ctxBar = document.getElementById("chartCantidadEstado");
+    const ctxSector = document.getElementById("chartInversionSector");
+
+    // Inicializamos con datos vacíos; se llenan luego
+    const chartPie = new Chart(ctxPie, {
+      type: "pie",
+      data: {
+        labels: estadosOrden,
+        datasets: [
+          {
+            data: [0, 0, 0]
+          }
+        ]
+      },
+      options: {
+        plugins: {
+          legend: {
+            position: "bottom"
+          }
+        }
+      }
+    });
+
+    const chartBar = new Chart(ctxBar, {
+      type: "bar",
+      data: {
+        labels: estadosOrden,
+        datasets: [
+          {
+            label: "Cantidad de proyectos",
+            data: [0, 0, 0]
+          }
+        ]
+      },
+      options: {
+        onClick: (evt, elements) => {
+          if (!elements.length) return;
+          const idx = elements[0].index;
+          const estadoClick = chartBar.data.labels[idx];
+          aplicarFiltroEstado(estadoClick);
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1
+            }
+          }
+        }
+      }
+    });
+
+    const chartSector = new Chart(ctxSector, {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Inversión (MMUS$)",
+            data: []
+          }
+        ]
+      },
+      options: {
+        indexAxis: "y",
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    // ============================================================
+    // 4. ACTUALIZAR TODO SEGÚN LISTA (GRÁFICOS + TABLAS)
+    // ============================================================
+    function actualizarTodo(lista) {
+      // --- gráficos ---
+      const resumenEst = resumenPorEstado(lista);
+      const resumenSec = resumenPorSector(lista);
+
+      const cantidades = estadosOrden.map(
+        est => (resumenEst[est] ? resumenEst[est].cantidad : 0)
+      );
+      const inversionesPorEstado = estadosOrden.map(
+        est => (resumenEst[est] ? resumenEst[est].totalInv : 0)
+      );
+
+      chartPie.data.labels = estadosOrden;
+      chartPie.data.datasets[0].data = inversionesPorEstado;
+      chartPie.update();
+
+      chartBar.data.labels = estadosOrden;
+      chartBar.data.datasets[0].data = cantidades;
+      chartBar.update();
+
+      chartSector.data.labels = Object.keys(resumenSec);
+      chartSector.data.datasets[0].data = Object.values(resumenSec);
+      chartSector.update();
+
+      // --- tablas ---
+      actualizarTablaEstado(resumenEst);
+      actualizarTablaSector(resumenSec);
+      actualizarTablaDetalle(lista);
+
+      // textos
+      document.getElementById("badge-total").textContent =
+        "Total proyectos: " + proyectosFull.length;
+
+      const textoDetalle = filtroEstado
+        ? `Mostrando ${lista.length} proyecto(s) con estado "${filtroEstado}".`
+        : `Mostrando ${lista.length} proyecto(s) (todos los estados).`;
+      document.getElementById("texto-detalle").textContent = textoDetalle;
+    }
+
+    function actualizarTablaEstado(resumenEst) {
+      const tbody = document.getElementById("tbodyResumenEstado");
+      tbody.innerHTML = "";
+
+      estadosOrden.forEach(est => {
+        const r = resumenEst[est];
+        if (!r) return;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${est}</td>
+          <td class="text-end">${formatearNumero(r.cantidad)}</td>
+          <td class="text-end">${formatearNumero(r.totalInv, 1)}</td>
+          <td class="text-end">${formatearNumero(r.promInv, 1)}</td>
+          <td class="text-end">${formatearNumero(r.promDist, 0)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function actualizarTablaSector(resumenSec) {
+      const tbody = document.getElementById("tbodyResumenSector");
+      tbody.innerHTML = "";
+
+      Object.entries(resumenSec).forEach(([sec, total]) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${sec}</td>
+          <td class="text-end">${formatearNumero(total, 1)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function actualizarTablaDetalle(lista) {
+      const tbody = document.getElementById("tbodyDetalleProyectos");
+      tbody.innerHTML = "";
+      lista.forEach(p => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.id_expediente || ""}</td>
+          <td>${p.nombre || ""}</td>
+          <td>${p.estado || ""}</td>
+          <td>${p.sector || ""}</td>
+          <td class="text-end">${formatearNumero(p.inversion_mm, 1)}</td>
+          <td class="text-end">${formatearNumero(p.distancia_m, 0)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ============================================================
+    // 5. FILTRO CRUZADO TIPO POWER BI
+    // ============================================================
+    function actualizarBadgeFiltro() {
+      const badge = document.getElementById("badge-filtro");
+      if (!filtroEstado) {
+        badge.textContent = "Sin filtro activo";
+        badge.classList.remove("text-bg-primary");
+        badge.classList.add("text-bg-secondary");
+      } else {
+        badge.textContent = `Filtro: ${filtroEstado}`;
+        badge.classList.remove("text-bg-secondary");
+        badge.classList.add("text-bg-primary");
+      }
+    }
+
+    function aplicarFiltroEstado(estadoClick) {
+      if (filtroEstado === estadoClick) {
+        // si vuelves a pinchar la misma barra, se limpia el filtro
+        filtroEstado = null;
+        actualizarBadgeFiltro();
+        actualizarTodo(proyectosFull);
+        return;
+      }
+
+      filtroEstado = estadoClick;
+      actualizarBadgeFiltro();
+
+      const filtrados = proyectosFull.filter(p => p.estado === filtroEstado);
+      actualizarTodo(filtrados);
+    }
+
+    document
+      .getElementById("btn-limpiar-filtro")
+      .addEventListener("click", () => {
+        filtroEstado = null;
+        actualizarBadgeFiltro();
+        actualizarTodo(proyectosFull);
+      });
+
+    // ============================================================
+    // 6. INICIALIZACIÓN
+    // ============================================================
+    actualizarBadgeFiltro();
+    actualizarTodo(proyectosFull);
+  </script>
+</body>
+</html>
