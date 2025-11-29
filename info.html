@@ -158,7 +158,7 @@
     <!-- Mapa + gráficos -->
     <section class="mb-4">
       <div class="row g-3">
-        <!-- Mapa overview (solo 10 aprobados más cercanos) -->
+        <!-- Mapa overview (10 aprobados + otros estados dentro del radio) -->
         <div class="col-12 col-lg-6">
           <div class="card h-100">
             <div class="card-body">
@@ -170,7 +170,8 @@
                 <div id="mapOverview"></div>
               </div>
               <p class="small-text text-muted mt-2">
-                En el mapa se muestran solo los <strong>10 proyectos aprobados más cercanos</strong>.
+                En el mapa se muestran los <strong>10 proyectos aprobados más cercanos</strong>
+                y todos los proyectos rechazados o en evaluación dentro de ese radio.
               </p>
             </div>
           </div>
@@ -273,6 +274,22 @@
     // ==========================
     // Helpers
     // ==========================
+    function normalizeHeader(h) {
+      return String(h || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+    }
+
+    function parseCoord(value) {
+      if (value === null || value === undefined) return null;
+      let s = String(value).trim();
+      if (!s) return null;
+      s = s.replace(",", ".");
+      const n = Number(s);
+      return isNaN(n) ? null : n;
+    }
+
     function normalizarEstado(estadoRaw) {
       if (!estadoRaw) return "Sin información";
 
@@ -289,7 +306,7 @@
       // Aprobados (distintas formas)
       if (e.includes("aprob") || e.includes("favorabl")) return "Aprobado";
 
-      // En calificación / evaluación (en trámite)
+      // En calificación / evaluación
       if (e.includes("calific") || e.includes("evalu")) {
         return "En evaluación";
       }
@@ -305,7 +322,8 @@
       const e = estado.toLowerCase();
       if (e.includes("aprob")) base.classList.add("estado-aprobado");
       else if (e.includes("rechaz")) base.classList.add("estado-rechazado");
-      else if (e.includes("calific") || e.includes("evalu")) base.classList.add("estado-evaluacion");
+      else if (e.includes("calific") || e.includes("evalu"))
+        base.classList.add("estado-evaluacion");
       else base.classList.add("estado-otro");
 
       base.addEventListener("click", () => {
@@ -384,112 +402,105 @@
         .addTo(mapOverview);
     }
 
-function dibujarOverview() {
-  if (!mapOverview) return;
+    function dibujarOverview() {
+      if (!mapOverview) return;
 
-  if (capaProyectosOverview) capaProyectosOverview.remove();
-  if (circuloRadio) circuloRadio.remove();
+      if (capaProyectosOverview) capaProyectosOverview.remove();
+      if (circuloRadio) circuloRadio.remove();
 
-  const grupo = L.layerGroup();
+      const grupo = L.layerGroup();
 
-  // Set de referencias de los 10 aprobados (para distinguirlos en el dibujo)
-  const setTop10 = new Set(top10Aprobados);
+      // conjunto para distinguir los 10 aprobados
+      const setTop10 = new Set(top10Aprobados);
 
-  // Calcular radio a partir del aprobado más lejano
-  let radioKm = 0;
-  if (top10Aprobados.length > 0) {
-    radioKm = top10Aprobados[top10Aprobados.length - 1].dist_km || 0;
-  }
+      // radio a partir del aprobado más lejano
+      let radioKm = 0;
+      if (top10Aprobados.length > 0) {
+        radioKm = top10Aprobados[top10Aprobados.length - 1].dist_km || 0;
+      }
 
-  // Dibujar TODOS los proyectos dentro del radio (aprobados, rechazados y en evaluación)
-  proyectosEnRadio.forEach(p => {
-    if (p.lat == null || p.lon == null) return;
+      proyectosEnRadio.forEach(p => {
+        if (p.lat == null || p.lon == null) return;
 
-    const estadoNorm = normalizarEstado(p.estado_actual);
+        const estadoNorm = normalizarEstado(p.estado_actual);
+        const esTop10Aprobado =
+          setTop10.has(p) && estadoNorm === "Aprobado";
 
-    // Estilo distinto según el estado
-    let options;
+        let options;
 
-    const esTop10Aprobado =
-      setTop10.has(p) && estadoNorm === "Aprobado";
+        if (esTop10Aprobado) {
+          options = {
+            radius: 6,
+            color: "#166534",
+            weight: 2,
+            fillColor: "#22c55e",
+            fillOpacity: 0.95,
+          };
+        } else if (estadoNorm === "Rechazado") {
+          options = {
+            radius: 5,
+            color: "#991b1b",
+            weight: 2,
+            fillColor: "#ef4444",
+            fillOpacity: 0.9,
+          };
+        } else if (estadoNorm === "En evaluación") {
+          options = {
+            radius: 5,
+            color: "#b45309",
+            weight: 2,
+            fillColor: "#f97316",
+            fillOpacity: 0.9,
+          };
+        } else {
+          options = {
+            radius: 4,
+            color: "#4b5563",
+            weight: 1.5,
+            fillColor: "#9ca3af",
+            fillOpacity: 0.8,
+          };
+        }
 
-    if (esTop10Aprobado) {
-      // 10 aprobados más cercanos
-      options = {
-        radius: 6,
-        color: "#166534",
-        weight: 2,
-        fillColor: "#22c55e",
-        fillOpacity: 0.95,
-      };
-    } else if (estadoNorm === "Rechazado") {
-      options = {
-        radius: 5,
-        color: "#991b1b",
-        weight: 2,
-        fillColor: "#ef4444",
-        fillOpacity: 0.9,
-      };
-    } else if (estadoNorm === "En evaluación") {
-      options = {
-        radius: 5,
-        color: "#b45309",
-        weight: 2,
-        fillColor: "#f97316",
-        fillOpacity: 0.9,
-      };
-    } else {
-      // Otros estados dentro del radio
-      options = {
-        radius: 4,
-        color: "#4b5563",
-        weight: 1.5,
-        fillColor: "#9ca3af",
-        fillOpacity: 0.8,
-      };
+        let popupHtml =
+          `<strong>${p.nombre_proyecto || "Proyecto"}</strong><br>` +
+          `Estado: ${estadoNorm}`;
+
+        if (p.dist_km != null) {
+          popupHtml += `<br>Distancia: ${p.dist_km.toFixed(2)} km`;
+        }
+
+        L.circleMarker([p.lat, p.lon], options)
+          .bindPopup(popupHtml)
+          .addTo(grupo);
+      });
+
+      capaProyectosOverview = grupo.addTo(mapOverview);
+
+      if (radioKm > 0) {
+        const radioMetros = radioKm * 1000;
+
+        circuloRadio = L.circle([consultaLat, consultaLng], {
+          radius: radioMetros,
+          color: "#38bdf8",
+          weight: 1.5,
+          fillOpacity: 0.05,
+        }).addTo(mapOverview);
+
+        document.getElementById("radioTexto").textContent =
+          `Radio de análisis alrededor del punto consultado: ` +
+          `${radioMetros.toFixed(0)} m (${radioKm.toFixed(2)} km).`;
+
+        document.getElementById("textoMapa").textContent =
+          `En el mapa se muestran los 10 proyectos aprobados más cercanos ` +
+          `y todos los proyectos rechazados o en evaluación dentro de ese radio.`;
+      } else {
+        document.getElementById("radioTexto").textContent =
+          "No se encontraron proyectos aprobados alrededor del punto consultado.";
+        document.getElementById("textoMapa").textContent =
+          "No hay proyectos aprobados que definan el radio de análisis.";
+      }
     }
-
-    let popupHtml =
-      `<strong>${p.nombre_proyecto || "Proyecto"}</strong><br>` +
-      `Estado: ${estadoNorm}`;
-
-    if (p.dist_km != null) {
-      popupHtml += `<br>Distancia: ${p.dist_km.toFixed(2)} km`;
-    }
-
-    L.circleMarker([p.lat, p.lon], options)
-      .bindPopup(popupHtml)
-      .addTo(grupo);
-  });
-
-  capaProyectosOverview = grupo.addTo(mapOverview);
-
-  // Dibujar círculo de radio y actualizar textos
-  if (radioKm > 0) {
-    const radioMetros = radioKm * 1000;
-
-    circuloRadio = L.circle([consultaLat, consultaLng], {
-      radius: radioMetros,
-      color: "#38bdf8",
-      weight: 1.5,
-      fillOpacity: 0.05,
-    }).addTo(mapOverview);
-
-    document.getElementById("radioTexto").textContent =
-      `Radio de análisis alrededor del punto consultado: ` +
-      `${radioMetros.toFixed(0)} m (${radioKm.toFixed(2)} km).`;
-
-    document.getElementById("textoMapa").textContent =
-      `En el mapa se muestran los 10 proyectos aprobados más cercanos ` +
-      `y todos los proyectos rechazados o en evaluación dentro de ese radio.`;
-  } else {
-    document.getElementById("radioTexto").textContent =
-      "No se encontraron proyectos aprobados alrededor del punto consultado.";
-    document.getElementById("textoMapa").textContent =
-      "No hay proyectos aprobados que definan el radio de análisis.";
-  }
-}
-
 
     // ==========================
     // Tabla
@@ -656,7 +667,7 @@ function dibujarOverview() {
       .addEventListener("click", quitarFiltro);
 
     // ==========================
-    // Carga desde Excel
+    // Carga desde Excel (lectura tipo leecampos)
     // ==========================
     async function cargarDatos() {
       try {
@@ -670,86 +681,73 @@ function dibujarOverview() {
         const data = new Uint8Array(arrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
 
-        const sheetName = workbook.SheetNames[0]; // Hoja principal
+        const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
 
-        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+        const arr = XLSX.utils.sheet_to_json(sheet, {
+          header: 1,
+          defval: null,
+        });
 
-        // Detectar automáticamente la columna de estado (soporta "Estado del Proyecto")
-        let estadoColName = null;
-        if (rows.length > 0) {
-          const ejemplo = rows[0];
-          for (const k in ejemplo) {
-            const kn = String(k)
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "")
-              .toLowerCase();
-            if (kn.includes("estado") && !kn.includes("fecha")) {
-              estadoColName = k;
-              break;
-            }
-          }
-        }
-        if (!estadoColName) {
-          estadoColName = "Estado del Proyecto"; // fallback para tu archivo
+        if (!arr.length) {
+          console.error("La hoja está vacía");
+          return;
         }
 
-        proyectosOriginal = rows
-          .map(r => {
-            // Coordenadas
-            const rawLat =
-              r["Latitud Punto Representativo"] ||
-              r["Latitud punto representativo"] ||
-              r["Latitud"] ||
-              null;
+        const headers = arr[0];
+        const filas = arr.slice(1);
 
-            const rawLng =
-              r["Longitud Punto Representativo"] ||
-              r["Longitud punto representativo"] ||
-              r["Longitud"] ||
-              null;
+        // Detectar índices de columnas
+        let idxLat = -1,
+          idxLon = -1,
+          idxEstado = -1,
+          idxNombre = -1,
+          idxTipoProj = -1,
+          idxForma = -1,
+          idxRegion = -1,
+          idxComuna = -1,
+          idxInversion = -1,
+          idxWeb = -1;
 
-            const lat = rawLat != null
-              ? Number(String(rawLat).replace(",", "."))
-              : null;
-            const lon = rawLng != null
-              ? Number(String(rawLng).replace(",", "."))
-              : null;
+        headers.forEach((h, i) => {
+          const n = normalizeHeader(h);
+          if (n.includes("latitud") && idxLat === -1) idxLat = i;
+          if (n.includes("longitud") && idxLon === -1) idxLon = i;
+          if (n.includes("estado") && !n.includes("fecha") && idxEstado === -1)
+            idxEstado = i;
+          if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
+            idxNombre = i;
+          if (n.includes("tipo") && n.includes("proyecto") && idxTipoProj === -1)
+            idxTipoProj = i;
+          if (n.includes("tipo") && n.includes("presentacion") && idxForma === -1)
+            idxForma = i;
+          if (n === "region" && idxRegion === -1) idxRegion = i;
+          if (n === "comuna" && idxComuna === -1) idxComuna = i;
+          if (n.includes("inversion") && idxInversion === -1)
+            idxInversion = i;
+          if (n === "web" && idxWeb === -1) idxWeb = i;
+        });
 
-            const estado_actual = r[estadoColName];
+        proyectosOriginal = filas
+          .map(row => {
+            const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
+            const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
 
-            const nombre_proyecto =
-              r["Nombre del Proyecto"] ||
-              r["Proyecto"] ||
-              r.nombre_proyecto;
+            const estado_actual = idxEstado >= 0 ? row[idxEstado] : null;
+            const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
+            const tipo_proyecto = idxTipoProj >= 0 ? row[idxTipoProj] : null;
+            const forma_presentacion = idxForma >= 0 ? row[idxForma] : null;
+            const region = idxRegion >= 0 ? row[idxRegion] : null;
+            const comuna = idxComuna >= 0 ? row[idxComuna] : null;
 
-            const tipo_proyecto =
-              r["Tipo de Proyecto"] ||
-              r["Tipo de Pro"] ||
-              r.tipo_proyecto;
-
-            const forma_presentacion =
-              r["Forma de Presentación"] ||
-              r["Tipo de Presentación"] ||
-              r["Presentación"] ||
-              r.forma_presentacion;
-
-            const region = r["Región"] || r.Region;
-            const comuna = r["Comuna"] || r.Comuna;
-
-            const id_expediente =
-              r["ID expediente"] ||
-              r["Id_Expediente"] ||
-              r["id_expediente"];
-
-            const montoRaw =
-              r["Inversión (MMUS)"] ||   // <-- TU COLUMNA REAL
-              r["Inversión (MMU$)"] ||
-              r["Inversion (MMU$)"] ||
-              r["Inversión"] ||
-              r.monto_inversion;
-
+            const montoRaw = idxInversion >= 0 ? row[idxInversion] : null;
             const montoNum = parseMontoInversion(montoRaw);
+
+            let id_expediente = null;
+            if (idxWeb >= 0 && row[idxWeb]) {
+              const m = String(row[idxWeb]).match(/id_expediente=(\d+)/);
+              if (m) id_expediente = m[1];
+            }
 
             return {
               lat,
@@ -772,7 +770,7 @@ function dibujarOverview() {
               !isNaN(p.lon)
           );
 
-        // 1) Filtrar aprobados y obtener los 10 más cercanos
+        // 1) 10 proyectos Aprobados más cercanos
         const aprobados = proyectosOriginal.filter(
           p => normalizarEstado(p.estado_actual) === "Aprobado"
         );
@@ -783,7 +781,7 @@ function dibujarOverview() {
           10
         );
 
-        // 2) Usar esos 10 para definir radio y obtener todos los proyectos dentro
+        // 2) Todos los proyectos (cualquier estado) dentro del radio
         proyectosEnRadio = GeoLib.proyectosDentroRadioDeLista(
           { lat: consultaLat, lon: consultaLng },
           top10Aprobados,
