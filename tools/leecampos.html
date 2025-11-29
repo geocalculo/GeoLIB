@@ -2,52 +2,120 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Campos del archivo SEA_Atacama_Proyectos.xlsx</title>
+  <title>Vista rápida SEA_Atacama_Proyectos.xlsx</title>
 
   <!-- Librería SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      padding: 1.5rem;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 1rem;
+      width: 100%;
+      max-width: 100%;
+      font-size: 0.85rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background-color: #f3f4f6;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .small {
+      font-size: 0.8rem;
+      color: #555;
+    }
+  </style>
 </head>
 <body>
 
-  <h2>Campos del archivo XLSX</h2>
-  <p>Cargando: <b>capas/SEA_Atacama_Proyectos.xlsx</b></p>
+  <h2>Campos y primeros registros del archivo XLSX</h2>
+  <p class="small">Archivo: <b>capas/SEA_Atacama_Proyectos.xlsx</b></p>
 
-  <ul id="listaCampos"></ul>
+  <div id="info"></div>
+  <div style="overflow:auto; max-height:70vh;">
+    <table id="tabla"></table>
+  </div>
 
   <script>
-    // Ruta al archivo dentro del repositorio en GitHub Pages
+    // Ruta relativa desde /tools/ a /capas/
     const url = "../capas/SEA_Atacama_Proyectos.xlsx";
 
     async function cargarArchivo() {
-      try {
-        // Descargar archivo como arrayBuffer
-        const response = await fetch(url);
-        const data = await response.arrayBuffer();
+      const infoDiv = document.getElementById("info");
+      const tabla = document.getElementById("tabla");
 
-        // Parsear XLSX
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          infoDiv.textContent = "No se pudo cargar el archivo XLSX.";
+          return;
+        }
+
+        const data = await response.arrayBuffer();
         const workbook = XLSX.read(data, { type: "array" });
 
-        // Tomar la primera hoja
+        // Primera hoja
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
 
-        // Convertir hoja → JSON (array de arrays)
-        const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        // Array de arrays: fila 0 = encabezados
+        const arr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
-        // La primera fila son los encabezados
-        const headers = json[0];
+        if (!arr.length) {
+          infoDiv.textContent = "La hoja está vacía.";
+          return;
+        }
 
-        const lista = document.getElementById("listaCampos");
-        lista.innerHTML = "";
+        const headers = arr[0];
+        const rows = arr.slice(1, 11); // primeros 10 registros
 
-        headers.forEach(campo => {
-          const li = document.createElement("li");
-          li.textContent = campo;
-          lista.appendChild(li);
+        infoDiv.innerHTML =
+          `<div class="small">Hoja: <b>${sheetName}</b> &mdash; ` +
+          `Campos: <b>${headers.length}</b> &mdash; Registros mostrados: <b>${rows.length}</b></div>`;
+
+        // Construir tabla
+        const thead = document.createElement("thead");
+        const trHead = document.createElement("tr");
+        headers.forEach(h => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+
+        const tbody = document.createElement("tbody");
+        rows.forEach(row => {
+          const tr = document.createElement("tr");
+          headers.forEach((_, colIdx) => {
+            const td = document.createElement("td");
+            td.textContent = row[colIdx] !== undefined ? row[colIdx] : "";
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
         });
 
-      } catch (error) {
-        console.error("Error al cargar XLSX:", error);
+        tabla.innerHTML = "";
+        tabla.appendChild(thead);
+        tabla.appendChild(tbody);
+
+      } catch (err) {
+        console.error(err);
+        infoDiv.textContent = "Error leyendo el XLSX en el navegador.";
       }
     }
 
@@ -56,4 +124,3 @@
 
 </body>
 </html>
-
