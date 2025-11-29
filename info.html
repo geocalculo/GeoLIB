@@ -529,19 +529,50 @@
       });
     }
 
+
     function actualizarGraficoSector(sectorData) {
       if (chartSector) chartSector.destroy();
+
       chartSector = new Chart(document.getElementById("chartSector"), {
-        type:"bar",
-        data:{
+        type: "bar",
+        data: {
           labels: sectorData.sectores,
-          datasets:[{ data: sectorData.totales }]
+          datasets: [
+            {
+              data: sectorData.totales
+            }
+          ]
         },
-        options:{
-          plugins:{ legend:{display:false} },
-          scales:{ y:{beginAtZero:true} }
+        options: {
+          indexAxis: "y",           // ← barras horizontales
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Inversión (MMUS$)"
+              }
+            },
+            y: {
+              ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                minRotation: 0     // texto horizontal
+              },
+              title: {
+                display: true,
+                text: "Sector productivo"
+              }
+            }
+          }
         }
       });
+    }
+
+    
     }
 
     let map;
