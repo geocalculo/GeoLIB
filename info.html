@@ -273,14 +273,29 @@
     // ==========================
     // Funciones auxiliares
     // ==========================
+
     function normalizarEstado(estadoRaw) {
-      if (!estadoRaw) return "Sin información";
-      const e = estadoRaw.toLowerCase();
-      if (e.includes("aprob")) return "Aprobado";
-      if (e.includes("rechaz")) return "Rechazado";
-      if (e.includes("calific") || e.includes("evalu")) return "En evaluación";
-      return estadoRaw.trim();
-    }
+  if (!estadoRaw) return "Sin información";
+
+  // Normalización agresiva
+  let e = String(estadoRaw)
+    .normalize("NFD")               // elimina tildes
+    .replace(/[\u0300-\u036f]/g, "")  // limpia acentos
+    .replace(/\s+/g, " ")            // colapsa espacios
+    .trim()                           // remueve espacios al inicio/fin
+    .toLowerCase();                   // pasa a minúsculas
+
+  if (e === "aprobado") return "Aprobado";
+  if (e.includes("aprob")) return "Aprobado";
+
+  if (e.includes("rechaz")) return "Rechazado";
+
+  if (e.includes("calific") || e.includes("evalu")) 
+    return "En evaluación";
+
+  return estadoRaw.trim();
+}
+
 
     function crearPillEstado(estado) {
       const base = document.createElement("span");
