@@ -2,14 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>SEA Mining - Reporte de proyectos cercanos</title>
+  <title>SEA Mining - Proyectos cercanos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Bootstrap -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
 
   <!-- Leaflet -->
   <link
@@ -17,17 +11,23 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
   <!-- SheetJS (leer Excel) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       background-color: #f3f4f6;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     header {
@@ -48,19 +48,22 @@
     }
 
     main {
-      max-width: 1200px;
+      max-width: 1000px;
       margin: 1.5rem auto 2rem;
       padding: 0 1rem;
+      width: 100%;
+    }
+
+    .small-text {
+      font-size: 0.9rem;
+      color: #4b5563;
     }
 
     .card {
+      background: #ffffff;
       border-radius: 0.75rem;
       box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.1);
-      border: none;
-    }
-
-    .chart-card {
-      min-height: 320px;
+      padding: 1.25rem;
     }
 
     .map-wrapper {
@@ -68,6 +71,7 @@
       aspect-ratio: 1 / 1; /* mapa cuadrado */
       border-radius: 0.75rem;
       overflow: hidden;
+      margin-top: 0.75rem;
     }
 
     #mapOverview {
@@ -75,47 +79,46 @@
       height: 100%;
     }
 
-    .table thead {
-      background-color: #e5e7eb;
+    .estado-legend {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #4b5563;
     }
 
-    .estado-pill {
+    .pill {
       display: inline-block;
-      padding: 0.15rem 0.6rem;
+      padding: 0.1rem 0.5rem;
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 500;
+      margin-right: 0.5rem;
     }
 
-    .estado-aprobado {
-      background-color: #bbf7d0;
+    .pill-aprobado {
+      background: #bbf7d0;
       color: #166534;
     }
 
-    .estado-rechazado {
-      background-color: #fecaca;
+    .pill-rechazado {
+      background: #fecaca;
       color: #991b1b;
     }
 
-    .estado-evaluacion {
-      background-color: #fee2e2;
+    .pill-eval {
+      background: #fee2e2;
       color: #b45309;
     }
 
-    .estado-otro {
-      background-color: #e5e7eb;
+    .pill-otro {
+      background: #e5e7eb;
       color: #374151;
-    }
-
-    .small-text {
-      font-size: 0.85rem;
     }
   </style>
 </head>
 <body>
   <header>
     <div class="d-flex justify-content-between align-items-center">
-      <div class="header-title">SEA Mining - Reporte de proyectos cercanos</div>
+      <div class="header-title">SEA Mining - Proyectos cercanos</div>
       <div id="coordsDisplay" class="coords-text">
         Coordenadas consulta: lat ?, lng ?
       </div>
@@ -123,108 +126,35 @@
   </header>
 
   <main>
-    <!-- Título y resumen -->
-    <section class="mb-3">
-      <h2 class="h4 mb-1">Resumen de proyectos alrededor del punto consultado</h2>
-      <p class="text-muted small-text mb-2" id="radioTexto">
+    <section class="card">
+      <h2 class="h5 mb-1">Distribución espacial de los proyectos</h2>
+      <p id="radioTexto" class="small-text">
         Radio de análisis alrededor del punto consultado: -
       </p>
 
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        <span id="badgeTotal" class="badge bg-primary rounded-pill px-3 py-2">
-          Total proyectos: 0
-        </span>
+      <div class="map-wrapper">
+        <div id="mapOverview"></div>
       </div>
-    </section>
 
-    <!-- Mapa + gráficos -->
-    <section class="mb-4">
-      <div class="row g-3">
-        <!-- Mapa overview -->
-        <div class="col-12 col-lg-6">
-          <div class="card h-100">
-            <div class="card-body">
-              <h5 class="card-title mb-1">Distribución espacial de los proyectos</h5>
-              <p class="card-subtitle text-muted small-text mb-2" id="textoMapa">
-                Radio de análisis definido por los 10 proyectos aprobados más cercanos.
-              </p>
-              <div class="map-wrapper">
-                <div id="mapOverview"></div>
-              </div>
-              <p class="small-text text-muted mt-2">
-                En el mapa se muestran los <strong>10 proyectos aprobados más cercanos</strong>
-                y todos los proyectos rechazados o en evaluación dentro de ese radio.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Gráficos -->
-        <div class="col-12 col-lg-6 d-flex flex-column gap-3">
-          <div class="card chart-card">
-            <div class="card-body">
-              <h5 class="card-title mb-1">Inversión por estado del proyecto</h5>
-              <p class="card-subtitle text-muted small-text mb-2">
-                Suma de la inversión total por categoría de estado.
-              </p>
-              <canvas id="chartInversion"></canvas>
-            </div>
-          </div>
-
-          <div class="card chart-card">
-            <div class="card-body">
-              <h5 class="card-title mb-1">Cantidad de proyectos por estado</h5>
-              <p class="card-subtitle text-muted small-text mb-2">
-                Número de proyectos dentro del radio de análisis, agrupados por estado.
-              </p>
-              <canvas id="chartConteo"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tabla de proyectos -->
-    <section>
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title mb-3">Detalle de proyectos dentro del radio de análisis</h5>
-          <div class="table-responsive small-text">
-            <table class="table align-middle table-hover" id="tablaProyectos">
-              <thead>
-                <tr>
-                  <th>Estado</th>
-                  <th>Nombre del proyecto</th>
-                  <th>Región</th>
-                  <th>Comuna</th>
-                  <th>Tipo de proyecto</th>
-                  <th>Presentación</th>
-                  <th>Inversión</th>
-                  <th>Distancia (km)</th>
-                  <th>Expediente</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
-          <p class="small-text text-muted mt-2">
-            Los proyectos listados corresponden a todas las categorías de estado
-            dentro del radio definido por los 10 proyectos aprobados más cercanos.
-          </p>
-        </div>
+      <div class="estado-legend">
+        <strong>Leyenda:</strong>
+        <span class="pill pill-aprobado">Aprobado (10 más cercanos)</span>
+        <span class="pill pill-rechazado">Rechazado</span>
+        <span class="pill pill-eval">En evaluación</span>
+        <span class="pill pill-otro">Otros estados</span>
       </div>
     </section>
   </main>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- GeoLib -->
+  <!-- GeoLib con funciones de distancia -->
   <script src="geolib.js"></script>
 
   <script>
-    // Parámetros URL
+    // ==========================
+    // Parámetros de la URL
+    // ==========================
     const urlParams = new URLSearchParams(window.location.search);
     const consultaLat = parseFloat(urlParams.get("lat")) || -27.5;
     const consultaLng = parseFloat(urlParams.get("lng")) || -70.25;
@@ -233,6 +163,9 @@
     document.getElementById("coordsDisplay").textContent =
       `Coordenadas consulta: lat ${consultaLat.toFixed(6)}, lng ${consultaLng.toFixed(6)}`;
 
+    // ==========================
+    // Config general
+    // ==========================
     const DATA_XLSX_URL = "capas/SEA_Atacama_Proyectos.xlsx";
 
     let proyectosOriginal = [];
@@ -243,10 +176,9 @@
     let capaProyectosOverview;
     let circuloRadio;
 
-    let chartInversion;
-    let chartConteo;
-
+    // ==========================
     // Helpers
+    // ==========================
     function normalizeHeader(h) {
       return String(h || "")
         .normalize("NFD")
@@ -280,47 +212,9 @@
       return String(estadoRaw).trim();
     }
 
-    function crearPillEstado(estado) {
-      const base = document.createElement("span");
-      base.textContent = estado;
-      base.classList.add("estado-pill");
-
-      const e = estado.toLowerCase();
-      if (e.includes("aprob")) base.classList.add("estado-aprobado");
-      else if (e.includes("rechaz")) base.classList.add("estado-rechazado");
-      else if (e.includes("calific") || e.includes("evalu"))
-        base.classList.add("estado-evaluacion");
-      else base.classList.add("estado-otro");
-
-      return base;
-    }
-
-    function formatearInversion(num) {
-      if (num == null || isNaN(num)) return "-";
-      return num.toLocaleString("es-CL", {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      });
-    }
-
-    function parseMontoInversion(raw) {
-      if (raw == null) return null;
-      if (typeof raw === "number") return raw;
-      const txt = String(raw).replace(/\./g, "");
-      const match = txt.match(/([\d,]+)/);
-      if (!match) return null;
-      const numStr = match[1].replace(",", ".");
-      const val = parseFloat(numStr);
-      return isNaN(val) ? null : val;
-    }
-
-    function actualizarBadges() {
-      const total = proyectosEnRadio.length;
-      document.getElementById("badgeTotal").textContent =
-        `Total proyectos: ${total}`;
-    }
-
+    // ==========================
     // Mapa
+    // ==========================
     function initMap() {
       mapOverview = L.map("mapOverview").setView(
         [consultaLat, consultaLng],
@@ -332,6 +226,7 @@
         attribution: "&copy; OpenStreetMap",
       }).addTo(mapOverview);
 
+      // Punto consultado
       L.circleMarker([consultaLat, consultaLng], {
         radius: 6,
         color: "#2563eb",
@@ -428,153 +323,15 @@
         document.getElementById("radioTexto").textContent =
           `Radio de análisis alrededor del punto consultado: ` +
           `${radioMetros.toFixed(0)} m (${radioKm.toFixed(2)} km).`;
-
-        document.getElementById("textoMapa").textContent =
-          `En el mapa se muestran los 10 proyectos aprobados más cercanos ` +
-          `y todos los proyectos rechazados o en evaluación dentro de ese radio.`;
       } else {
         document.getElementById("radioTexto").textContent =
           "No se encontraron proyectos aprobados alrededor del punto consultado.";
-        document.getElementById("textoMapa").textContent =
-          "No hay proyectos aprobados que definan el radio de análisis.";
       }
     }
 
-    // Tabla
-    function poblarTabla() {
-      const tbody = document.querySelector("#tablaProyectos tbody");
-      tbody.innerHTML = "";
-
-      proyectosEnRadio.forEach(p => {
-        const tr = document.createElement("tr");
-
-        const tdEstado = document.createElement("td");
-        const pill = crearPillEstado(normalizarEstado(p.estado_actual));
-        tdEstado.appendChild(pill);
-
-        const tdNombre = document.createElement("td");
-        tdNombre.textContent = p.nombre_proyecto || "-";
-
-        const tdRegion = document.createElement("td");
-        tdRegion.textContent = p.region || "-";
-
-        const tdComuna = document.createElement("td");
-        tdComuna.textContent = p.comuna || "-";
-
-        const tdTipo = document.createElement("td");
-        tdTipo.textContent = p.tipo_proyecto || "-";
-
-        const tdForma = document.createElement("td");
-        tdForma.textContent = p.forma_presentacion || "-";
-
-        const tdInv = document.createElement("td");
-        tdInv.textContent = p.monto_inversion_num != null
-          ? `${formatearInversion(p.monto_inversion_num)}`
-          : "-";
-
-        const tdDist = document.createElement("td");
-        tdDist.textContent = p.dist_km != null ? p.dist_km.toFixed(2) : "-";
-
-        const tdExp = document.createElement("td");
-        if (p.id_expediente) {
-          const a = document.createElement("a");
-          a.href = GeoLib.urlFichaExpediente(p.id_expediente);
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.textContent = p.id_expediente;
-          tdExp.appendChild(a);
-        } else {
-          tdExp.textContent = "-";
-        }
-
-        tr.appendChild(tdEstado);
-        tr.appendChild(tdNombre);
-        tr.appendChild(tdRegion);
-        tr.appendChild(tdComuna);
-        tr.appendChild(tdTipo);
-        tr.appendChild(tdForma);
-        tr.appendChild(tdInv);
-        tr.appendChild(tdDist);
-        tr.appendChild(tdExp);
-
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Gráficos
-    function actualizarGraficos() {
-      const conteoPorEstado = GeoLib.contarPorEstado(
-        proyectosEnRadio,
-        "estado_actual"
-      );
-
-      const inversionPorEstado = GeoLib.sumarInversionPorEstado(
-        proyectosEnRadio,
-        "estado_actual",
-        "monto_inversion_num"
-      );
-
-      const labels = Object.keys(conteoPorEstado);
-      const datosConteo = labels.map(l => conteoPorEstado[l]);
-      const datosInversion = labels.map(l => inversionPorEstado[l] || 0);
-
-      // Conteo (barras)
-      const ctxConteo = document.getElementById("chartConteo").getContext("2d");
-      if (chartConteo) chartConteo.destroy();
-      chartConteo = new Chart(ctxConteo, {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Cantidad de proyectos",
-              data: datosConteo,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-          },
-          scales: {
-            x: {
-              ticks: { font: { size: 11 } },
-            },
-            y: {
-              beginAtZero: true,
-            },
-          },
-        },
-      });
-
-      // Inversión (torta)
-      const ctxInv = document.getElementById("chartInversion").getContext("2d");
-      if (chartInversion) chartInversion.destroy();
-      chartInversion = new Chart(ctxInv, {
-        type: "pie",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Inversión total",
-              data: datosInversion,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: { font: { size: 11 } },
-            },
-          },
-        },
-      });
-    }
-
+    // ==========================
     // Carga Excel
+    // ==========================
     async function cargarDatos() {
       try {
         const resp = await fetch(DATA_XLSX_URL);
@@ -603,17 +360,10 @@
         const headers = arr[0];
         const filas = arr.slice(1);
 
-        // Detectar índices
         let idxLat = -1,
           idxLon = -1,
           idxEstado = -1,
-          idxNombre = -1,
-          idxTipoProj = -1,
-          idxForma = -1,
-          idxRegion = -1,
-          idxComuna = -1,
-          idxInversion = -1,
-          idxWeb = -1;
+          idxNombre = -1;
 
         headers.forEach((h, i) => {
           const n = normalizeHeader(h);
@@ -623,15 +373,6 @@
             idxEstado = i;
           if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
             idxNombre = i;
-          if (n.includes("tipo") && n.includes("proyecto") && idxTipoProj === -1)
-            idxTipoProj = i;
-          if (n.includes("tipo") && n.includes("presentacion") && idxForma === -1)
-            idxForma = i;
-          if (n === "region" && idxRegion === -1) idxRegion = i;
-          if (n === "comuna" && idxComuna === -1) idxComuna = i;
-          if (n.includes("inversion") && idxInversion === -1)
-            idxInversion = i;
-          if (n === "web" && idxWeb === -1) idxWeb = i;
         });
 
         proyectosOriginal = filas
@@ -641,31 +382,12 @@
 
             const estado_actual = idxEstado >= 0 ? row[idxEstado] : null;
             const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
-            const tipo_proyecto = idxTipoProj >= 0 ? row[idxTipoProj] : null;
-            const forma_presentacion = idxForma >= 0 ? row[idxForma] : null;
-            const region = idxRegion >= 0 ? row[idxRegion] : null;
-            const comuna = idxComuna >= 0 ? row[idxComuna] : null;
-
-            const montoRaw = idxInversion >= 0 ? row[idxInversion] : null;
-            const montoNum = parseMontoInversion(montoRaw);
-
-            let id_expediente = null;
-            if (idxWeb >= 0 && row[idxWeb]) {
-              const m = String(row[idxWeb]).match(/id_expediente=(\d+)/);
-              if (m) id_expediente = m[1];
-            }
 
             return {
               lat,
               lon,
               estado_actual,
               nombre_proyecto,
-              tipo_proyecto,
-              forma_presentacion,
-              region,
-              comuna,
-              monto_inversion_num: montoNum,
-              id_expediente,
             };
           })
           .filter(
@@ -687,22 +409,22 @@
           10
         );
 
-        // 2) Todos los proyectos dentro del radio
+        // 2) Todos los estados dentro del radio definido por esos 10
         proyectosEnRadio = GeoLib.proyectosDentroRadioDeLista(
           { lat: consultaLat, lon: consultaLng },
           top10Aprobados,
           proyectosOriginal
         );
 
-        actualizarBadges();
-        poblarTabla();
-        actualizarGraficos();
         dibujarOverview();
       } catch (err) {
         console.error("Error cargando datos de proyectos desde Excel:", err);
       }
     }
 
+    // ==========================
+    // Inicio
+    // ==========================
     initMap();
     cargarDatos();
   </script>
