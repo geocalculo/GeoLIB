@@ -20,7 +20,7 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <!-- SheetJS (para leer el Excel) -->
+  <!-- SheetJS (leer Excel) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
@@ -238,7 +238,7 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- GeoLib -->
+  <!-- GeoLib con funciones de distancia, conteo, etc. -->
   <script src="geolib.js"></script>
 
   <script>
@@ -278,7 +278,7 @@
       const e = estadoRaw.toLowerCase();
       if (e.includes("aprob")) return "Aprobado";
       if (e.includes("rechaz")) return "Rechazado";
-      if (e.includes("evalu")) return "En evaluación";
+      if (e.includes("calific") || e.includes("evalu")) return "En evaluación";
       return estadoRaw.trim();
     }
 
@@ -290,7 +290,7 @@
       const e = estado.toLowerCase();
       if (e.includes("aprob")) base.classList.add("estado-aprobado");
       else if (e.includes("rechaz")) base.classList.add("estado-rechazado");
-      else if (e.includes("evalu")) base.classList.add("estado-evaluacion");
+      else if (e.includes("calific") || e.includes("evalu")) base.classList.add("estado-evaluacion");
       else base.classList.add("estado-otro");
 
       base.addEventListener("click", () => {
@@ -311,8 +311,8 @@
     function parseMontoInversion(raw) {
       if (raw == null) return null;
       if (typeof raw === "number") return raw;
-      // intenta limpiar string tipo "204,0000 Millones de Dólares"
-      const match = raw.replace(/\./g, "").match(/([\d,]+)/);
+      const txt = String(raw).replace(/\./g, "");
+      const match = txt.match(/([\d,]+)/);
       if (!match) return null;
       const numStr = match[1].replace(",", ".");
       const val = parseFloat(numStr);
@@ -603,85 +603,85 @@
         const data = new Uint8Array(arrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
 
-        const sheetName = workbook.SheetNames[0];
+        const sheetName = workbook.SheetNames[0]; // "Proyectos"
         const sheet = workbook.Sheets[sheetName];
 
-        // Cada fila del Excel será un objeto JS
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-        proyectosOriginal = rows.map(r => {
-          const lat = Number(
-            r.lat ||
-            r.Lat ||
-            r.LAT ||
-            r.Latitud ||
-            r.LATITUD
-          );
+        proyectosOriginal = rows
+          .map(r => {
+            // Coordenadas
+            const rawLat =
+              r["Latitud Punto Representativo"] ||
+              r["Latitud punto representativo"] ||
+              r["Latitud"] ||
+              null;
 
-          const lon = Number(
-            r.lng ||
-            r.Lng ||
-            r.LNG ||
-            r.Longitud ||
-            r.LONGITUD
-          );
+            const rawLng =
+              r["Longitud Punto Representativo"] ||
+              r["Longitud punto representativo"] ||
+              r["Longitud"] ||
+              null;
 
-          const estado_actual =
-            r.estado_actual ||
-            r.Estado ||
-            r["Estado actual"] ||
-            r["Estado"];
+            const lat = rawLat != null
+              ? Number(String(rawLat).replace(",", "."))
+              : null;
+            const lon = rawLng != null
+              ? Number(String(rawLng).replace(",", "."))
+              : null;
 
-          const nombre_proyecto =
-            r.nombre_proyecto ||
-            r["Nombre del Proyecto"] ||
-            r["Nombre proyecto"];
+            const estado_actual =
+              r["Estado del Expediente"] ||
+              r["Estado del E"] ||
+              r["Estado"] ||
+              r.estado_actual;
 
-          const tipo_proyecto =
-            r.tipo_proyecto ||
-            r["Tipo de Proyecto"] ||
-            r["Tipo de proyecto"];
+            const nombre_proyecto =
+              r["Nombre del Proyecto"] ||
+              r["Proyecto"] ||
+              r.nombre_proyecto;
 
-          const forma_presentacion =
-            r.forma_presentacion ||
-            r["Tipo de Presentación"] ||
-            r["Forma de Presentación"];
+            const tipo_proyecto =
+              r["Tipo de Proyecto"] ||
+              r["Tipo de Pro"] ||
+              r.tipo_proyecto;
 
-          const region =
-            r.region ||
-            r["Región"];
+            const forma_presentacion =
+              r["Forma de Presentación"] ||
+              r["Tipo de Presentación"] ||
+              r["Presentación"] ||
+              r.forma_presentacion;
 
-          const comuna =
-            r.comuna ||
-            r["Comuna"];
+            const region = r["Región"] || r.Region;
+            const comuna = r["Comuna"] || r.Comuna;
 
-          const montoRaw =
-            r.monto_inversion ||
-            r["Inversión (MMU$)"] ||
-            r["Inversion (MMU$)"];
+            const id_expediente =
+              r["ID expediente"] ||
+              r["Id_Expediente"] ||
+              r["id_expediente"];
 
-          const id_expediente =
-            r.id_expediente ||
-            r["ID expediente"] ||
-            r["Id_Expediente"] ||
-            r["id_exp"];
+            const montoRaw =
+              r["Inversión (MMU$)"] ||
+              r["Inversion (MMU$)"] ||
+              r["Inversión"] ||
+              r.monto_inversion;
 
-          const montoNum = parseMontoInversion(montoRaw);
+            const montoNum = parseMontoInversion(montoRaw);
 
-          return {
-            ...r,
-            lat,
-            lon,
-            estado_actual,
-            nombre_proyecto,
-            tipo_proyecto,
-            forma_presentacion,
-            region,
-            comuna,
-            monto_inversion_num: montoNum,
-            id_expediente,
-          };
-        }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
+            return {
+              lat,
+              lon,
+              estado_actual,
+              nombre_proyecto,
+              tipo_proyecto,
+              forma_presentacion,
+              region,
+              comuna,
+              monto_inversion_num: montoNum,
+              id_expediente,
+            };
+          })
+          .filter(p => p.lat != null && !isNaN(p.lat) && p.lon != null && !isNaN(p.lon));
 
         // 1) Filtrar aprobados y obtener los 10 más cercanos
         const aprobados = proyectosOriginal.filter(p =>
