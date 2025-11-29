@@ -283,14 +283,13 @@
         .trim()
         .toLowerCase();
 
-      // Aprobados
-      if (e === "aprobado" || e === "aprobada") return "Aprobado";
-      if (e.includes("aprob")) return "Aprobado";
-
-      // Rechazados
+      // Rechazados primero
       if (e.includes("rechaz")) return "Rechazado";
 
-      // En evaluación / calificación
+      // Aprobados (distintas formas)
+      if (e.includes("aprob") || e.includes("favorabl")) return "Aprobado";
+
+      // En calificación / evaluación (en trámite)
       if (e.includes("calific") || e.includes("evalu")) {
         return "En evaluación";
       }
@@ -620,12 +619,12 @@
         const data = new Uint8Array(arrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
 
-        const sheetName = workbook.SheetNames[0]; // "Proyectos"
+        const sheetName = workbook.SheetNames[0]; // Hoja principal
         const sheet = workbook.Sheets[sheetName];
 
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-        // Detectar automáticamente la columna de estado
+        // Detectar automáticamente la columna de estado (soporta "Estado del Proyecto")
         let estadoColName = null;
         if (rows.length > 0) {
           const ejemplo = rows[0];
@@ -641,7 +640,7 @@
           }
         }
         if (!estadoColName) {
-          estadoColName = "estado"; // fallback
+          estadoColName = "Estado del Proyecto"; // fallback para tu archivo
         }
 
         proyectosOriginal = rows
@@ -693,6 +692,7 @@
               r["id_expediente"];
 
             const montoRaw =
+              r["Inversión (MMUS)"] ||   // <-- TU COLUMNA REAL
               r["Inversión (MMU$)"] ||
               r["Inversion (MMU$)"] ||
               r["Inversión"] ||
