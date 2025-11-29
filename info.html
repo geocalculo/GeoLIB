@@ -148,8 +148,6 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- GeoLib con funciones de distancia -->
-  <script src="geolib.js"></script>
 
   <script>
     // ==========================
@@ -163,15 +161,11 @@
     document.getElementById("coordsDisplay").textContent =
       `Coordenadas consulta: lat ${consultaLat.toFixed(6)}, lng ${consultaLng.toFixed(6)}`;
 
-    // ==========================
-    // Config general
-    // ==========================
     const DATA_XLSX_URL = "capas/SEA_Atacama_Proyectos.xlsx";
 
     let proyectosOriginal = [];
     let proyectosEnRadio = [];
     let top10Aprobados = [];
-
     let mapOverview;
     let capaProyectosOverview;
     let circuloRadio;
@@ -212,6 +206,21 @@
       return String(estadoRaw).trim();
     }
 
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371; // km
+      const toRad = deg => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
     // ==========================
     // Mapa
     // ==========================
@@ -238,30 +247,21 @@
         .addTo(mapOverview);
     }
 
-    function dibujarOverview() {
+    function dibujarOverview(radioKm) {
       if (!mapOverview) return;
 
       if (capaProyectosOverview) capaProyectosOverview.remove();
       if (circuloRadio) circuloRadio.remove();
 
       const grupo = L.layerGroup();
-      const setTop10 = new Set(top10Aprobados);
-
-      let radioKm = 0;
-      if (top10Aprobados.length > 0) {
-        radioKm = top10Aprobados[top10Aprobados.length - 1].dist_km || 0;
-      }
 
       proyectosEnRadio.forEach(p => {
         if (p.lat == null || p.lon == null) return;
 
         const estadoNorm = normalizarEstado(p.estado_actual);
-        const esTop10Aprobado =
-          setTop10.has(p) && estadoNorm === "Aprobado";
 
         let options;
-
-        if (esTop10Aprobado) {
+        if (p.esTop10Aprobado) {
           options = {
             radius: 6,
             color: "#166534",
@@ -299,7 +299,7 @@
           `<strong>${p.nombre_proyecto || "Proyecto"}</strong><br>` +
           `Estado: ${estadoNorm}`;
 
-        if (p.dist_km != null) {
+        if (typeof p.dist_km === "number") {
           popupHtml += `<br>Distancia: ${p.dist_km.toFixed(2)} km`;
         }
 
@@ -330,7 +330,7 @@
     }
 
     // ==========================
-    // Carga Excel
+    // Carga Excel y lógica de distancias
     // ==========================
     async function cargarDatos() {
       try {
@@ -383,40 +383,54 @@
             const estado_actual = idxEstado >= 0 ? row[idxEstado] : null;
             const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
 
+            if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) {
+              return null;
+            }
+
+            const dist_km = haversineKm(consultaLat, consultaLng, lat, lon);
+
             return {
               lat,
               lon,
               estado_actual,
               nombre_proyecto,
+              dist_km,
+              esTop10Aprobado: false,
             };
           })
-          .filter(
-            p =>
-              p.lat != null &&
-              !isNaN(p.lat) &&
-              p.lon != null &&
-              !isNaN(p.lon)
-          );
+          .filter(p => p !== null);
 
         // 1) 10 aprobados más cercanos
-        const aprobados = proyectosOriginal.filter(
-          p => normalizarEstado(p.estado_actual) === "Aprobado"
-        );
+        const aprobados = proyectosOriginal
+          .filter(p => normalizarEstado(p.estado_actual) === "Aprobado")
+          .sort((a, b) => a.dist_km - b.dist_km);
 
-        top10Aprobados = GeoLib.proyectosMasCercanos(
-          { lat: consultaLat, lon: consultaLng },
-          aprobados,
-          10
-        );
+        top10Aprobados = aprobados.slice(0, 10);
+        const radioKm =
+          top10Aprobados.length > 0
+            ? top10Aprobados[top10Aprobados.length - 1].dist_km
+            : 0;
 
-        // 2) Todos los estados dentro del radio definido por esos 10
-        proyectosEnRadio = GeoLib.proyectosDentroRadioDeLista(
-          { lat: consultaLat, lon: consultaLng },
-          top10Aprobados,
-          proyectosOriginal
-        );
+        // marcar los top10 aprobados
+        const topSet = new Set(top10Aprobados);
+        proyectosOriginal.forEach(p => {
+          if (topSet.has(p)) {
+            p.esTop10Aprobado = true;
+          }
+        });
 
-        dibujarOverview();
+        // 2) Todos los proyectos dentro del radio
+        proyectosEnRadio =
+          radioKm > 0
+            ? proyectosOriginal.filter(p => p.dist_km <= radioKm)
+            : [];
+
+        console.log("Total proyectos con coord:", proyectosOriginal.length);
+        console.log("Aprobados:", aprobados.length);
+        console.log("Top10:", top10Aprobados.length);
+        console.log("En radio:", proyectosEnRadio.length, "radioKm:", radioKm);
+
+        dibujarOverview(radioKm);
       } catch (err) {
         console.error("Error cargando datos de proyectos desde Excel:", err);
       }
