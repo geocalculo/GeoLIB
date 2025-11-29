@@ -1,1 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Campos del archivo SEA_Atacama_Proyectos.xlsx</title>
+
+  <!-- Librería SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <h2>Campos del archivo XLSX</h2>
+  <p>Cargando: <b>capas/SEA_Atacama_Proyectos.xlsx</b></p>
+
+  <ul id="listaCampos"></ul>
+
+  <script>
+    // Ruta al archivo dentro del repositorio en GitHub Pages
+    const url = "../capas/SEA_Atacama_Proyectos.xlsx";
+
+    async function cargarArchivo() {
+      try {
+        // Descargar archivo como arrayBuffer
+        const response = await fetch(url);
+        const data = await response.arrayBuffer();
+
+        // Parsear XLSX
+        const workbook = XLSX.read(data, { type: "array" });
+
+        // Tomar la primera hoja
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        // Convertir hoja → JSON (array de arrays)
+        const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        // La primera fila son los encabezados
+        const headers = json[0];
+
+        const lista = document.getElementById("listaCampos");
+        lista.innerHTML = "";
+
+        headers.forEach(campo => {
+          const li = document.createElement("li");
+          li.textContent = campo;
+          lista.appendChild(li);
+        });
+
+      } catch (error) {
+        console.error("Error al cargar XLSX:", error);
+      }
+    }
+
+    cargarArchivo();
+  </script>
+
+</body>
+</html>
 
