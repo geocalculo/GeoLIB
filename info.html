@@ -49,9 +49,11 @@
 <body>
   <nav class="navbar navbar-expand-lg bg-white border-bottom">
     <div class="container-fluid">
-      <span class="navbar-brand fw-semibold">SEA Mining - Reporte de proyectos cercanos</span>
+      <span class="navbar-brand fw-semibold">
+        SEA Mining - Reporte de proyectos cercanos
+      </span>
       <span class="navbar-text text-muted" id="info-coord">
-        <!-- Aquí puedes inyectar lat/lng -->
+        <!-- Coordenadas desde querystring -->
       </span>
     </div>
   </nav>
@@ -62,9 +64,11 @@
       <div class="col-12">
         <div class="d-flex flex-wrap align-items-center justify-content-between">
           <div>
-            <h1 class="h4 mb-1">Resumen de proyectos alrededor del punto consultado</h1>
+            <h1 class="h4 mb-1">
+              Resumen de proyectos alrededor del punto consultado
+            </h1>
             <p class="text-muted mb-1" id="texto-radio">
-              <!-- Aquí puedes setear el radio de análisis -->
+              <!-- Texto de radio o zoom -->
             </p>
           </div>
           <div class="text-end">
@@ -116,6 +120,7 @@
     <!-- Tablas -->
     <div class="row g-3">
       <div class="col-12">
+        <!-- Resumen por estado -->
         <div class="card mb-3">
           <div class="card-body">
             <h2 class="h6 mb-3">Resumen por estado</h2>
@@ -138,6 +143,7 @@
           </div>
         </div>
 
+        <!-- Resumen por sector económico -->
         <div class="card mb-3">
           <div class="card-body">
             <h2 class="h6 mb-3">Inversión por sector económico</h2>
@@ -157,7 +163,7 @@
           </div>
         </div>
 
-        <!-- Tabla detalle de proyectos -->
+        <!-- Detalle de proyectos -->
         <div class="card">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -190,13 +196,49 @@
 
   <script>
     // ============================================================
-    // 1. DATOS DE ENTRADA
+    // 1. LECTURA BÁSICA DE QUERYSTRING (lat, lng, z opcional)
     // ============================================================
-    // ==> AQUÍ debes inyectar desde Python tus proyectos reales.
-    // Cada proyecto debe tener al menos:
-    // id_expediente, nombre, estado, sector, inversion_mm (número), distancia_m (número)
-    //
-    // EJEMPLO (BORRAR Y REEMPLAZAR POR TUS DATOS REALES):
+    (function leerQuery() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const lat = params.get("lat");
+        const lng = params.get("lng");
+        const z = params.get("z");
+
+        if (lat && lng) {
+          document.getElementById("info-coord").textContent =
+            `Coordenadas consulta: lat ${Number(lat).toFixed(6)}, lng ${Number(lng).toFixed(6)}`;
+        } else {
+          document.getElementById("info-coord").textContent = "";
+        }
+
+        if (z) {
+          document.getElementById("texto-radio").textContent =
+            `Zoom de análisis: ${z}.`;
+        } else {
+          document.getElementById("texto-radio").textContent =
+            "Radio de análisis alrededor del punto consultado.";
+        }
+      } catch (e) {
+        console.warn("No se pudieron leer parámetros de la URL.", e);
+      }
+    })();
+
+    // ============================================================
+    // 2. DATOS DE ENTRADA
+    // ============================================================
+    // IMPORTANTE:
+    // Reemplaza este arreglo por el JSON que generas desde Python.
+    // Estructura mínima por proyecto:
+    // {
+    //   id_expediente: "2163984847",
+    //   nombre: "Nombre del proyecto",
+    //   estado: "Aprobado" | "En evaluación" | "Rechazado",
+    //   sector: "Energía" | "Minería" | ...,
+    //   inversion_mm: 204.0,
+    //   distancia_m: 15849
+    // }
+
     const proyectos = [
       {
         id_expediente: "2163984847",
@@ -222,35 +264,29 @@
         inversion_mm: 256.4,
         distancia_m: 12000
       }
-      // ...
+      // <-- AQUÍ se insertan los demás proyectos reales
     ];
+
     // ============================================================
-
-    // Si quieres, desde Python puedes también setear estos textos:
-    document.getElementById("texto-radio").textContent =
-      "Radio de análisis: 28.164 m (28,16 km).";
-    document.getElementById("info-coord").textContent =
-      "Coordenadas consulta: lat -27.4158, lng -70.7643";
-
-    // Variables globales
+    // 3. VARIABLES GLOBALES
+    // ============================================================
     const estadosOrden = ["Aprobado", "En evaluación", "Rechazado"];
-    let proyectosFull = [...proyectos];
+    let proyectosFull = Array.isArray(proyectos) ? [...proyectos] : [];
     let filtroEstado = null;
 
-    // Badges iniciales
+    // Badge inicial de total
     document.getElementById("badge-total").textContent =
       "Total proyectos: " + proyectosFull.length;
 
     // ============================================================
-    // 2. HELPERS
+    // 4. FUNCIONES HELPER
     // ============================================================
     function formatearNumero(x, dec = 0) {
       if (x === null || x === undefined || isNaN(x)) return "0";
-      return x
-        .toLocaleString("es-CL", {
-          minimumFractionDigits: dec,
-          maximumFractionDigits: dec
-        });
+      return Number(x).toLocaleString("es-CL", {
+        minimumFractionDigits: dec,
+        maximumFractionDigits: dec
+      });
     }
 
     function resumenPorEstado(lista) {
@@ -266,19 +302,19 @@
       });
 
       lista.forEach(p => {
-        const clave = p.estado || "Sin información";
-        if (!res[clave]) {
-          res[clave] = {
-            estado: clave,
+        const est = p.estado || "Sin información";
+        if (!res[est]) {
+          res[est] = {
+            estado: est,
             cantidad: 0,
             totalInv: 0,
             promInv: 0,
             promDist: 0
           };
         }
-        res[clave].cantidad += 1;
-        res[clave].totalInv += Number(p.inversion_mm || 0);
-        res[clave].promDist += Number(p.distancia_m || 0);
+        res[est].cantidad += 1;
+        res[est].totalInv += Number(p.inversion_mm || 0);
+        res[est].promDist += Number(p.distancia_m || 0);
       });
 
       Object.values(res).forEach(r => {
@@ -302,13 +338,12 @@
     }
 
     // ============================================================
-    // 3. CREACIÓN DE GRÁFICOS
+    // 5. CREACIÓN DE GRÁFICOS
     // ============================================================
     const ctxPie = document.getElementById("chartInversionEstado");
     const ctxBar = document.getElementById("chartCantidadEstado");
     const ctxSector = document.getElementById("chartInversionSector");
 
-    // Inicializamos con datos vacíos; se llenan luego
     const chartPie = new Chart(ctxPie, {
       type: "pie",
       data: {
@@ -389,10 +424,9 @@
     });
 
     // ============================================================
-    // 4. ACTUALIZAR TODO SEGÚN LISTA (GRÁFICOS + TABLAS)
+    // 6. ACTUALIZAR GRÁFICOS Y TABLAS
     // ============================================================
     function actualizarTodo(lista) {
-      // --- gráficos ---
       const resumenEst = resumenPorEstado(lista);
       const resumenSec = resumenPorSector(lista);
 
@@ -403,27 +437,27 @@
         est => (resumenEst[est] ? resumenEst[est].totalInv : 0)
       );
 
+      // Pie
       chartPie.data.labels = estadosOrden;
       chartPie.data.datasets[0].data = inversionesPorEstado;
       chartPie.update();
 
+      // Barras cantidad
       chartBar.data.labels = estadosOrden;
       chartBar.data.datasets[0].data = cantidades;
       chartBar.update();
 
+      // Barras sector
       chartSector.data.labels = Object.keys(resumenSec);
       chartSector.data.datasets[0].data = Object.values(resumenSec);
       chartSector.update();
 
-      // --- tablas ---
+      // Tablas
       actualizarTablaEstado(resumenEst);
       actualizarTablaSector(resumenSec);
       actualizarTablaDetalle(lista);
 
-      // textos
-      document.getElementById("badge-total").textContent =
-        "Total proyectos: " + proyectosFull.length;
-
+      // Texto detalle
       const textoDetalle = filtroEstado
         ? `Mostrando ${lista.length} proyecto(s) con estado "${filtroEstado}".`
         : `Mostrando ${lista.length} proyecto(s) (todos los estados).`;
@@ -481,7 +515,7 @@
     }
 
     // ============================================================
-    // 5. FILTRO CRUZADO TIPO POWER BI
+    // 7. FILTRO TIPO POWER BI
     // ============================================================
     function actualizarBadgeFiltro() {
       const badge = document.getElementById("badge-filtro");
@@ -498,7 +532,7 @@
 
     function aplicarFiltroEstado(estadoClick) {
       if (filtroEstado === estadoClick) {
-        // si vuelves a pinchar la misma barra, se limpia el filtro
+        // Si se vuelve a pinchar la misma barra, se limpia el filtro
         filtroEstado = null;
         actualizarBadgeFiltro();
         actualizarTodo(proyectosFull);
@@ -521,7 +555,7 @@
       });
 
     // ============================================================
-    // 6. INICIALIZACIÓN
+    // 8. INICIALIZACIÓN
     // ============================================================
     actualizarBadgeFiltro();
     actualizarTodo(proyectosFull);
