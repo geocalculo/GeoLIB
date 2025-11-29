@@ -318,11 +318,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
+    // Año en el footer
     document.getElementById("year").textContent = new Date().getFullYear();
 
     const EXCEL_FILE = "capas/SEA_Atacama_Proyectos.xlsx";
 
-    // Columnas reales
+    // Columnas reales del Excel
     const COL_NOMBRE = "Nombre del Proyecto";
     const COL_WEB    = "WEB";
     const COL_ESTADO = "Estado del Proyecto";
@@ -386,10 +387,11 @@
       return {E:x, N:y};
     }
 
+    // Mapea una fila del Excel al objeto "proyecto"
     function mapRow(r) {
       return {
         nombre: r[COL_NOMBRE],
-        web: r[COL_WEB],
+        web: r[COL_WEB],              // URL completa del expediente (ya limpiada en Excel)
         estado: r[COL_ESTADO],
         monto: toNumber(r[COL_MONTO]),
         comuna: r[COL_COMUNA],
@@ -415,6 +417,39 @@
         promedioInv: totalInv / lista.length,
         promedioDist: totalDist / lista.length
       };
+    }
+
+    // Agrega un marker con popup y link al expediente (WEB)
+    function agregarMarkerProyecto(p, color) {
+      const marker = L.circleMarker([p.lat, p.lng], {
+        radius: 6,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.9
+      }).addTo(map);
+
+      const urlExp = p.web;
+
+      let popupHtml = `
+        <strong>${p.nombre || "Proyecto sin nombre"}</strong><br>
+        Estado: ${p.estado || "-"}
+      `;
+
+      if (urlExp) {
+        popupHtml += `
+          <br>
+          <a href="${urlExp}"
+             target="_blank"
+             rel="noopener noreferrer">
+             Ver expediente SEIA
+          </a>
+        `;
+
+        // clic directo abre el expediente
+        marker.on("click", () => window.open(urlExp, "_blank"));
+      }
+
+      marker.bindPopup(popupHtml);
     }
 
     function dibujarResumen(res) {
@@ -463,6 +498,7 @@
     }
 
     let map;
+
     function initMap(center, zoom) {
       const z = isNaN(zoom) ? 10 : zoom;
       map = L.map("map").setView(center, z);
@@ -478,41 +514,6 @@
         fillOpacity: 0.9,
         weight: 2
       }).addTo(map);
-
-proyectos.forEach(p => {
-  // p.lat, p.lng, p.estado, p.nombre_proyecto, p.url_expediente
-
-  const color =
-    p.estado === "Aprobado"   ? "#22c55e" :   // verde
-    p.estado === "Rechazado"  ? "#ef4444" :   // rojo
-                                "#eab308";    // amarillo (en evaluación / otro)
-
-  const marker = L.circleMarker([p.lat, p.lng], {
-    radius: 7,
-    color,
-    weight: 2,
-    fillColor: color,
-    fillOpacity: 0.9
-  });
-
-  marker.bindPopup(`
-    <strong>${p.nombre_proyecto}</strong><br>
-    Estado: ${p.estado}<br>
-    <a href="${p.url_expediente}"
-       target="_blank"
-       rel="noopener noreferrer">
-       Ver expediente SEIA
-    </a>
-  `);
-
-  // (Opcional) que al hacer clic en el punto abra directamente el expediente:
-  // marker.on("click", () => window.open(p.url_expediente, "_blank"));
-
-  marker.addTo(mapaProyectos);
-});
-
-
-      
     }
 
     const url = new URLSearchParams(window.location.search);
@@ -535,90 +536,84 @@ proyectos.forEach(p => {
       initMap([lat,lng], zoom);
 
       fetch(EXCEL_FILE)
-      .then(r => r.arrayBuffer())
-      .then(buf => {
-        const wb = XLSX.read(new Uint8Array(buf), {type:"array"});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws);
+        .then(r => r.arrayBuffer())
+        .then(buf => {
+          const wb = XLSX.read(new Uint8Array(buf), {type:"array"});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws);
 
-        const lista = [];
+          const lista = [];
 
-        rows.forEach(r => {
-          const p = mapRow(r);
-          if (!isNaN(p.lat) && !isNaN(p.lng)) {
-            const u = wgs84ToUTM19S(p.lat,p.lng);
-            const d = Math.hypot(u.E - utm.E, u.N - utm.N);
-            lista.push({ proyecto:p, distM:d });
+          rows.forEach(r => {
+            const p = mapRow(r);
+            if (!isNaN(p.lat) && !isNaN(p.lng)) {
+              const u = wgs84ToUTM19S(p.lat,p.lng);
+              const d = Math.hypot(u.E - utm.E, u.N - utm.N);
+              lista.push({ proyecto:p, distM:d });
+            }
+          });
+
+          // Top 10 aprobados => radio
+          const aprob = lista
+            .filter(i => (i.proyecto.estado||"").toLowerCase().includes("aprob"))
+            .sort((a,b) => a.distM - b.distM)
+            .slice(0,10);
+
+          const radio = aprob.length ? aprob[aprob.length-1].distM : 0;
+
+          if (radio > 0) {
+            // Círculo de overview en torno al punto consultado
+            L.circle([lat, lng], {
+              radius: radio,
+              color: "#0ea5e9",
+              weight: 1.5,
+              fillOpacity: 0
+            }).addTo(map);
+
+            mensajeEstado.textContent =
+              `Radio de análisis: ${formatMeters(radio)} m (${(radio/1000).toFixed(2)} km).`;
+          } else {
+            mensajeEstado.textContent =
+              "No se encontraron proyectos aprobados en el entorno inmediato.";
           }
+
+          // Filtrar dentro del radio
+          const evaluacion = lista.filter(i =>
+            (i.proyecto.estado||"").toLowerCase().includes("eval") &&
+            i.distM <= radio
+          );
+
+          const rechaz = lista.filter(i =>
+            (i.proyecto.estado||"").toLowerCase().includes("rechaz") &&
+            i.distM <= radio
+          );
+
+          // Markers: 10 aprobados + evaluados + rechazados, con link al expediente
+          aprob.forEach(i => {
+            agregarMarkerProyecto(i.proyecto, "#22c55e");   // verde
+          });
+
+          evaluacion.forEach(i => {
+            agregarMarkerProyecto(i.proyecto, "#eab308");   // amarillo
+          });
+
+          rechaz.forEach(i => {
+            agregarMarkerProyecto(i.proyecto, "#ef4444");   // rojo
+          });
+
+          // Resúmenes
+          const resApr  = calcularStats(aprob);
+          const resEval = calcularStats(evaluacion);
+          const resRech = calcularStats(rechaz);
+
+          const totalInv = resApr.total + resEval.total + resRech.total;
+          document.getElementById("invTotal").textContent      = formatNumber(totalInv);
+          document.getElementById("invAprobados").textContent  = formatNumber(resApr.total);
+          document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
+
+          dibujarResumen({apr:resApr, eval:resEval, rech:resRech});
+          actualizarGraficos({apr:resApr, eval:resEval, rech:resRech});
         });
-
-        // Top 10 aprobados => radio
-        const aprob = lista
-          .filter(i => (i.proyecto.estado||"").toLowerCase().includes("aprob"))
-          .sort((a,b) => a.distM - b.distM)
-          .slice(0,10);
-
-        const radio = aprob.length ? aprob[aprob.length-1].distM : 0;
-
-        if (radio > 0) {
-          // Círculo de overview en torno al punto consultado
-          L.circle([lat, lng], {
-            radius: radio,
-            color: "#0ea5e9",
-            weight: 1.5,
-            fillOpacity: 0
-          }).addTo(map);
-
-          mensajeEstado.textContent =
-            `Radio de análisis: ${formatMeters(radio)} m (${(radio/1000).toFixed(2)} km).`;
-        } else {
-          mensajeEstado.textContent =
-            "No se encontraron proyectos aprobados en el entorno inmediato.";
-        }
-
-        // Filtrar dentro del radio
-        const evaluacion = lista.filter(i =>
-          (i.proyecto.estado||"").toLowerCase().includes("eval") &&
-          i.distM <= radio
-        );
-
-        const rechaz = lista.filter(i =>
-          (i.proyecto.estado||"").toLowerCase().includes("rechaz") &&
-          i.distM <= radio
-        );
-
-        // Markers: 10 aprobados + eval + rechazados
-        aprob.forEach(i => {
-          L.circleMarker([i.proyecto.lat, i.proyecto.lng], {
-            radius:6, color:"#22c55e", fillColor:"#22c55e", fillOpacity:0.9
-          }).addTo(map);
-        });
-
-        evaluacion.forEach(i => {
-          L.circleMarker([i.proyecto.lat, i.proyecto.lng], {
-            radius:6, color:"#eab308", fillColor:"#eab308", fillOpacity:0.9
-          }).addTo(map);
-        });
-
-        rechaz.forEach(i => {
-          L.circleMarker([i.proyecto.lat, i.proyecto.lng], {
-            radius:6, color:"#ef4444", fillColor:"#ef4444", fillOpacity:0.9
-          }).addTo(map);
-        });
-
-        // Resúmenes
-        const resApr  = calcularStats(aprob);
-        const resEval = calcularStats(evaluacion);
-        const resRech = calcularStats(rechaz);
-
-        const totalInv = resApr.total + resEval.total + resRech.total;
-        document.getElementById("invTotal").textContent      = formatNumber(totalInv);
-        document.getElementById("invAprobados").textContent  = formatNumber(resApr.total);
-        document.getElementById("invRechazados").textContent = formatNumber(resRech.total);
-
-        dibujarResumen({apr:resApr, eval:resEval, rech:resRech});
-        actualizarGraficos({apr:resApr, eval:resEval, rech:resRech});
-      });
     }
   </script>
 
