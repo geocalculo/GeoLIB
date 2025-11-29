@@ -11,7 +11,7 @@
     rel="stylesheet"
   />
 
-  <!-- Leaflet CSS -->
+  <!-- Leaflet -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -23,727 +23,630 @@
   <style>
     body {
       background-color: #f3f4f6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    header {
+      background-color: #0f172a;
+      color: #e5e7eb;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid #111827;
+    }
+
+    .header-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .coords-text {
+      font-size: 0.9rem;
+      color: #cbd5f5;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 1.5rem auto 2rem;
+      padding: 0 1rem;
     }
 
     .card {
       border-radius: 0.75rem;
       box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.1);
+      border: none;
     }
 
     .chart-card {
       min-height: 320px;
     }
 
-    .badge-filtro {
-      font-size: 0.9rem;
-    }
-
-    .table thead th {
-      background-color: #e5e7eb;
-    }
-
-    .sticky-header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background-color: #f3f4f6;
-      padding-top: 0.75rem;
-      padding-bottom: 0.75rem;
-    }
-
-    /* Overview cuadrado, mitad de ancho en PC */
     .map-wrapper {
       width: 100%;
-      aspect-ratio: 1 / 1;
+      aspect-ratio: 1 / 1; /* mapa cuadrado */
       border-radius: 0.75rem;
       overflow: hidden;
-      border: 1px solid #e5e7eb;
-    }
-
-    @media (min-width: 992px) {
-      .map-wrapper {
-        width: 50%;
-        margin-left: auto;
-        margin-right: auto;
-      }
     }
 
     #mapOverview {
       width: 100%;
       height: 100%;
     }
+
+    .badge-filtro {
+      font-size: 0.9rem;
+    }
+
+    .table thead {
+      background-color: #e5e7eb;
+    }
+
+    .estado-pill {
+      display: inline-block;
+      padding: 0.15rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .estado-aprobado {
+      background-color: #bbf7d0;
+      color: #166534;
+    }
+
+    .estado-rechazado {
+      background-color: #fecaca;
+      color: #991b1b;
+    }
+
+    .estado-evaluacion {
+      background-color: #fee2e2;
+      color: #b45309;
+    }
+
+    .estado-otro {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+
+    .small-text {
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg bg-white border-bottom">
-    <div class="container-fluid">
-      <span class="navbar-brand fw-semibold">
-        SEA Mining - Reporte de proyectos cercanos
-      </span>
-      <span class="navbar-text text-muted" id="info-coord">
-        <!-- Coordenadas desde querystring -->
-      </span>
-    </div>
-  </nav>
-
-  <main class="container my-4">
-    <!-- Encabezado -->
-    <div class="row mb-3">
-      <div class="col-12">
-        <div class="d-flex flex-wrap align-items-center justify-content-between">
-          <div>
-            <h1 class="h4 mb-1">
-              Resumen de proyectos alrededor del punto consultado
-            </h1>
-            <p class="text-muted mb-1" id="texto-radio">
-              Radio de análisis alrededor del punto consultado.
-            </p>
-          </div>
-          <div class="text-end">
-            <span class="badge rounded-pill text-bg-primary me-2" id="badge-total">
-              Total proyectos: 0
-            </span>
-            <span class="badge rounded-pill text-bg-secondary badge-filtro" id="badge-filtro">
-              Sin filtro activo
-            </span>
-            <button class="btn btn-outline-secondary btn-sm ms-2" id="btn-limpiar-filtro">
-              Quitar filtro
-            </button>
-          </div>
-        </div>
+  <header>
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="header-title">SEA Mining - Reporte de proyectos cercanos</div>
+      <div id="coordsDisplay" class="coords-text">
+        Coordenadas consulta: lat ?, lng ?
       </div>
     </div>
+  </header>
 
-    <!-- Overview con mapa -->
-    <div class="row mb-4">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-body">
-            <h2 class="h6 mb-2">Distribución espacial de los proyectos</h2>
-            <p class="text-muted small mb-3" id="texto-mapa">
-              Mapa de overview definido por los 10 proyectos aprobados más cercanos.
-            </p>
-            <div class="map-wrapper">
-              <div id="mapOverview"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <main>
+    <!-- Título y resumen -->
+    <section class="mb-3">
+      <h2 class="h4 mb-1">Resumen de proyectos alrededor del punto consultado</h2>
+      <p class="text-muted small-text mb-2" id="radioTexto">
+        Radio de análisis alrededor del punto consultado: -
+      </p>
 
-    <!-- Gráficos -->
-    <div class="row g-3 mb-4">
-      <div class="col-12 col-lg-4">
-        <div class="card chart-card">
-          <div class="card-body">
-            <h2 class="h6 mb-3">Inversión por estado</h2>
-            <canvas id="chartInversionEstado"></canvas>
-          </div>
-        </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span id="badgeTotal" class="badge bg-primary rounded-pill px-3 py-2">
+          Total proyectos: 0
+        </span>
+        <span
+          id="badgeFiltro"
+          class="badge bg-secondary rounded-pill px-3 py-2 badge-filtro"
+        >
+          Sin filtro activo
+        </span>
+        <button
+          id="btnQuitarFiltro"
+          class="btn btn-outline-secondary btn-sm ms-1"
+          type="button"
+        >
+          Quitar filtro
+        </button>
       </div>
-      <div class="col-12 col-lg-4">
-        <div class="card chart-card">
-          <div class="card-body">
-            <h2 class="h6 mb-3">Cantidad de proyectos</h2>
-            <p class="text-muted small mb-2">
-              Haz clic en una barra para filtrar todos los gráficos y tablas por ese estado.
-            </p>
-            <canvas id="chartCantidadEstado"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-lg-4">
-        <div class="card chart-card">
-          <div class="card-body">
-            <h2 class="h6 mb-3">Inversión por sector económico</h2>
-            <canvas id="chartInversionSector"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
+    </section>
 
-    <!-- Tablas -->
-    <div class="row g-3">
-      <div class="col-12">
-        <!-- Resumen por estado -->
-        <div class="card mb-3">
-          <div class="card-body">
-            <h2 class="h6 mb-3">Resumen por estado</h2>
-            <div class="table-responsive">
-              <table class="table table-sm align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th>Estado</th>
-                    <th class="text-end">Cantidad</th>
-                    <th class="text-end">Total inversión (MMUS$)</th>
-                    <th class="text-end">Promedio (MMUS$)</th>
-                    <th class="text-end">Dist. promedio (m)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyResumenEstado">
-                  <!-- se rellena con JS -->
-                </tbody>
-              </table>
+    <!-- Mapa + gráficos -->
+    <section class="mb-4">
+      <div class="row g-3">
+        <!-- Mapa overview -->
+        <div class="col-12 col-lg-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title mb-1">Distribución espacial de los proyectos</h5>
+              <p class="card-subtitle text-muted small-text mb-2" id="textoMapa">
+                Radio de análisis definido por los 10 proyectos aprobados más cercanos.
+              </p>
+              <div class="map-wrapper">
+                <div id="mapOverview"></div>
+              </div>
+              <p class="small-text text-muted mt-2">
+                En el mapa se muestran solo los <strong>10 proyectos aprobados más cercanos</strong>.
+              </p>
             </div>
           </div>
         </div>
 
-        <!-- Resumen por sector económico -->
-        <div class="card mb-3">
-          <div class="card-body">
-            <h2 class="h6 mb-3">Inversión por sector económico</h2>
-            <div class="table-responsive">
-              <table class="table table-sm align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th>Sector económico</th>
-                    <th class="text-end">Total inversión (MMUS$)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyResumenSector">
-                  <!-- se rellena con JS -->
-                </tbody>
-              </table>
+        <!-- Gráficos -->
+        <div class="col-12 col-lg-6 d-flex flex-column gap-3">
+          <div class="card chart-card">
+            <div class="card-body">
+              <h5 class="card-title mb-1">Inversión por estado del proyecto</h5>
+              <p class="card-subtitle text-muted small-text mb-2">
+                Suma de la inversión total por categoría de estado.
+              </p>
+              <canvas id="chartInversion"></canvas>
+            </div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-body">
+              <h5 class="card-title mb-1">Cantidad de proyectos por estado</h5>
+              <p class="card-subtitle text-muted small-text mb-2">
+                Número de proyectos dentro del radio de análisis, agrupados por estado.
+              </p>
+              <canvas id="chartConteo"></canvas>
             </div>
           </div>
         </div>
-
-        <!-- Detalle de proyectos -->
-        <div class="card">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h2 class="h6 mb-0">Detalle de proyectos</h2>
-              <span class="text-muted small" id="texto-detalle"></span>
-            </div>
-            <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
-              <table class="table table-sm align-middle mb-0">
-                <thead class="sticky-header">
-                  <tr>
-                    <th>ID expediente</th>
-                    <th>Nombre proyecto</th>
-                    <th>Estado</th>
-                    <th>Sector</th>
-                    <th class="text-end">Inversión (MMUS$)</th>
-                    <th class="text-end">Distancia (m)</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyDetalleProyectos">
-                  <!-- se rellena con JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
       </div>
-    </div>
+    </section>
+
+    <!-- Tabla de proyectos -->
+    <section>
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Detalle de proyectos dentro del radio de análisis</h5>
+          <div class="table-responsive small-text">
+            <table class="table align-middle table-hover" id="tablaProyectos">
+              <thead>
+                <tr>
+                  <th>Estado</th>
+                  <th>Nombre del proyecto</th>
+                  <th>Región</th>
+                  <th>Comuna</th>
+                  <th>Tipo de proyecto</th>
+                  <th>Presentación</th>
+                  <th>Inversión</th>
+                  <th>Distancia (km)</th>
+                  <th>Expediente</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+          <p class="small-text text-muted mt-2">
+            Los proyectos listados corresponden a todas las categorías de estado
+            (<em>Aprobado</em>, <em>Rechazado</em>, <em>En evaluación</em>, etc.)
+            dentro del radio definido por los 10 proyectos aprobados más cercanos.
+          </p>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- GeoLib (utilidades propias) -->
+  <script src="geolib.js"></script>
 
   <script>
-    // ============================================================
-    // 1. LECTURA BÁSICA DE QUERYSTRING (lat, lng, z opcional)
-    // ============================================================
-    let latConsulta = null;
-    let lngConsulta = null;
-    let zoomConsulta = null;
+    // ==========================
+    // Parámetros de la URL
+    // ==========================
+    const urlParams = new URLSearchParams(window.location.search);
+    const consultaLat = parseFloat(urlParams.get("lat")) || -27.5;
+    const consultaLng = parseFloat(urlParams.get("lng")) || -70.25;
+    const zoomInicial = parseInt(urlParams.get("z")) || 8;
 
-    (function leerQuery() {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const lat = params.get("lat");
-        const lng = params.get("lng");
-        const z = params.get("z");
+    document.getElementById("coordsDisplay").textContent =
+      `Coordenadas consulta: lat ${consultaLat.toFixed(6)}, lng ${consultaLng.toFixed(6)}`;
 
-        if (lat && lng) {
-          latConsulta = Number(lat);
-          lngConsulta = Number(lng);
-          document.getElementById("info-coord").textContent =
-            `Coordenadas consulta: lat ${latConsulta.toFixed(6)}, lng ${lngConsulta.toFixed(6)}`;
-        } else {
-          document.getElementById("info-coord").textContent = "";
-        }
+    // ==========================
+    // Configuración general
+    // ==========================
+    const DATA_URL = "proyectos_cercanos.json"; // AJUSTAR al nombre real exportado por tu extractor
 
-        if (z) {
-          zoomConsulta = Number(z);
-          document.getElementById("texto-radio").textContent =
-            `Zoom inicial de análisis: ${z}.`;
-        } else {
-          document.getElementById("texto-radio").textContent =
-            "Radio de análisis alrededor del punto consultado.";
-        }
-      } catch (e) {
-        console.warn("No se pudieron leer parámetros de la URL.", e);
-      }
-    })();
+    let proyectosOriginal = [];
+    let proyectosEnRadio = [];
+    let top10Aprobados = [];
+    let estadoFiltroActual = null; // null = sin filtro
 
-    // ============================================================
-    // 2. DATOS DE ENTRADA
-    // ============================================================
-    // Reemplaza este arreglo por el JSON real generado desde Python.
-    // IMPORTANTE: idealmente incluir también lat y lng para dibujar marcadores:
-    //  {
-    //    id_expediente: "2163984847",
-    //    nombre: "Proyecto X",
-    //    estado: "Aprobado",
-    //    sector: "Energía",
-    //    inversion_mm: 204.0,
-    //    distancia_m: 15849,
-    //    lat: -27.123456,
-    //    lng: -70.123456
-    //  }
+    let mapOverview;
+    let capaProyectosOverview;
+    let circuloRadio;
 
-    const proyectos = [
-      {
-        id_expediente: "2163984847",
-        nombre: "Adecuación Proyecto Parque Candelaria Solar",
-        estado: "Aprobado",
-        sector: "Energía",
-        inversion_mm: 204,
-        distancia_m: 15849,
-        lat: -27.123,
-        lng: -70.123
-      },
-      {
-        id_expediente: "2161111111",
-        nombre: "Sistema de Riego Agrícola",
-        estado: "Rechazado",
-        sector: "Agropecuario",
-        inversion_mm: 254,
-        distancia_m: 19807,
-        lat: -27.20,
-        lng: -70.10
-      },
-      {
-        id_expediente: "2162222222",
-        nombre: "Planta de Tratamiento de Aguas",
-        estado: "Aprobado",
-        sector: "Saneamiento Ambiental",
-        inversion_mm: 256.4,
-        distancia_m: 12000,
-        lat: -27.18,
-        lng: -70.15
-      }
-      // <-- AQUÍ se insertan los demás proyectos reales
-    ];
+    let chartInversion;
+    let chartConteo;
 
-    // ============================================================
-    // 3. VARIABLES GLOBALES
-    // ============================================================
-    const estadosOrden = ["Aprobado", "En evaluación", "Rechazado"];
+    // ==========================
+    // Funciones auxiliares
+    // ==========================
 
-    const proyectosBase = Array.isArray(proyectos) ? [...proyectos] : [];
-    let proyectosFull = [];   // se llenará con los proyectos dentro del radio
-    let filtroEstado = null;
+    function normalizarEstado(estadoRaw) {
+      if (!estadoRaw) return "Sin información";
+      const e = estadoRaw.toLowerCase();
+      if (e.includes("aprob")) return "Aprobado";
+      if (e.includes("rechaz")) return "Rechazado";
+      if (e.includes("evalu")) return "En evaluación";
+      return estadoRaw.trim();
+    }
 
-    let mapOverview = null;
-    let circleRadio = null;
+    function crearPillEstado(estado) {
+      const base = document.createElement("span");
+      base.textContent = estado;
+      base.classList.add("estado-pill");
 
-    // ============================================================
-    // 4. FUNCIONES HELPER
-    // ============================================================
-    function formatearNumero(x, dec = 0) {
-      if (x === null || x === undefined || isNaN(x)) return "0";
-      return Number(x).toLocaleString("es-CL", {
-        minimumFractionDigits: dec,
-        maximumFractionDigits: dec
+      const e = estado.toLowerCase();
+      if (e.includes("aprob")) base.classList.add("estado-aprobado");
+      else if (e.includes("rechaz")) base.classList.add("estado-rechazado");
+      else if (e.includes("evalu")) base.classList.add("estado-evaluacion");
+      else base.classList.add("estado-otro");
+
+      base.addEventListener("click", () => {
+        aplicarFiltroEstado(estado);
+      });
+
+      return base;
+    }
+
+    function formatearInversion(num) {
+      if (num == null || isNaN(num)) return "-";
+      return num.toLocaleString("es-CL", {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
       });
     }
 
-    function resumenPorEstado(lista) {
-      const res = {};
-      estadosOrden.forEach(est => {
-        res[est] = {
-          estado: est,
-          cantidad: 0,
-          totalInv: 0,
-          promInv: 0,
-          promDist: 0
-        };
-      });
-
-      lista.forEach(p => {
-        const est = p.estado || "Sin información";
-        if (!res[est]) {
-          res[est] = {
-            estado: est,
-            cantidad: 0,
-            totalInv: 0,
-            promInv: 0,
-            promDist: 0
-          };
-        }
-        res[est].cantidad += 1;
-        res[est].totalInv += Number(p.inversion_mm || 0);
-        res[est].promDist += Number(p.distancia_m || 0);
-      });
-
-      Object.values(res).forEach(r => {
-        if (r.cantidad > 0) {
-          r.promInv = r.totalInv / r.cantidad;
-          r.promDist = r.promDist / r.cantidad;
-        }
-      });
-
-      return res;
+    function parseMontoInversion(raw) {
+      if (raw == null) return null;
+      if (typeof raw === "number") return raw;
+      // intenta limpiar string tipo "204,0000 Millones de Dólares"
+      const match = raw.replace(/\./g, "").match(/([\d,]+)/);
+      if (!match) return null;
+      const numStr = match[1].replace(",", ".");
+      const val = parseFloat(numStr);
+      return isNaN(val) ? null : val;
     }
 
-    function resumenPorSector(lista) {
-      const res = {};
-      lista.forEach(p => {
-        const sec = p.sector || "Sin información";
-        if (!res[sec]) res[sec] = 0;
-        res[sec] += Number(p.inversion_mm || 0);
-      });
-      return res;
-    }
+    function actualizarBadges() {
+      const total = proyectosEnRadio.length;
+      document.getElementById("badgeTotal").textContent =
+        `Total proyectos: ${total}`;
 
-    // ============================================================
-    // 5. MAPA OVERVIEW
-    // ============================================================
-    function initMapOverviewIfNeeded() {
-      if (!latConsulta || !lngConsulta) {
-        document.getElementById("texto-mapa").textContent =
-          "No se pudieron leer las coordenadas del punto consultado.";
-        return;
+      const badgeFiltro = document.getElementById("badgeFiltro");
+      if (!estadoFiltroActual) {
+        badgeFiltro.textContent = "Sin filtro activo";
+        badgeFiltro.classList.remove("bg-primary");
+        badgeFiltro.classList.add("bg-secondary");
+      } else {
+        badgeFiltro.textContent = `Filtro: ${estadoFiltroActual}`;
+        badgeFiltro.classList.remove("bg-secondary");
+        badgeFiltro.classList.add("bg-primary");
       }
+    }
 
-      if (mapOverview) return;
+    function obtenerProyectosFiltrados() {
+      if (!estadoFiltroActual) return proyectosEnRadio;
+      return proyectosEnRadio.filter(
+        p => normalizarEstado(p.estado_actual) === estadoFiltroActual
+      );
+    }
 
-      const center = [latConsulta, lngConsulta];
-      const z = isNaN(zoomConsulta) ? 10 : zoomConsulta;
+    // ==========================
+    // Inicialización del mapa
+    // ==========================
+    function initMap() {
+      mapOverview = L.map("mapOverview").setView(
+        [consultaLat, consultaLng],
+        zoomInicial
+      );
 
-      mapOverview = L.map("mapOverview").setView(center, z);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap",
       }).addTo(mapOverview);
 
       // Punto consultado
-      L.circleMarker(center, {
-        radius: 7,
-        color: "#0ea5e9",
-        fillColor: "#38bdf8",
-        fillOpacity: 0.9,
-        weight: 2
-      }).addTo(mapOverview);
-    }
-
-    function agregarMarkerProyectoMapa(p) {
-      if (!mapOverview) return;
-      if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
-
-      let color = "#6b7280"; // gris por defecto
-      const estado = (p.estado || "").toLowerCase();
-      if (estado.includes("aprob")) color = "#22c55e";       // verde
-      else if (estado.includes("eval")) color = "#eab308";   // amarillo
-      else if (estado.includes("rechaz")) color = "#ef4444"; // rojo
-
-      const marker = L.circleMarker([p.lat, p.lng], {
+      L.circleMarker([consultaLat, consultaLng], {
         radius: 6,
-        color: color,
-        fillColor: color,
-        fillOpacity: 0.9
-      }).addTo(mapOverview);
-
-      const popupHtml = `
-        <strong>${p.nombre || "Proyecto sin nombre"}</strong><br>
-        Estado: ${p.estado || "-"}<br>
-        Distancia: ${formatearNumero(p.distancia_m || 0, 0)} m
-      `;
-      marker.bindPopup(popupHtml);
+        color: "#2563eb",
+        weight: 2,
+        fillColor: "#3b82f6",
+        fillOpacity: 0.9,
+      })
+        .bindPopup("Punto consultado")
+        .addTo(mapOverview);
     }
 
-    function prepararRadioYMapa() {
-      initMapOverviewIfNeeded();
+    function dibujarOverview() {
+      if (!mapOverview) return;
 
-      if (!proyectosBase.length) {
-        document.getElementById("texto-mapa").textContent =
-          "No se encontraron proyectos en el entorno inmediato.";
-        proyectosFull = [];
-        return;
+      // Elimina capas anteriores
+      if (capaProyectosOverview) {
+        capaProyectosOverview.remove();
+      }
+      if (circuloRadio) {
+        circuloRadio.remove();
       }
 
-      // 10 aprobados más cercanos (igual que versión antigua)
-      const aprobados = proyectosBase
-        .filter(p => (p.estado || "").toLowerCase().includes("aprob"))
-        .sort((a, b) => (a.distancia_m || 0) - (b.distancia_m || 0))
-        .slice(0, 10);
+      const grupo = L.layerGroup();
+      top10Aprobados.forEach(p => {
+        if (p.lat == null || p.lon == null) return;
 
-      let radio = 0;
-      if (aprobados.length) {
-        const ultimo = aprobados[aprobados.length - 1];
-        radio = Number(ultimo.distancia_m || 0);
-      }
+        L.circleMarker([p.lat, p.lon], {
+          radius: 5,
+          color: "#b45309",
+          weight: 2,
+          fillColor: "#f97316",
+          fillOpacity: 0.9,
+        })
+          .bindPopup(
+            `<strong>${p.nombre_proyecto || "Proyecto"}</strong><br>` +
+            `Estado: ${normalizarEstado(p.estado_actual)}<br>` +
+            `Distancia: ${p.dist_km.toFixed(2)} km`
+          )
+          .addTo(grupo);
+      });
 
-      if (radio > 0 && mapOverview && latConsulta && lngConsulta) {
-        if (circleRadio) {
-          mapOverview.removeLayer(circleRadio);
-        }
-        circleRadio = L.circle([latConsulta, lngConsulta], {
-          radius: radio,
-          color: "#0ea5e9",
+      capaProyectosOverview = grupo.addTo(mapOverview);
+
+      // Círculo de radio máximo de los 10 aprobados
+      if (top10Aprobados.length > 0) {
+        const radioKm =
+          top10Aprobados[top10Aprobados.length - 1].dist_km || 0;
+        const radioMetros = radioKm * 1000;
+
+        circuloRadio = L.circle([consultaLat, consultaLng], {
+          radius: radioMetros,
+          color: "#38bdf8",
           weight: 1.5,
-          fillOpacity: 0
+          fillOpacity: 0.05,
         }).addTo(mapOverview);
 
-        mapOverview.fitBounds(circleRadio.getBounds(), { padding: [20, 20] });
+        document.getElementById("radioTexto").textContent =
+          `Radio de análisis alrededor del punto consultado: ` +
+          `${radioMetros.toFixed(0)} m (${radioKm.toFixed(2)} km).`;
 
-        document.getElementById("texto-mapa").textContent =
+        document.getElementById("textoMapa").textContent =
           `Radio de análisis definido por los 10 proyectos aprobados más cercanos: ` +
-          `${formatearNumero(radio, 0)} m (${(radio / 1000).toFixed(2)} km).`;
-
-        document.getElementById("texto-radio").textContent =
-          `Radio de análisis alrededor del punto consultado: ${formatearNumero(radio, 0)} m.`;
-      } else {
-        document.getElementById("texto-mapa").textContent =
-          "No se encontraron proyectos aprobados para definir el radio de análisis. Se muestran todos los proyectos.";
-        if (mapOverview && latConsulta && lngConsulta) {
-          mapOverview.setView([latConsulta, lngConsulta], isNaN(zoomConsulta) ? 10 : zoomConsulta);
-        }
+          `${radioMetros.toFixed(0)} m (${radioKm.toFixed(2)} km).`;
       }
-
-      // Proyectos dentro del radio (o todos si radio = 0)
-      proyectosFull = proyectosBase.filter(p =>
-        radio === 0 ? true : (p.distancia_m || 0) <= radio
-      );
-
-      // Dibujar marcadores dentro del radio
-      proyectosFull.forEach(p => agregarMarkerProyectoMapa(p));
-
-      // Actualizar badge de total
-      document.getElementById("badge-total").textContent =
-        "Total proyectos: " + proyectosFull.length;
     }
 
-    // ============================================================
-    // 6. CREACIÓN DE GRÁFICOS
-    // ============================================================
-    const ctxPie = document.getElementById("chartInversionEstado");
-    const ctxBar = document.getElementById("chartCantidadEstado");
-    const ctxSector = document.getElementById("chartInversionSector");
-
-    const chartPie = new Chart(ctxPie, {
-      type: "pie",
-      data: {
-        labels: estadosOrden,
-        datasets: [
-          {
-            data: [0, 0, 0]
-          }
-        ]
-      },
-      options: {
-        plugins: {
-          legend: {
-            position: "bottom"
-          }
-        }
-      }
-    });
-
-    const chartBar = new Chart(ctxBar, {
-      type: "bar",
-      data: {
-        labels: estadosOrden,
-        datasets: [
-          {
-            label: "Cantidad de proyectos",
-            data: [0, 0, 0]
-          }
-        ]
-      },
-      options: {
-        onClick: (evt, elements) => {
-          if (!elements.length) return;
-          const idx = elements[0].index;
-          const estadoClick = chartBar.data.labels[idx];
-          aplicarFiltroEstado(estadoClick);
-        },
-        plugins: {
-          legend: {
-            display: false
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              stepSize: 1
-            }
-          }
-        }
-      }
-    });
-
-    const chartSector = new Chart(ctxSector, {
-      type: "bar",
-      data: {
-        labels: [],
-        datasets: [
-          {
-            label: "Inversión (MMUS$)",
-            data: []
-          }
-        ]
-      },
-      options: {
-        indexAxis: "y",
-        plugins: {
-          legend: {
-            display: false
-          }
-        },
-        scales: {
-          x: {
-            beginAtZero: true
-          }
-        }
-      }
-    });
-
-    // ============================================================
-    // 7. ACTUALIZAR GRÁFICOS Y TABLAS
-    // ============================================================
-    function actualizarTodo(lista) {
-      const resumenEst = resumenPorEstado(lista);
-      const resumenSec = resumenPorSector(lista);
-
-      const cantidades = estadosOrden.map(
-        est => (resumenEst[est] ? resumenEst[est].cantidad : 0)
-      );
-      const inversionesPorEstado = estadosOrden.map(
-        est => (resumenEst[est] ? resumenEst[est].totalInv : 0)
-      );
-
-      // Pie
-      chartPie.data.labels = estadosOrden;
-      chartPie.data.datasets[0].data = inversionesPorEstado;
-      chartPie.update();
-
-      // Barras cantidad
-      chartBar.data.labels = estadosOrden;
-      chartBar.data.datasets[0].data = cantidades;
-      chartBar.update();
-
-      // Barras sector
-      chartSector.data.labels = Object.keys(resumenSec);
-      chartSector.data.datasets[0].data = Object.values(resumenSec);
-      chartSector.update();
-
-      // Tablas
-      actualizarTablaEstado(resumenEst);
-      actualizarTablaSector(resumenSec);
-      actualizarTablaDetalle(lista);
-
-      // Texto detalle
-      const textoDetalle = filtroEstado
-        ? `Mostrando ${lista.length} proyecto(s) con estado "${filtroEstado}".`
-        : `Mostrando ${lista.length} proyecto(s) (todos los estados).`;
-      document.getElementById("texto-detalle").textContent = textoDetalle;
-    }
-
-    function actualizarTablaEstado(resumenEst) {
-      const tbody = document.getElementById("tbodyResumenEstado");
+    // ==========================
+    // Tabla
+    // ==========================
+    function poblarTabla() {
+      const tbody = document.querySelector("#tablaProyectos tbody");
       tbody.innerHTML = "";
 
-      estadosOrden.forEach(est => {
-        const r = resumenEst[est];
-        if (!r) return;
+      const proyectosMostrar = obtenerProyectosFiltrados();
+
+      proyectosMostrar.forEach(p => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${est}</td>
-          <td class="text-end">${formatearNumero(r.cantidad)}</td>
-          <td class="text-end">${formatearNumero(r.totalInv, 1)}</td>
-          <td class="text-end">${formatearNumero(r.promInv, 1)}</td>
-          <td class="text-end">${formatearNumero(r.promDist, 0)}</td>
-        `;
+
+        const tdEstado = document.createElement("td");
+        const pill = crearPillEstado(normalizarEstado(p.estado_actual));
+        tdEstado.appendChild(pill);
+
+        const tdNombre = document.createElement("td");
+        tdNombre.textContent = p.nombre_proyecto || "-";
+
+        const tdRegion = document.createElement("td");
+        tdRegion.textContent = p.region || p.Region || "-";
+
+        const tdComuna = document.createElement("td");
+        tdComuna.textContent = p.comuna || p.Comuna || "-";
+
+        const tdTipo = document.createElement("td");
+        tdTipo.textContent = p.tipo_proyecto || "-";
+
+        const tdForma = document.createElement("td");
+        tdForma.textContent = p.forma_presentacion || "-";
+
+        const tdInv = document.createElement("td");
+        tdInv.textContent = p.monto_inversion_num != null
+          ? `${formatearInversion(p.monto_inversion_num)}`
+          : "-";
+
+        const tdDist = document.createElement("td");
+        tdDist.textContent = p.dist_km != null ? p.dist_km.toFixed(2) : "-";
+
+        const tdExp = document.createElement("td");
+        if (p.id_expediente) {
+          const a = document.createElement("a");
+          a.href = GeoLib.urlFichaExpediente(p.id_expediente);
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = p.id_expediente;
+          tdExp.appendChild(a);
+        } else {
+          tdExp.textContent = "-";
+        }
+
+        tr.appendChild(tdEstado);
+        tr.appendChild(tdNombre);
+        tr.appendChild(tdRegion);
+        tr.appendChild(tdComuna);
+        tr.appendChild(tdTipo);
+        tr.appendChild(tdForma);
+        tr.appendChild(tdInv);
+        tr.appendChild(tdDist);
+        tr.appendChild(tdExp);
+
         tbody.appendChild(tr);
       });
     }
 
-    function actualizarTablaSector(resumenSec) {
-      const tbody = document.getElementById("tbodyResumenSector");
-      tbody.innerHTML = "";
+    // ==========================
+    // Gráficos
+    // ==========================
+    function actualizarGraficos() {
+      const proyectosMostrar = obtenerProyectosFiltrados();
 
-      Object.entries(resumenSec).forEach(([sec, total]) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${sec}</td>
-          <td class="text-end">${formatearNumero(total, 1)}</td>
-        `;
-        tbody.appendChild(tr);
+      const conteoPorEstado = GeoLib.contarPorEstado(
+        proyectosMostrar,
+        "estado_actual"
+      );
+
+      const inversionPorEstado = GeoLib.sumarInversionPorEstado(
+        proyectosMostrar,
+        "estado_actual",
+        "monto_inversion_num"
+      );
+
+      const labels = Object.keys(conteoPorEstado);
+      const datosConteo = labels.map(l => conteoPorEstado[l]);
+      const datosInversion = labels.map(l => inversionPorEstado[l] || 0);
+
+      // Grafico conteo (barras)
+      const ctxConteo = document.getElementById("chartConteo").getContext("2d");
+      if (chartConteo) chartConteo.destroy();
+      chartConteo = new Chart(ctxConteo, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Cantidad de proyectos",
+              data: datosConteo,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            x: {
+              ticks: { font: { size: 11 } },
+            },
+            y: {
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+
+      // Grafico inversion (torta)
+      const ctxInv = document.getElementById("chartInversion").getContext("2d");
+      if (chartInversion) chartInversion.destroy();
+      chartInversion = new Chart(ctxInv, {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Inversión total",
+              data: datosInversion,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { font: { size: 11 } },
+            },
+          },
+        },
       });
     }
 
-    function actualizarTablaDetalle(lista) {
-      const tbody = document.getElementById("tbodyDetalleProyectos");
-      tbody.innerHTML = "";
-      lista.forEach(p => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${p.id_expediente || ""}</td>
-          <td>${p.nombre || ""}</td>
-          <td>${p.estado || ""}</td>
-          <td>${p.sector || ""}</td>
-          <td class="text-end">${formatearNumero(p.inversion_mm, 1)}</td>
-          <td class="text-end">${formatearNumero(p.distancia_m, 0)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+    // ==========================
+    // Filtros
+    // ==========================
+    function aplicarFiltroEstado(estado) {
+      const normalizado = normalizarEstado(estado);
+      estadoFiltroActual = normalizado;
+      actualizarBadges();
+      poblarTabla();
+      actualizarGraficos();
     }
 
-    // ============================================================
-    // 8. FILTRO TIPO POWER BI
-    // ============================================================
-    function actualizarBadgeFiltro() {
-      const badge = document.getElementById("badge-filtro");
-      if (!filtroEstado) {
-        badge.textContent = "Sin filtro activo";
-        badge.classList.remove("text-bg-primary");
-        badge.classList.add("text-bg-secondary");
-      } else {
-        badge.textContent = `Filtro: ${filtroEstado}`;
-        badge.classList.remove("text-bg-secondary");
-        badge.classList.add("text-bg-primary");
-      }
-    }
-
-    function aplicarFiltroEstado(estadoClick) {
-      if (filtroEstado === estadoClick) {
-        // Si se vuelve a pinchar la misma barra, se limpia el filtro
-        filtroEstado = null;
-        actualizarBadgeFiltro();
-        actualizarTodo(proyectosFull);
-        return;
-      }
-
-      filtroEstado = estadoClick;
-      actualizarBadgeFiltro();
-
-      const filtrados = proyectosFull.filter(p => p.estado === filtroEstado);
-      actualizarTodo(filtrados);
+    function quitarFiltro() {
+      estadoFiltroActual = null;
+      actualizarBadges();
+      poblarTabla();
+      actualizarGraficos();
     }
 
     document
-      .getElementById("btn-limpiar-filtro")
-      .addEventListener("click", () => {
-        filtroEstado = null;
-        actualizarBadgeFiltro();
-        actualizarTodo(proyectosFull);
-      });
+      .getElementById("btnQuitarFiltro")
+      .addEventListener("click", quitarFiltro);
 
-    // ============================================================
-    // 9. INICIALIZACIÓN GENERAL
-    // ============================================================
-    function init() {
-      prepararRadioYMapa();           // define radio, proyectosFull y dibuja overview
-      actualizarBadgeFiltro();
-      actualizarTodo(proyectosFull);  // gráficos y tablas con proyectos dentro del radio
+    // ==========================
+    // Carga de datos
+    // ==========================
+    async function cargarDatos() {
+      try {
+        const resp = await fetch(DATA_URL);
+        if (!resp.ok) {
+          console.error("No se pudo cargar el JSON de proyectos");
+          return;
+        }
+        const data = await resp.json();
+
+        proyectosOriginal = (data.proyectos || data) .map(p => {
+          const lat = p.lat != null ? Number(p.lat) : Number(p.Lat);
+          const lon = p.lon != null ? Number(p.lon) : Number(p.Lng || p.lng);
+
+          const montoNum =
+            p.monto_inversion_num != null
+              ? Number(p.monto_inversion_num)
+              : parseMontoInversion(p.monto_inversion);
+
+          return {
+            ...p,
+            lat,
+            lon,
+            monto_inversion_num: montoNum,
+          };
+        });
+
+        // 1) Filtrar aprobados y obtener los 10 más cercanos
+        const aprobados = proyectosOriginal.filter(p =>
+          normalizarEstado(p.estado_actual) === "Aprobado"
+        );
+
+        top10Aprobados = GeoLib.proyectosMasCercanos(
+          { lat: consultaLat, lon: consultaLng },
+          aprobados,
+          10
+        );
+
+        // 2) Usar esos 10 para definir radio y obtener todos los proyectos dentro
+        proyectosEnRadio = GeoLib.proyectosDentroRadioDeLista(
+          { lat: consultaLat, lon: consultaLng },
+          top10Aprobados,
+          proyectosOriginal
+        );
+
+        actualizarBadges();
+        poblarTabla();
+        actualizarGraficos();
+        dibujarOverview();
+      } catch (err) {
+        console.error("Error cargando datos de proyectos:", err);
+      }
     }
 
-    init();
+    // ==========================
+    // Inicio
+    // ==========================
+    initMap();
+    cargarDatos();
   </script>
 </body>
 </html>
