@@ -75,10 +75,6 @@
       height: 100%;
     }
 
-    .badge-filtro {
-      font-size: 0.9rem;
-    }
-
     .table thead {
       background-color: #e5e7eb;
     }
@@ -89,7 +85,6 @@
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 500;
-      cursor: pointer;
     }
 
     .estado-aprobado {
@@ -139,26 +134,13 @@
         <span id="badgeTotal" class="badge bg-primary rounded-pill px-3 py-2">
           Total proyectos: 0
         </span>
-        <span
-          id="badgeFiltro"
-          class="badge bg-secondary rounded-pill px-3 py-2 badge-filtro"
-        >
-          Sin filtro activo
-        </span>
-        <button
-          id="btnQuitarFiltro"
-          class="btn btn-outline-secondary btn-sm ms-1"
-          type="button"
-        >
-          Quitar filtro
-        </button>
       </div>
     </section>
 
     <!-- Mapa + gráficos -->
     <section class="mb-4">
       <div class="row g-3">
-        <!-- Mapa overview (10 aprobados + otros estados dentro del radio) -->
+        <!-- Mapa overview -->
         <div class="col-12 col-lg-6">
           <div class="card h-100">
             <div class="card-body">
@@ -229,7 +211,6 @@
           </div>
           <p class="small-text text-muted mt-2">
             Los proyectos listados corresponden a todas las categorías de estado
-            (<em>Aprobado</em>, <em>Rechazado</em>, <em>En evaluación</em>, etc.)
             dentro del radio definido por los 10 proyectos aprobados más cercanos.
           </p>
         </div>
@@ -262,7 +243,6 @@
     let proyectosOriginal = [];
     let proyectosEnRadio = [];
     let top10Aprobados = [];
-    let estadoFiltroActual = null;
 
     let mapOverview;
     let capaProyectosOverview;
@@ -300,16 +280,9 @@
         .trim()
         .toLowerCase();
 
-      // Rechazados primero
       if (e.includes("rechaz")) return "Rechazado";
-
-      // Aprobados (distintas formas)
       if (e.includes("aprob") || e.includes("favorabl")) return "Aprobado";
-
-      // En calificación / evaluación
-      if (e.includes("calific") || e.includes("evalu")) {
-        return "En evaluación";
-      }
+      if (e.includes("calific") || e.includes("evalu")) return "En evaluación";
 
       return String(estadoRaw).trim();
     }
@@ -325,10 +298,6 @@
       else if (e.includes("calific") || e.includes("evalu"))
         base.classList.add("estado-evaluacion");
       else base.classList.add("estado-otro");
-
-      base.addEventListener("click", () => {
-        aplicarFiltroEstado(estado);
-      });
 
       return base;
     }
@@ -356,24 +325,6 @@
       const total = proyectosEnRadio.length;
       document.getElementById("badgeTotal").textContent =
         `Total proyectos: ${total}`;
-
-      const badgeFiltro = document.getElementById("badgeFiltro");
-      if (!estadoFiltroActual) {
-        badgeFiltro.textContent = "Sin filtro activo";
-        badgeFiltro.classList.remove("bg-primary");
-        badgeFiltro.classList.add("bg-secondary");
-      } else {
-        badgeFiltro.textContent = `Filtro: ${estadoFiltroActual}`;
-        badgeFiltro.classList.remove("bg-secondary");
-        badgeFiltro.classList.add("bg-primary");
-      }
-    }
-
-    function obtenerProyectosFiltrados() {
-      if (!estadoFiltroActual) return proyectosEnRadio;
-      return proyectosEnRadio.filter(
-        p => normalizarEstado(p.estado_actual) === estadoFiltroActual
-      );
     }
 
     // ==========================
@@ -409,11 +360,8 @@
       if (circuloRadio) circuloRadio.remove();
 
       const grupo = L.layerGroup();
-
-      // conjunto para distinguir los 10 aprobados
       const setTop10 = new Set(top10Aprobados);
 
-      // radio a partir del aprobado más lejano
       let radioKm = 0;
       if (top10Aprobados.length > 0) {
         radioKm = top10Aprobados[top10Aprobados.length - 1].dist_km || 0;
@@ -509,299 +457,7 @@
       const tbody = document.querySelector("#tablaProyectos tbody");
       tbody.innerHTML = "";
 
-      const proyectosMostrar = obtenerProyectosFiltrados();
+      proyectosEnRadio.forEach(p => {
+        const tr =
 
-      proyectosMostrar.forEach(p => {
-        const tr = document.createElement("tr");
-
-        const tdEstado = document.createElement("td");
-        const pill = crearPillEstado(normalizarEstado(p.estado_actual));
-        tdEstado.appendChild(pill);
-
-        const tdNombre = document.createElement("td");
-        tdNombre.textContent = p.nombre_proyecto || "-";
-
-        const tdRegion = document.createElement("td");
-        tdRegion.textContent = p.region || "-";
-
-        const tdComuna = document.createElement("td");
-        tdComuna.textContent = p.comuna || "-";
-
-        const tdTipo = document.createElement("td");
-        tdTipo.textContent = p.tipo_proyecto || "-";
-
-        const tdForma = document.createElement("td");
-        tdForma.textContent = p.forma_presentacion || "-";
-
-        const tdInv = document.createElement("td");
-        tdInv.textContent = p.monto_inversion_num != null
-          ? `${formatearInversion(p.monto_inversion_num)}`
-          : "-";
-
-        const tdDist = document.createElement("td");
-        tdDist.textContent = p.dist_km != null ? p.dist_km.toFixed(2) : "-";
-
-        const tdExp = document.createElement("td");
-        if (p.id_expediente) {
-          const a = document.createElement("a");
-          a.href = GeoLib.urlFichaExpediente(p.id_expediente);
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.textContent = p.id_expediente;
-          tdExp.appendChild(a);
-        } else {
-          tdExp.textContent = "-";
-        }
-
-        tr.appendChild(tdEstado);
-        tr.appendChild(tdNombre);
-        tr.appendChild(tdRegion);
-        tr.appendChild(tdComuna);
-        tr.appendChild(tdTipo);
-        tr.appendChild(tdForma);
-        tr.appendChild(tdInv);
-        tr.appendChild(tdDist);
-        tr.appendChild(tdExp);
-
-        tbody.appendChild(tr);
-      });
-    }
-
-    // ==========================
-    // Gráficos
-    // ==========================
-    function actualizarGraficos() {
-      const proyectosMostrar = obtenerProyectosFiltrados();
-
-      const conteoPorEstado = GeoLib.contarPorEstado(
-        proyectosMostrar,
-        "estado_actual"
-      );
-
-      const inversionPorEstado = GeoLib.sumarInversionPorEstado(
-        proyectosMostrar,
-        "estado_actual",
-        "monto_inversion_num"
-      );
-
-      const labels = Object.keys(conteoPorEstado);
-      const datosConteo = labels.map(l => conteoPorEstado[l]);
-      const datosInversion = labels.map(l => inversionPorEstado[l] || 0);
-
-      // Conteo (barras)
-      const ctxConteo = document.getElementById("chartConteo").getContext("2d");
-      if (chartConteo) chartConteo.destroy();
-      chartConteo = new Chart(ctxConteo, {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Cantidad de proyectos",
-              data: datosConteo,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-          },
-          scales: {
-            x: {
-              ticks: { font: { size: 11 } },
-            },
-            y: {
-              beginAtZero: true,
-            },
-          },
-        },
-      });
-
-      // Inversión (torta)
-      const ctxInv = document.getElementById("chartInversion").getContext("2d");
-      if (chartInversion) chartInversion.destroy();
-      chartInversion = new Chart(ctxInv, {
-        type: "pie",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Inversión total",
-              data: datosInversion,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: { font: { size: 11 } },
-            },
-          },
-        },
-      });
-    }
-
-    // ==========================
-    // Filtros
-    // ==========================
-    function aplicarFiltroEstado(estado) {
-      const normalizado = normalizarEstado(estado);
-      estadoFiltroActual = normalizado;
-      actualizarBadges();
-      poblarTabla();
-      actualizarGraficos();
-    }
-
-    function quitarFiltro() {
-      estadoFiltroActual = null;
-      actualizarBadges();
-      poblarTabla();
-      actualizarGraficos();
-    }
-
-    document
-      .getElementById("btnQuitarFiltro")
-      .addEventListener("click", quitarFiltro);
-
-    // ==========================
-    // Carga desde Excel (lectura tipo leecampos)
-    // ==========================
-    async function cargarDatos() {
-      try {
-        const resp = await fetch(DATA_XLSX_URL);
-        if (!resp.ok) {
-          console.error("No se pudo cargar el Excel de proyectos");
-          return;
-        }
-
-        const arrayBuffer = await resp.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-
-        const arr = XLSX.utils.sheet_to_json(sheet, {
-          header: 1,
-          defval: null,
-        });
-
-        if (!arr.length) {
-          console.error("La hoja está vacía");
-          return;
-        }
-
-        const headers = arr[0];
-        const filas = arr.slice(1);
-
-        // Detectar índices de columnas
-        let idxLat = -1,
-          idxLon = -1,
-          idxEstado = -1,
-          idxNombre = -1,
-          idxTipoProj = -1,
-          idxForma = -1,
-          idxRegion = -1,
-          idxComuna = -1,
-          idxInversion = -1,
-          idxWeb = -1;
-
-        headers.forEach((h, i) => {
-          const n = normalizeHeader(h);
-          if (n.includes("latitud") && idxLat === -1) idxLat = i;
-          if (n.includes("longitud") && idxLon === -1) idxLon = i;
-          if (n.includes("estado") && !n.includes("fecha") && idxEstado === -1)
-            idxEstado = i;
-          if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
-            idxNombre = i;
-          if (n.includes("tipo") && n.includes("proyecto") && idxTipoProj === -1)
-            idxTipoProj = i;
-          if (n.includes("tipo") && n.includes("presentacion") && idxForma === -1)
-            idxForma = i;
-          if (n === "region" && idxRegion === -1) idxRegion = i;
-          if (n === "comuna" && idxComuna === -1) idxComuna = i;
-          if (n.includes("inversion") && idxInversion === -1)
-            idxInversion = i;
-          if (n === "web" && idxWeb === -1) idxWeb = i;
-        });
-
-        proyectosOriginal = filas
-          .map(row => {
-            const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
-            const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
-
-            const estado_actual = idxEstado >= 0 ? row[idxEstado] : null;
-            const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
-            const tipo_proyecto = idxTipoProj >= 0 ? row[idxTipoProj] : null;
-            const forma_presentacion = idxForma >= 0 ? row[idxForma] : null;
-            const region = idxRegion >= 0 ? row[idxRegion] : null;
-            const comuna = idxComuna >= 0 ? row[idxComuna] : null;
-
-            const montoRaw = idxInversion >= 0 ? row[idxInversion] : null;
-            const montoNum = parseMontoInversion(montoRaw);
-
-            let id_expediente = null;
-            if (idxWeb >= 0 && row[idxWeb]) {
-              const m = String(row[idxWeb]).match(/id_expediente=(\d+)/);
-              if (m) id_expediente = m[1];
-            }
-
-            return {
-              lat,
-              lon,
-              estado_actual,
-              nombre_proyecto,
-              tipo_proyecto,
-              forma_presentacion,
-              region,
-              comuna,
-              monto_inversion_num: montoNum,
-              id_expediente,
-            };
-          })
-          .filter(
-            p =>
-              p.lat != null &&
-              !isNaN(p.lat) &&
-              p.lon != null &&
-              !isNaN(p.lon)
-          );
-
-        // 1) 10 proyectos Aprobados más cercanos
-        const aprobados = proyectosOriginal.filter(
-          p => normalizarEstado(p.estado_actual) === "Aprobado"
-        );
-
-        top10Aprobados = GeoLib.proyectosMasCercanos(
-          { lat: consultaLat, lon: consultaLng },
-          aprobados,
-          10
-        );
-
-        // 2) Todos los proyectos (cualquier estado) dentro del radio
-        proyectosEnRadio = GeoLib.proyectosDentroRadioDeLista(
-          { lat: consultaLat, lon: consultaLng },
-          top10Aprobados,
-          proyectosOriginal
-        );
-
-        actualizarBadges();
-        poblarTabla();
-        actualizarGraficos();
-        dibujarOverview();
-      } catch (err) {
-        console.error("Error cargando datos de proyectos desde Excel:", err);
-      }
-    }
-
-    // ==========================
-    // Inicio
-    // ==========================
-    initMap();
-    cargarDatos();
-  </script>
-</body>
-</html>
+::contentReference[oaicite:0]{index=0}
