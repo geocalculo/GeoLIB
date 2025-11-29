@@ -444,7 +444,8 @@
       };
     }
 
-    // Agrupa por sector económico (suma de montos)
+
+    // Agrupa por sector productivo (suma de montos) y elimina los de 0
     function calcularPorSector(lista) {
       const acumulado = {};
       lista.forEach(i => {
@@ -454,11 +455,20 @@
         acumulado[sector] = (acumulado[sector] || 0) + p.monto;
       });
 
-      const sectores = Object.keys(acumulado).sort();
-      const totales = sectores.map(s => acumulado[s]);
+      const sectores = [];
+      const totales = [];
+
+      // Solo dejamos sectores con inversión > 0
+      Object.entries(acumulado).forEach(([sector, total]) => {
+        if (total > 0) {
+          sectores.push(sector);
+          totales.push(total);
+        }
+      });
 
       return { sectores, totales };
     }
+
 
     // Tabla resumen por estado
     function dibujarResumen(res) {
