@@ -256,7 +256,7 @@
       return R * c;
     }
 
-    // 🔹 Conversión Excel serial date → "AAAAMMDD"
+    // 🔹 Conversión Excel serial date → "AAAA-MM-DD"
     function excelDateToYMD(value) {
       if (value == null) return null;
 
@@ -265,7 +265,7 @@
 
       n = Math.round(n); // por si viene 40430.123
 
-      const fechaBase = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30 (época Excel corregida)
+      const fechaBase = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30
       const ms = fechaBase.getTime() + n * 86400000;
       const d = new Date(ms);
 
@@ -273,10 +273,7 @@
       const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
       const dd = String(d.getUTCDate()).padStart(2, "0");
 
-      
-
       return `${yyyy}-${mm}-${dd}`;
-
     }
 
     // Polilínea circular (solo borde)
@@ -377,6 +374,9 @@
           `Estado: ${estadoNorm}<br>` +
           `Sector: ${p.sector_productivo || "Sin información"}`;
 
+        if (p.tipo_presentacion) {
+          popupHtml += `<br>Tipo: ${p.tipo_presentacion}`;
+        }
         if (p.inversion_mmu) {
           popupHtml += `<br>Inversión: ${p.inversion_mmu}`;
         }
@@ -405,7 +405,7 @@
       if (radioKm > 0) {
         const radioMetros = radioKm * 1000;
 
-        // Círculo como polilínea (solo borde, sin relleno e ininteractivo)
+        // Círculo como polilínea (solo borde)
         const puntosCirculo = generarCirculoPolyline(
           consultaLat,
           consultaLng,
@@ -467,7 +467,8 @@
           idxInv = -1,
           idxFechaAprob = -1,
           idxWeb = -1,
-          idxIdExp = -1;
+          idxIdExp = -1,
+          idxTipo = -1;
 
         headers.forEach((h, i) => {
           const n = normalizeHeader(h);
@@ -478,10 +479,8 @@
           if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
             idxNombre = i;
           if (n.includes("sector") && idxSector === -1) idxSector = i;
-
           if ((n.includes("inversion") || n.includes("inversi")) && idxInv === -1)
             idxInv = i;
-
           if (
             idxFechaAprob === -1 &&
             n.includes("fecha") &&
@@ -491,13 +490,13 @@
           ) {
             idxFechaAprob = i;
           }
-
           if ((n.includes("web") || n.includes("url")) && idxWeb === -1)
             idxWeb = i;
-
           if (n.includes("id expediente") || n.includes("id_expediente")) {
             if (idxIdExp === -1) idxIdExp = i;
           }
+          if (n.includes("tipo") && n.includes("present") && idxTipo === -1)
+            idxTipo = i;
         });
 
         const filtroSectoresNorm = new Set(
@@ -513,6 +512,9 @@
             const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
             const sector_productivo = idxSector >= 0 ? row[idxSector] : null;
             const inversion_mmu = idxInv >= 0 ? row[idxInv] : null;
+
+            // Tipo de presentación (DIA / EIA)
+            const tipo_presentacion = idxTipo >= 0 ? row[idxTipo] : null;
 
             // conversión de fecha de aprobación
             let fecha_aprobacion = null;
@@ -562,6 +564,7 @@
               sector_productivo,
               inversion_mmu,
               fecha_aprobacion,
+              tipo_presentacion,
               url_expediente,
               dist_km,
               esTop10Aprobado: false,
@@ -604,4 +607,3 @@
   </script>
 </body>
 </html>
-
