@@ -21,7 +21,7 @@
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
-      background: #0b1120;
+      background: #020617;
       color: #e5e7eb;
       min-height: 100vh;
       display: flex;
@@ -31,24 +31,24 @@
     header {
       background: #020617;
       border-bottom: 1px solid #111827;
-      padding: 8px 16px;
+      padding: 12px 16px 10px 16px;
     }
 
     .header-inner {
       max-width: 1200px;
       margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      text-align: center;
     }
 
-    .header-title {
-      font-size: 1rem;
+    .title {
+      font-size: 1.15rem;
       font-weight: 600;
+      letter-spacing: 0.03em;
     }
 
-    .header-subtitle {
-      font-size: 0.75rem;
+    .subtitle {
+      margin-top: 4px;
+      font-size: 0.9rem;
       color: #9ca3af;
     }
 
@@ -56,141 +56,39 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-    }
-
-    /* Barra de filtros */
-    .filtros-bar {
-      width: 100%;
-      max-width: 1200px;
-      margin: 6px auto 8px auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 0 8px;
-      color: #e5e7eb;
-      font-size: 0.8rem;
-    }
-
-    .filtro-grupo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .filtro-label {
-      font-weight: 500;
-      opacity: 0.9;
-    }
-
-    .dropdown-multi {
-      position: relative;
-      min-width: 220px;
-    }
-
-    .dropdown-multi-btn {
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid #4b5563;
-      background: #020617;
-      color: #e5e7eb;
-      font-size: 0.8rem;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      width: 100%;
-    }
-
-    .dropdown-multi-btn::after {
-      content: "▾";
-      font-size: 0.75rem;
-      opacity: 0.8;
-    }
-
-    .dropdown-multi-menu {
-      position: absolute;
-      top: 110%;
-      left: 0;
-      background: #020617;
-      border: 1px solid #4b5563;
-      border-radius: 0.5rem;
-      box-shadow: 0 12px 20px rgba(0, 0, 0, 0.45);
-      padding: 6px 8px;
-      z-index: 1000;
-      display: none;
-      min-width: 220px;
-    }
-
-    .dropdown-multi-menu.open {
-      display: block;
-    }
-
-    .dropdown-multi-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 2px 4px;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-
-    .dropdown-multi-item input {
-      cursor: pointer;
-    }
-
-    .dropdown-multi-item:hover {
-      background: rgba(148, 163, 184, 0.19);
-      border-radius: 0.25rem;
-    }
-
-    @media (max-width: 768px) {
-      .filtros-bar {
-        justify-content: flex-start;
-      }
-    }
-
-    /* Contenedor del mapa */
-    .map-container {
-      flex: 1;
-      position: relative;
+      min-height: 0;
     }
 
     #map {
-      position: absolute;
-      inset: 0;
+      flex: 1;
       width: 100%;
-      height: 100%;
-    }
-
-    .map-hint {
-      position: absolute;
-      top: 8px;
-      right: 12px;
-      background: rgba(15, 23, 42, 0.9);
-      color: #e5e7eb;
-      font-size: 0.75rem;
-      padding: 4px 8px;
-      border-radius: 999px;
-      border: 1px solid #4b5563;
-      z-index: 500;
+      min-height: 400px;
+      background: #000;
     }
 
     footer {
-      font-size: 0.7rem;
-      color: #6b7280;
-      text-align: center;
-      padding: 6px 8px 8px 8px;
-      border-top: 1px solid #020617;
       background: #020617;
+      border-top: 1px solid #111827;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-align: right;
+    }
+
+    a {
+      color: #38bdf8;
+    }
+
+    a:hover {
+      color: #0ea5e9;
     }
   </style>
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <div class="header-title">SEA Mining - Proyectos cercanos a un punto</div>
-      <div class="header-subtitle">
+      <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
+      <div class="subtitle">
         Haz clic en cualquier parte del mapa para generar el reporte de proyectos más cercanos
         (el reporte se abrirá en una pestaña nueva).
       </div>
@@ -198,167 +96,40 @@
   </header>
 
   <main>
-    <!-- Barra de filtros -->
-    <div class="filtros-bar">
-      <div class="filtro-grupo">
-        <span class="filtro-label">Sector productivo</span>
-
-        <div class="dropdown-multi" id="dropdownSector">
-          <button type="button" class="dropdown-multi-btn" id="btnSector">
-            Todos los sectores
-          </button>
-          <div class="dropdown-multi-menu" id="menuSector">
-            <label class="dropdown-multi-item">
-              <input type="checkbox" id="sectorTodos" checked />
-              <span>Todos</span>
-            </label>
-
-            <!-- AJUSTAR ESTOS VALORES A TUS SECTORES REALES -->
-            <label class="dropdown-multi-item">
-              <input type="checkbox" name="sectorProd" value="Energía" checked />
-              <span>Energía</span>
-            </label>
-            <label class="dropdown-multi-item">
-              <input type="checkbox" name="sectorProd" value="Minería" checked />
-              <span>Minería</span>
-            </label>
-            <label class="dropdown-multi-item">
-              <input type="checkbox" name="sectorProd" value="Infraestructura" checked />
-              <span>Infraestructura</span>
-            </label>
-            <label class="dropdown-multi-item">
-              <input type="checkbox" name="sectorProd" value="Industrial" checked />
-              <span>Industrial</span>
-            </label>
-            <label class="dropdown-multi-item">
-              <input type="checkbox" name="sectorProd" value="Residuos" checked />
-              <span>Residuos</span>
-            </label>
-            <!-- agrega más si lo necesitas -->
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Mapa -->
-    <div class="map-container">
-      <div id="map"></div>
-      <div class="map-hint">Click en el mapa para ver el reporte</div>
-    </div>
+    <div id="map"></div>
   </main>
 
   <footer>
-    GeoLIB / GeoIPT © 2025 · Reporte de proximidad a proyectos SEIA. Uso referencial.
+    GeoLIB / GeoIPT &copy; <span id="year"></span>
   </footer>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // ========= Filtro de sectores productivos =========
-    const dropdownSector = document.getElementById("dropdownSector");
-    const btnSector = document.getElementById("btnSector");
-    const menuSector = document.getElementById("menuSector");
-    const chkTodos = document.getElementById("sectorTodos");
-    const chkSectores = Array.from(
-      document.querySelectorAll('input[name="sectorProd"]')
-    );
+    // Año en el footer
+    document.getElementById("year").textContent = new Date().getFullYear();
 
-    // abrir/cerrar menú
-    btnSector.addEventListener("click", () => {
-      menuSector.classList.toggle("open");
-    });
+    // Mapa centrado en Copiapó
+    const centroCopiapo = [-27.366, -70.333];
+    const map = L.map("map").setView(centroCopiapo, 8);
 
-    // cerrar al hacer clic fuera
-    document.addEventListener("click", (e) => {
-      if (!dropdownSector.contains(e.target)) {
-        menuSector.classList.remove("open");
-      }
-    });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-    // "Todos" marca / desmarca todos
-    chkTodos.addEventListener("change", () => {
-      const checked = chkTodos.checked;
-      chkSectores.forEach((c) => (c.checked = checked));
-      actualizarTextoBotonSectores();
-    });
+    // Click en el mapa => abrir info.html en pestaña nueva con lat, lng, z
+    map.on("click", function (e) {
+      const lat  = e.latlng.lat.toFixed(6);
+      const lng  = e.latlng.lng.toFixed(6);
+      const zoom = map.getZoom();
 
-    // cambio de cualquier sector individual
-    chkSectores.forEach((c) => {
-      c.addEventListener("change", () => {
-        const total = chkSectores.length;
-        const marcados = chkSectores.filter((x) => x.checked).length;
+      const url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}`;
 
-        if (marcados === 0) {
-          // si desmarca todos -> equivale a "todos"
-          chkTodos.checked = true;
-          chkSectores.forEach((s) => (s.checked = true));
-        } else if (marcados === total) {
-          chkTodos.checked = true;
-        } else {
-          chkTodos.checked = false;
-        }
-
-        actualizarTextoBotonSectores();
-      });
-    });
-
-    function actualizarTextoBotonSectores() {
-      const total = chkSectores.length;
-      const marcados = chkSectores.filter((x) => x.checked);
-
-      if (marcados.length === 0 || marcados.length === total) {
-        btnSector.textContent = "Todos los sectores";
-        return;
-      }
-
-      const nombres = marcados.map((x) => x.value);
-      let texto = nombres.join(", ");
-      if (texto.length > 28) {
-        texto = texto.slice(0, 25) + "…";
-      }
-      btnSector.textContent = texto;
-    }
-
-    // Devuelve [] cuando es "todos" (sin filtro).
-    function getSectoresSeleccionados() {
-      const total = chkSectores.length;
-      const marcados = chkSectores.filter((x) => x.checked);
-
-      if (marcados.length === 0 || marcados.length === total) {
-        return []; // equivale a "todos"
-      }
-      return marcados.map((x) => x.value);
-    }
-
-    // ================== Mapa ===========================
-    let map;
-
-    document.addEventListener("DOMContentLoaded", () => {
-      // Centro aproximado en Atacama / Chile
-      map = L.map("map", {
-        zoomControl: true
-      }).setView([-27.37, -70.33], 7);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors"
-      }).addTo(map);
-
-      // Click en el mapa -> abrir info.html
-      map.on("click", (e) => {
-        const lat = e.latlng.lat.toFixed(6);
-        const lng = e.latlng.lng.toFixed(6);
-        const radioKm = 10; // radio base para el reporte
-
-        const sectores = getSectoresSeleccionados();
-        let extra = "";
-        if (sectores.length > 0) {
-          extra = "&sectores=" + encodeURIComponent(sectores.join(","));
-        }
-
-        const url = `info.html?lat=${lat}&lng=${lng}&z=${radioKm}${extra}`;
-        window.open(url, "_blank");
-      });
+      // Importante: abrir en pestaña nueva
+      window.open(url, "_blank");
     });
   </script>
 </body>
