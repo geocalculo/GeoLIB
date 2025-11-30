@@ -69,7 +69,7 @@
 
     .map-wrapper {
       width: 100%;
-      aspect-ratio: 1 / 1; /* mapa cuadrado */
+      aspect-ratio: 1 / 1;
       border-radius: 0.75rem;
       overflow: hidden;
       margin-top: 0.75rem;
@@ -152,17 +152,17 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // ==========================
-    // Parámetros de la URL
-    // ==========================
+    // ===============================
+    // Leer parámetros URL
+    // ===============================
     const urlParams = new URLSearchParams(window.location.search);
     const consultaLat = parseFloat(urlParams.get("lat")) || -27.5;
     const consultaLng = parseFloat(urlParams.get("lng")) || -70.25;
     const zoomInicial = parseInt(urlParams.get("z")) || 8;
 
-    // Sectores productivos desde la URL (sec = lista separada por comas)
     const secParam = urlParams.get("sec");
     let sectoresFiltro = [];
+
     if (secParam && secParam.trim() !== "") {
       sectoresFiltro = secParam
         .split(",")
@@ -170,15 +170,15 @@
         .filter(s => s.length > 0);
     }
 
-    // Mostrar coordenadas y sectores en el header
+    // Mostrar en encabezado
     document.getElementById("coordsDisplay").textContent =
       `Coordenadas consulta: lat ${consultaLat.toFixed(6)}, lng ${consultaLng.toFixed(6)}`;
 
-    const sectoresDisplayEl = document.getElementById("sectoresDisplay");
     if (!sectoresFiltro.length) {
-      sectoresDisplayEl.textContent = "Sectores productivos: Todos";
+      document.getElementById("sectoresDisplay").textContent =
+        "Sectores productivos: Todos";
     } else {
-      sectoresDisplayEl.textContent =
+      document.getElementById("sectoresDisplay").textContent =
         "Sectores productivos: " + sectoresFiltro.join(", ");
     }
 
@@ -191,9 +191,9 @@
     let capaProyectosOverview;
     let circuloRadio;
 
-    // ==========================
+    // ===============================
     // Helpers
-    // ==========================
+    // ===============================
     function normalizeHeader(h) {
       return String(h || "")
         .normalize("NFD")
@@ -222,12 +222,7 @@
     function normalizarEstado(estadoRaw) {
       if (!estadoRaw) return "Sin información";
 
-      let e = String(estadoRaw)
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .toLowerCase();
+      let e = normalizeSimple(estadoRaw);
 
       if (e.includes("rechaz")) return "Rechazado";
       if (e.includes("aprob") || e.includes("favorabl")) return "Aprobado";
@@ -237,23 +232,22 @@
     }
 
     function haversineKm(lat1, lon1, lat2, lon2) {
-      const R = 6371; // km
+      const R = 6371;
       const toRad = deg => (deg * Math.PI) / 180;
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lon2 - lon1);
       const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.sin(dLat / 2) ** 2 +
         Math.cos(toRad(lat1)) *
           Math.cos(toRad(lat2)) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
+          Math.sin(dLon / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
-    // ==========================
+    // ===============================
     // Mapa
-    // ==========================
+    // ===============================
     function initMap() {
       mapOverview = L.map("mapOverview").setView(
         [consultaLat, consultaLng],
@@ -265,7 +259,6 @@
         attribution: "&copy; OpenStreetMap",
       }).addTo(mapOverview);
 
-      // Punto consultado
       L.circleMarker([consultaLat, consultaLng], {
         radius: 6,
         color: "#2563eb",
@@ -327,13 +320,9 @@
 
         let popupHtml =
           `<strong>${p.nombre_proyecto || "Proyecto"}</strong><br>` +
-          `Estado: ${estadoNorm}`;
-
-        if (typeof p.dist_km === "number") {
-          popupHtml += `<br>Distancia: ${p.dist_km.toFixed(2)} km`;
-        }
-
-        // Más adelante podemos agregar inversión, fecha, sector, link expediente
+          `Estado: ${estadoNorm}<br>` +
+          `Sector: ${p.sector_productivo || "Sin información"}<br>` +
+          `Distancia: ${p.dist_km.toFixed(2)} km`;
 
         L.circleMarker([p.lat, p.lon], options)
           .bindPopup(popupHtml)
@@ -342,6 +331,33 @@
 
       capaProyectosOverview = grupo.addTo(mapOverview);
 
+      // ===============================
+      // ZOOM EXTENT (fitBounds)
+      // ===============================
+      try {
+        const bounds = L.latLngBounds();
+
+        bounds.extend([consultaLat, consultaLng]);
+
+        proyectosEnRadio.forEach(p => {
+          if (p.lat != null && p.lon != null) {
+            bounds.extend([p.lat, p.lon]);
+          }
+        });
+
+        if (radioKm > 0) {
+          const radioMetros = radioKm * 1000;
+          const circleBounds =
+            L.circle([consultaLat, consultaLng], { radius: radioMetros }).getBounds();
+          bounds.extend(circleBounds);
+        }
+
+        mapOverview.fitBounds(bounds, { padding: [30, 30] });
+      } catch (err) {
+        console.warn("No se pudo hacer fitBounds:", err);
+      }
+
+      // Círculo de análisis
       if (radioKm > 0) {
         const radioMetros = radioKm * 1000;
 
@@ -361,33 +377,19 @@
       }
     }
 
-    // ==========================
-    // Carga Excel y lógica de distancias
-    // ==========================
+    // ===============================
+    // Cargar Excel y procesamiento
+    // ===============================
     async function cargarDatos() {
       try {
         const resp = await fetch(DATA_XLSX_URL);
-        if (!resp.ok) {
-          console.error("No se pudo cargar el Excel de proyectos");
-          return;
-        }
+        if (!resp.ok) return;
 
-        const arrayBuffer = await resp.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
+        const data = new Uint8Array(await resp.arrayBuffer());
         const workbook = XLSX.read(data, { type: "array" });
 
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-
-        const arr = XLSX.utils.sheet_to_json(sheet, {
-          header: 1,
-          defval: null,
-        });
-
-        if (!arr.length) {
-          console.error("La hoja está vacía");
-          return;
-        }
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const arr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
         const headers = arr[0];
         const filas = arr.slice(1);
@@ -406,8 +408,7 @@
             idxEstado = i;
           if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
             idxNombre = i;
-          if (n.includes("sector") && idxSector === -1)
-            idxSector = i; // Sector productivo
+          if (n.includes("sector") && idxSector === -1) idxSector = i;
         });
 
         const filtroSectoresNorm = new Set(
@@ -423,16 +424,12 @@
             const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
             const sector_productivo = idxSector >= 0 ? row[idxSector] : null;
 
-            if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) {
-              return null;
-            }
+            if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return null;
 
-            // Filtro por sector productivo (si aplica)
+            // filtro por sector productivo
             if (sectoresFiltro.length > 0 && idxSector >= 0) {
               const sectorNorm = normalizeSimple(sector_productivo);
-              if (!filtroSectoresNorm.has(sectorNorm)) {
-                return null;
-              }
+              if (!filtroSectoresNorm.has(sectorNorm)) return null;
             }
 
             const dist_km = haversineKm(consultaLat, consultaLng, lat, lon);
@@ -449,7 +446,7 @@
           })
           .filter(p => p !== null);
 
-        // 1) 10 aprobados más cercanos
+        // Top 10 aprobados
         const aprobados = proyectosOriginal
           .filter(p => normalizarEstado(p.estado_actual) === "Aprobado")
           .sort((a, b) => a.dist_km - b.dist_km);
@@ -460,34 +457,26 @@
             ? top10Aprobados[top10Aprobados.length - 1].dist_km
             : 0;
 
-        // marcar los top10 aprobados
         const topSet = new Set(top10Aprobados);
+
         proyectosOriginal.forEach(p => {
-          if (topSet.has(p)) {
-            p.esTop10Aprobado = true;
-          }
+          if (topSet.has(p)) p.esTop10Aprobado = true;
         });
 
-        // 2) Todos los proyectos dentro del radio
         proyectosEnRadio =
           radioKm > 0
             ? proyectosOriginal.filter(p => p.dist_km <= radioKm)
             : [];
 
-        console.log("Total proyectos con coord (post-filtro):", proyectosOriginal.length);
-        console.log("Aprobados:", aprobados.length);
-        console.log("Top10:", top10Aprobados.length);
-        console.log("En radio:", proyectosEnRadio.length, "radioKm:", radioKm);
-
         dibujarOverview(radioKm);
       } catch (err) {
-        console.error("Error cargando datos de proyectos desde Excel:", err);
+        console.error("Error cargando el Excel:", err);
       }
     }
 
-    // ==========================
-    // Inicio
-    // ==========================
+    // ===============================
+    // Iniciar
+    // ===============================
     initMap();
     cargarDatos();
   </script>
