@@ -5,14 +5,11 @@
   <title>SEA Mining - Proyectos cercanos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Leaflet -->
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
-
-  <!-- SheetJS (leer Excel) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
     * {
@@ -22,425 +19,479 @@
     }
 
     body {
-      background-color: #f3f4f6;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
+      background: #e5e7eb;
+      color: #0f172a;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
     header {
-      background-color: #0f172a;
+      background: #020617;
       color: #e5e7eb;
-      padding: 0.75rem 1.5rem;
       border-bottom: 1px solid #111827;
+      padding: 10px 16px;
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
     .header-title {
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 600;
     }
 
-    .coords-text {
-      font-size: 0.9rem;
-      color: #cbd5f5;
+    .header-subtitle {
+      font-size: 0.8rem;
+      opacity: 0.85;
     }
 
     main {
-      max-width: 1000px;
-      margin: 1.5rem auto 2rem;
-      padding: 0 1rem;
-      width: 100%;
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
     }
 
-    .small-text {
-      font-size: 0.9rem;
-      color: #4b5563;
+    .container {
+      width: 100%;
+      max-width: 1100px;
     }
 
     .card {
-      background: #ffffff;
+      background: #f9fafb;
       border-radius: 0.75rem;
-      box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.1);
-      padding: 1.25rem;
+      padding: 18px 18px 20px 18px;
+      box-shadow: 0 15px 25px -10px rgba(15, 23, 42, 0.25);
+      border: 1px solid #e5e7eb;
+    }
+
+    .card h1 {
+      font-size: 1.4rem;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+
+    .card-subtitle {
+      font-size: 0.82rem;
+      color: #4b5563;
+      margin-bottom: 12px;
     }
 
     .map-wrapper {
       width: 100%;
-      aspect-ratio: 1 / 1; /* mapa cuadrado */
+      aspect-ratio: 4 / 3;
       border-radius: 0.75rem;
       overflow: hidden;
-      margin-top: 0.75rem;
+      border: 1px solid #e5e7eb;
     }
 
-    #mapOverview {
+    #map {
       width: 100%;
       height: 100%;
     }
 
-    .estado-legend {
-      margin-top: 0.75rem;
-      font-size: 0.85rem;
+    .legend {
+      margin-top: 10px;
+      font-size: 0.8rem;
       color: #4b5563;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
-    .pill {
-      display: inline-block;
-      padding: 0.1rem 0.5rem;
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
       border-radius: 999px;
+      border: 1px solid #11182733;
+    }
+
+    .legend-dot.aprobado {
+      background: #22c55e;
+    }
+
+    .legend-dot.rechazado {
+      background: #ef4444;
+    }
+
+    .legend-dot.evaluacion {
+      background: #f97316;
+    }
+
+    .legend-dot.consulta {
+      background: #3b82f6;
+    }
+
+    footer {
       font-size: 0.75rem;
-      font-weight: 500;
-      margin-right: 0.5rem;
+      color: #6b7280;
+      text-align: center;
+      padding: 8px 12px 14px 12px;
     }
 
-    .pill-aprobado {
-      background: #bbf7d0;
-      color: #166534;
-    }
-
-    .pill-rechazado {
-      background: #fecaca;
-      color: #991b1b;
-    }
-
-    .pill-eval {
-      background: #fee2e2;
-      color: #b45309;
-    }
-
-    .pill-otro {
-      background: #e5e7eb;
-      color: #374151;
+    @media (max-width: 768px) {
+      .card {
+        padding: 14px;
+      }
+      .card h1 {
+        font-size: 1.1rem;
+      }
+      .map-wrapper {
+        aspect-ratio: 3 / 4;
+      }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="d-flex justify-content-between align-items-center">
+    <div class="header-inner">
       <div class="header-title">SEA Mining - Proyectos cercanos</div>
-      <div id="coordsDisplay" class="coords-text">
-        Coordenadas consulta: lat ?, lng ?
+      <div id="coordsHeader" class="header-subtitle">
+        Coordenadas consulta: —
       </div>
     </div>
   </header>
 
   <main>
-    <section class="card">
-      <h2 class="h5 mb-1">Distribución espacial de los proyectos</h2>
-      <p id="radioTexto" class="small-text">
-        Radio de análisis alrededor del punto consultado: -
-      </p>
+    <div class="container">
+      <section class="card">
+        <h1>Distribución espacial de los proyectos</h1>
+        <p id="radioTexto" class="card-subtitle">
+          Radio de análisis alrededor del punto consultado: —.
+        </p>
 
-      <div class="map-wrapper">
-        <div id="mapOverview"></div>
-      </div>
+        <div class="map-wrapper">
+          <div id="map"></div>
+        </div>
 
-      <div class="estado-legend">
-        <strong>Leyenda:</strong>
-        <span class="pill pill-aprobado">Aprobado (10 más cercanos)</span>
-        <span class="pill pill-rechazado">Rechazado</span>
-        <span class="pill pill-eval">En evaluación</span>
-        <span class="pill pill-otro">Otros estados</span>
-      </div>
-    </section>
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-dot consulta"></span> Punto consultado
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot aprobado"></span> Proyectos aprobados (10 más cercanos)
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot evaluacion"></span> En evaluación dentro del radio
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot rechazado"></span> Rechazados dentro del radio
+          </div>
+        </div>
+      </section>
+    </div>
   </main>
+
+  <footer>
+    Reporte generado automáticamente a partir del sistema SEA. Uso referencial para apoyo a la toma de decisiones.
+  </footer>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- SheetJS para leer el XLSX -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <script>
-    // ==========================
-    // Parámetros de la URL
-    // ==========================
-    const urlParams = new URLSearchParams(window.location.search);
-    const consultaLat = parseFloat(urlParams.get("lat")) || -27.5;
-    const consultaLng = parseFloat(urlParams.get("lng")) || -70.25;
-    const zoomInicial = parseInt(urlParams.get("z")) || 8;
+    // ==== CONFIGURACIÓN BÁSICA =======================================
 
-    document.getElementById("coordsDisplay").textContent =
-      `Coordenadas consulta: lat ${consultaLat.toFixed(6)}, lng ${consultaLng.toFixed(6)}`;
+    // Ruta al archivo Excel con los proyectos
+    // AJUSTAR si usas otro nombre:
+    const EXCEL_PATH = "capas/proyectos_sea.xlsx";
 
-    const DATA_XLSX_URL = "capas/SEA_Atacama_Proyectos.xlsx";
+    // Número máximo de proyectos aprobados a mostrar
+    const MAX_APROBADOS = 10;
 
-    let proyectosOriginal = [];
-    let proyectosEnRadio = [];
-    let top10Aprobados = [];
-    let mapOverview;
-    let capaProyectosOverview;
-    let circuloRadio;
+    // ================================================================
 
-    // ==========================
-    // Helpers
-    // ==========================
-    function normalizeHeader(h) {
-      return String(h || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase();
+    let map;
+    let circleConsulta;
+    const proyectosConDistancia = [];
+
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
     }
 
-    function parseCoord(value) {
-      if (value === null || value === undefined) return null;
-      let s = String(value).trim();
-      if (!s) return null;
-      s = s.replace(",", ".");
-      const n = Number(s);
-      return isNaN(n) ? null : n;
+    function formatNumber(num, decimals = 2) {
+      if (num === null || num === undefined || isNaN(num)) return "s/i";
+      return Number(num).toLocaleString("es-CL", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: decimals
+      });
     }
 
-    function normalizarEstado(estadoRaw) {
-      if (!estadoRaw) return "Sin información";
-
-      let e = String(estadoRaw)
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .toLowerCase();
-
-      if (e.includes("rechaz")) return "Rechazado";
-      if (e.includes("aprob") || e.includes("favorabl")) return "Aprobado";
-      if (e.includes("calific") || e.includes("evalu")) return "En evaluación";
-
-      return String(estadoRaw).trim();
+    function gradosARadianes(grados) {
+      return (grados * Math.PI) / 180;
     }
 
-    function haversineKm(lat1, lon1, lat2, lon2) {
-      const R = 6371; // km
-      const toRad = deg => (deg * Math.PI) / 180;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
+    // Distancia Haversine en metros entre dos pares lat/lng
+    function distanciaMetros(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // radio Tierra en metros
+      const dLat = gradosARadianes(lat2 - lat1);
+      const dLon = gradosARadianes(lon2 - lon1);
       const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) *
-          Math.cos(toRad(lat2)) *
+        Math.cos(gradosARadianes(lat1)) *
+          Math.cos(gradosARadianes(lat2)) *
           Math.sin(dLon / 2) *
           Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
-    // ==========================
-    // Mapa
-    // ==========================
-    function initMap() {
-      mapOverview = L.map("mapOverview").setView(
-        [consultaLat, consultaLng],
-        zoomInicial
-      );
+    function getFirstAvailable(row, keys) {
+      for (const k of keys) {
+        if (row.hasOwnProperty(k) && row[k] !== null && row[k] !== "") {
+          return row[k];
+        }
+      }
+      return null;
+    }
+
+    function clasificarEstado(estadoRaw) {
+      const est = (estadoRaw || "").toString().toLowerCase();
+      if (est.includes("aprob")) return "aprobado";
+      if (est.includes("rechaz")) return "rechazado";
+      if (est.includes("evalu")) return "evaluacion";
+      return "otro";
+    }
+
+    function initMap(lat, lng, radioKm) {
+      map = L.map("map", {
+        zoomControl: true
+      }).setView([lat, lng], 5);
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
-        attribution: "&copy; OpenStreetMap",
-      }).addTo(mapOverview);
+        attribution: "© OpenStreetMap contributors"
+      }).addTo(map);
 
       // Punto consultado
-      L.circleMarker([consultaLat, consultaLng], {
+      const markerConsulta = L.circleMarker([lat, lng], {
         radius: 6,
-        color: "#2563eb",
-        weight: 2,
         fillColor: "#3b82f6",
-        fillOpacity: 0.9,
-      })
-        .bindPopup("Punto consultado")
-        .addTo(mapOverview);
+        color: "#1d4ed8",
+        weight: 2,
+        fillOpacity: 1
+      }).addTo(map);
+
+      markerConsulta.bindPopup("Punto consultado");
+
+      const radioM = radioKm * 1000;
+
+      circleConsulta = L.circle([lat, lng], {
+        radius: radioM,
+        color: "#38bdf8",
+        weight: 2,
+        fillColor: "#0ea5e9",
+        fillOpacity: 0.07
+      }).addTo(map);
+
+      // Zoom automático al círculo
+      const bounds = circleConsulta.getBounds().pad(0.25); // 25% margen
+      map.fitBounds(bounds, { maxZoom: 13 });
     }
 
-    function dibujarOverview(radioKm) {
-      if (!mapOverview) return;
+    async function cargarExcelYProcesar(latConsulta, lngConsulta, radioKm) {
+      try {
+        const response = await fetch(EXCEL_PATH);
+        if (!response.ok) {
+          console.error("No se pudo cargar el archivo Excel:", response.statusText);
+          return;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        const nombreHoja = workbook.SheetNames[0];
+        const hoja = workbook.Sheets[nombreHoja];
+        const rows = XLSX.utils.sheet_to_json(hoja, { defval: "" });
 
-      if (capaProyectosOverview) capaProyectosOverview.remove();
-      if (circuloRadio) circuloRadio.remove();
-
-      const grupo = L.layerGroup();
-
-      proyectosEnRadio.forEach(p => {
-        if (p.lat == null || p.lon == null) return;
-
-        const estadoNorm = normalizarEstado(p.estado_actual);
-
-        let options;
-        if (p.esTop10Aprobado) {
-          options = {
-            radius: 6,
-            color: "#166534",
-            weight: 2,
-            fillColor: "#22c55e",
-            fillOpacity: 0.95,
-          };
-        } else if (estadoNorm === "Rechazado") {
-          options = {
-            radius: 5,
-            color: "#991b1b",
-            weight: 2,
-            fillColor: "#ef4444",
-            fillOpacity: 0.9,
-          };
-        } else if (estadoNorm === "En evaluación") {
-          options = {
-            radius: 5,
-            color: "#b45309",
-            weight: 2,
-            fillColor: "#f97316",
-            fillOpacity: 0.9,
-          };
-        } else {
-          options = {
-            radius: 4,
-            color: "#4b5563",
-            weight: 1.5,
-            fillColor: "#9ca3af",
-            fillOpacity: 0.8,
-          };
+        if (!rows.length) {
+          console.warn("El Excel no tiene filas de datos.");
+          return;
         }
 
-        let popupHtml =
-          `<strong>${p.nombre_proyecto || "Proyecto"}</strong><br>` +
-          `Estado: ${estadoNorm}`;
+        // Calcular distancia para cada proyecto
+        rows.forEach((row) => {
+          const latProj = parseFloat(
+            getFirstAvailable(row, ["lat", "Lat", "LAT", "Latitud", "LATITUD"])
+          );
+          const lngProj = parseFloat(
+            getFirstAvailable(row, ["lng", "Lon", "LON", "Longitud", "LONGITUD"])
+          );
 
-        if (typeof p.dist_km === "number") {
-          popupHtml += `<br>Distancia: ${p.dist_km.toFixed(2)} km`;
+          if (!isFinite(latProj) || !isFinite(lngProj)) {
+            return; // fila sin coordenadas
+          }
+
+          const dist = distanciaMetros(latConsulta, lngConsulta, latProj, lngProj);
+          const estado = clasificarEstado(row["Estado"]);
+
+          proyectosConDistancia.push({
+            row,
+            lat: latProj,
+            lng: lngProj,
+            dist,
+            estado
+          });
+        });
+
+        if (!proyectosConDistancia.length) {
+          console.warn("No se encontraron proyectos con coordenadas válidas.");
+          return;
         }
 
-        L.circleMarker([p.lat, p.lon], options)
-          .bindPopup(popupHtml)
-          .addTo(grupo);
-      });
+        // 10 aprobados más cercanos
+        const aprobados = proyectosConDistancia
+          .filter((p) => p.estado === "aprobado")
+          .sort((a, b) => a.dist - b.dist)
+          .slice(0, MAX_APROBADOS);
 
-      capaProyectosOverview = grupo.addTo(mapOverview);
+        let distanciaMaxAprobado = null;
+        if (aprobados.length) {
+          distanciaMaxAprobado = aprobados[aprobados.length - 1].dist;
+        }
 
-      if (radioKm > 0) {
-        const radioMetros = radioKm * 1000;
+        // Rechazados/en evaluación dentro del radio del aprobado más lejano
+        const otrosDentroRadio = proyectosConDistancia.filter((p) => {
+          if (!distanciaMaxAprobado) return false;
+          if (p.estado === "aprobado") return false;
+          return p.dist <= distanciaMaxAprobado;
+        });
 
-        circuloRadio = L.circle([consultaLat, consultaLng], {
-          radius: radioMetros,
-          color: "#38bdf8",
-          weight: 1.5,
-          fillOpacity: 0.05,
-        }).addTo(mapOverview);
-
-        document.getElementById("radioTexto").textContent =
-          `Radio de análisis alrededor del punto consultado: ` +
-          `${radioMetros.toFixed(0)} m (${radioKm.toFixed(2)} km).`;
-      } else {
-        document.getElementById("radioTexto").textContent =
-          "No se encontraron proyectos aprobados alrededor del punto consultado.";
+        // Dibujar puntos
+        dibujarProyectos(aprobados, otrosDentroRadio);
+      } catch (err) {
+        console.error("Error procesando el Excel:", err);
       }
     }
 
-    // ==========================
-    // Carga Excel y lógica de distancias
-    // ==========================
-    async function cargarDatos() {
-      try {
-        const resp = await fetch(DATA_XLSX_URL);
-        if (!resp.ok) {
-          console.error("No se pudo cargar el Excel de proyectos");
-          return;
+    function dibujarProyectos(aprobados, otros) {
+      const todos = [...aprobados, ...otros];
+
+      todos.forEach((p) => {
+        const row = p.row;
+        const nombre = row["Nombre del Proyecto"];
+        const inversion = row["Inversión (MMU$)"]; // ajustar si cambia el nombre
+        const fechaAprob =
+          row["Fecha de Aprobación"] ||
+          row["Fecha Aprobación"] ||
+          row["Fecha Presentación"];
+        const sector =
+          row["Tipo de Proyecto"] || row["Sector productivo"] || row["Razón de Ingreso"];
+        const urlExp = row["WEB"]; // URL al expediente SEIA
+        const estadoTexto = row["Estado"];
+
+        let fillColor = "#22c55e";
+        let bordeColor = "#14532d";
+
+        if (p.estado === "rechazado") {
+          fillColor = "#ef4444";
+          bordeColor = "#7f1d1d";
+        } else if (p.estado === "evaluacion") {
+          fillColor = "#f97316";
+          bordeColor = "#7c2d12";
         }
 
-        const arrayBuffer = await resp.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-
-        const arr = XLSX.utils.sheet_to_json(sheet, {
-          header: 1,
-          defval: null,
-        });
-
-        if (!arr.length) {
-          console.error("La hoja está vacía");
-          return;
-        }
-
-        const headers = arr[0];
-        const filas = arr.slice(1);
-
-        let idxLat = -1,
-          idxLon = -1,
-          idxEstado = -1,
-          idxNombre = -1;
-
-        headers.forEach((h, i) => {
-          const n = normalizeHeader(h);
-          if (n.includes("latitud") && idxLat === -1) idxLat = i;
-          if (n.includes("longitud") && idxLon === -1) idxLon = i;
-          if (n.includes("estado") && !n.includes("fecha") && idxEstado === -1)
-            idxEstado = i;
-          if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
-            idxNombre = i;
-        });
-
-        proyectosOriginal = filas
-          .map(row => {
-            const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
-            const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
-
-            const estado_actual = idxEstado >= 0 ? row[idxEstado] : null;
-            const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
-
-            if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) {
-              return null;
+        const popupHtml = `
+          <div style="font-size:0.9rem; line-height:1.35;">
+            <strong>${nombre || "Proyecto sin nombre"}</strong><br/>
+            <span style="font-size:0.8rem; color:#6b7280;">
+              Estado: ${estadoTexto || "s/i"}
+            </span><br/><br/>
+            💰 <strong>Inversión:</strong> ${formatNumber(inversion)} MMU$<br/>
+            📅 <strong>Fecha aprobación:</strong> ${
+              fechaAprob || "s/i"
+            }<br/>
+            🏭 <strong>Sector productivo:</strong> ${sector || "s/i"}<br/>
+            ${
+              urlExp
+                ? `<br/>🔗 <a href="${urlExp}" target="_blank"
+                       style="color:#0ea5e9; text-decoration:underline;">
+                       Ver expediente SEIA
+                   </a>`
+                : ""
             }
+          </div>
+        `;
 
-            const dist_km = haversineKm(consultaLat, consultaLng, lat, lon);
+        const marker = L.circleMarker([p.lat, p.lng], {
+          radius: 7,
+          fillColor,
+          color: bordeColor,
+          weight: 1.5,
+          fillOpacity: 0.95
+        })
+          .addTo(map)
+          .bindPopup(popupHtml);
 
-            return {
-              lat,
-              lon,
-              estado_actual,
-              nombre_proyecto,
-              dist_km,
-              esTop10Aprobado: false,
-            };
-          })
-          .filter(p => p !== null);
+        // Popup al pasar el mouse
+        marker.on("mouseover", function () {
+          this.openPopup();
+        });
 
-        // 1) 10 aprobados más cercanos
-        const aprobados = proyectosOriginal
-          .filter(p => normalizarEstado(p.estado_actual) === "Aprobado")
-          .sort((a, b) => a.dist_km - b.dist_km);
+        marker.on("mouseout", function () {
+          this.closePopup();
+        });
 
-        top10Aprobados = aprobados.slice(0, 10);
-        const radioKm =
-          top10Aprobados.length > 0
-            ? top10Aprobados[top10Aprobados.length - 1].dist_km
-            : 0;
-
-        // marcar los top10 aprobados
-        const topSet = new Set(top10Aprobados);
-        proyectosOriginal.forEach(p => {
-          if (topSet.has(p)) {
-            p.esTop10Aprobado = true;
+        // Click → abrir expediente en otra pestaña
+        marker.on("click", function () {
+          if (urlExp) {
+            window.open(urlExp, "_blank");
           }
         });
+      });
 
-        // 2) Todos los proyectos dentro del radio
-        proyectosEnRadio =
-          radioKm > 0
-            ? proyectosOriginal.filter(p => p.dist_km <= radioKm)
-            : [];
-
-        console.log("Total proyectos con coord:", proyectosOriginal.length);
-        console.log("Aprobados:", aprobados.length);
-        console.log("Top10:", top10Aprobados.length);
-        console.log("En radio:", proyectosEnRadio.length, "radioKm:", radioKm);
-
-        dibujarOverview(radioKm);
-      } catch (err) {
-        console.error("Error cargando datos de proyectos desde Excel:", err);
+      // Mantener encuadre controlado por el círculo
+      if (circleConsulta) {
+        const bounds = circleConsulta.getBounds().pad(0.25);
+        map.fitBounds(bounds, { maxZoom: 13 });
       }
     }
 
-    // ==========================
-    // Inicio
-    // ==========================
-    initMap();
-    cargarDatos();
+    // ================= INICIO =======================================
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const lat = parseFloat(getQueryParam("lat"));
+      const lng = parseFloat(getQueryParam("lng"));
+      const radioKm = parseFloat(getQueryParam("z")) || 10;
+
+      if (!isFinite(lat) || !isFinite(lng)) {
+        alert("No se recibieron coordenadas válidas (lat/lng) en la URL.");
+        return;
+      }
+
+      // Actualizar textos de cabecera
+      const coordsHeader = document.getElementById("coordsHeader");
+      coordsHeader.textContent =
+        "Coordenadas consulta: lat " +
+        lat.toFixed(6) +
+        ", lng " +
+        lng.toFixed(6);
+
+      const radioTexto = document.getElementById("radioTexto");
+      radioTexto.textContent =
+        "Radio de análisis alrededor del punto consultado: " +
+        formatNumber(radioKm * 1000, 0) +
+        " m (" +
+        formatNumber(radioKm, 2) +
+        " km).";
+
+      initMap(lat, lng, radioKm);
+      cargarExcelYProcesar(lat, lng, radioKm);
+    });
   </script>
 </body>
 </html>
