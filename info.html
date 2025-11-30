@@ -153,7 +153,7 @@
 
   <script>
     // ===============================
-    // Leer parámetros URL
+    // Parámetros URL
     // ===============================
     const urlParams = new URLSearchParams(window.location.search);
     const consultaLat = parseFloat(urlParams.get("lat")) || -27.5;
@@ -162,7 +162,6 @@
 
     const secParam = urlParams.get("sec");
     let sectoresFiltro = [];
-
     if (secParam && secParam.trim() !== "") {
       sectoresFiltro = secParam
         .split(",")
@@ -170,7 +169,6 @@
         .filter(s => s.length > 0);
     }
 
-    // Mostrar en encabezado
     document.getElementById("coordsDisplay").textContent =
       `Coordenadas consulta: lat ${consultaLat.toFixed(6)}, lng ${consultaLng.toFixed(6)}`;
 
@@ -221,13 +219,10 @@
 
     function normalizarEstado(estadoRaw) {
       if (!estadoRaw) return "Sin información";
-
       let e = normalizeSimple(estadoRaw);
-
       if (e.includes("rechaz")) return "Rechazado";
       if (e.includes("aprob") || e.includes("favorabl")) return "Aprobado";
       if (e.includes("calific") || e.includes("evalu")) return "En evaluación";
-
       return String(estadoRaw).trim();
     }
 
@@ -331,42 +326,33 @@
 
       capaProyectosOverview = grupo.addTo(mapOverview);
 
-      // ===============================
-      // ZOOM EXTENT (fitBounds)
-      // ===============================
-      try {
-        const bounds = L.latLngBounds();
-
-        bounds.extend([consultaLat, consultaLng]);
-
-        proyectosEnRadio.forEach(p => {
-          if (p.lat != null && p.lon != null) {
-            bounds.extend([p.lat, p.lon]);
-          }
-        });
-
-        if (radioKm > 0) {
-          const radioMetros = radioKm * 1000;
-          const circleBounds =
-            L.circle([consultaLat, consultaLng], { radius: radioMetros }).getBounds();
-          bounds.extend(circleBounds);
-        }
-
-        mapOverview.fitBounds(bounds, { padding: [30, 30] });
-      } catch (err) {
-        console.warn("No se pudo hacer fitBounds:", err);
-      }
-
-      // Círculo de análisis
       if (radioKm > 0) {
         const radioMetros = radioKm * 1000;
 
+        // Dibujar círculo
         circuloRadio = L.circle([consultaLat, consultaLng], {
           radius: radioMetros,
           color: "#38bdf8",
           weight: 1.5,
           fillOpacity: 0.05,
         }).addTo(mapOverview);
+
+        // ---- ZOOM EXTENT: ajustar al círculo + puntos ----
+        try {
+          const bounds = circuloRadio.getBounds();
+
+          // incluir punto consultado y proyectos, por si están muy hacia un lado
+          bounds.extend([consultaLat, consultaLng]);
+          proyectosEnRadio.forEach(p => {
+            if (p.lat != null && p.lon != null) {
+              bounds.extend([p.lat, p.lon]);
+            }
+          });
+
+          mapOverview.fitBounds(bounds, { padding: [30, 30] });
+        } catch (err) {
+          console.warn("No se pudo ajustar el zoom con fitBounds:", err);
+        }
 
         document.getElementById("radioTexto").textContent =
           `Radio de análisis alrededor del punto consultado: ` +
@@ -378,7 +364,7 @@
     }
 
     // ===============================
-    // Cargar Excel y procesamiento
+    // Cargar Excel
     // ===============================
     async function cargarDatos() {
       try {
@@ -426,7 +412,7 @@
 
             if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return null;
 
-            // filtro por sector productivo
+            // Filtro por sector
             if (sectoresFiltro.length > 0 && idxSector >= 0) {
               const sectorNorm = normalizeSimple(sector_productivo);
               if (!filtroSectoresNorm.has(sectorNorm)) return null;
@@ -458,7 +444,6 @@
             : 0;
 
         const topSet = new Set(top10Aprobados);
-
         proyectosOriginal.forEach(p => {
           if (topSet.has(p)) p.esTop10Aprobado = true;
         });
@@ -475,7 +460,7 @@
     }
 
     // ===============================
-    // Iniciar
+    // Inicio
     // ===============================
     initMap();
     cargarDatos();
