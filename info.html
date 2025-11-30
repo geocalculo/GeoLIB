@@ -124,26 +124,11 @@
       color: #1e40af;
     }
 
-    /* Tooltip Leaflet personalizado (hover) */
-    .custom-tooltip {
-      background: #ffffff;
-      border-radius: 6px;
-      padding: 6px 8px;
-      border: 1px solid #e5e7eb;
-      color: #111827;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-      max-width: 260px;
+    .leaflet-popup-content {
+      margin: 6px 10px;
       font-size: 0.78rem;
       line-height: 1.15rem;
-    }
-
-    .custom-tooltip a {
-      color: #1d4ed8;
-      text-decoration: underline;
-    }
-
-    .custom-tooltip a:hover {
-      color: #1e40af;
+      max-width: 260px;
     }
   </style>
 </head>
@@ -361,22 +346,15 @@
           popupHtml += `<br><a class="popup-link" href="${p.url_expediente}" target="_blank" rel="noopener">Ver expediente</a>`;
         }
 
-        // Marker con tooltip HTML (hover)
         const marker = L.circleMarker([p.lat, p.lon], {
           ...options,
           interactive: true
-        });
+        }).addTo(grupo);
 
-        marker.bindTooltip(popupHtml, {
-          direction: "top",
-          offset: L.point(0, -4),
-          opacity: 0.95,
-          className: "custom-tooltip",
-          permanent: false,
-          sticky: true
+        marker.bindPopup(popupHtml, {
+          maxWidth: 260,
+          autoPan: true
         });
-
-        marker.addTo(grupo);
       });
 
       capaProyectosOverview = grupo.addTo(mapOverview);
