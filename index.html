@@ -23,7 +23,7 @@
         Roboto, Helvetica, Arial, sans-serif;
       background: #020617;
       color: #e5e7eb;
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
@@ -31,190 +31,171 @@
     header {
       background: #020617;
       border-bottom: 1px solid #111827;
-      padding: 12px 16px 10px 16px;
-    }
-
-    .header-inner {
-      max-width: 1200px;
-      margin: 0 auto;
+      padding: 8px 16px;
       text-align: center;
     }
 
-    .title {
-      font-size: 1.15rem;
+    header h1 {
+      font-size: 1.1rem;
       font-weight: 600;
-      letter-spacing: 0.03em;
+      margin-bottom: 2px;
     }
 
-    .subtitle {
-      margin-top: 4px;
-      font-size: 0.9rem;
+    header p {
+      font-size: 0.85rem;
       color: #9ca3af;
-    }
-
-    /* Barra superior estilo GeoIPT */
-    .top-bar {
-      width: 100%;
-      background: #0f172a;
-      border-bottom: 1px solid #1e293b;
-      padding: 8px 16px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      z-index: 800;
-    }
-
-    .top-bar label {
-      font-size: 0.85rem;
-      color: #cbd5e1;
-      font-weight: 500;
-    }
-
-    /* Dropdown estilos */
-    .dropdown {
-      position: relative;
-      display: inline-block;
-    }
-
-    .dropdown-button {
-      background: #1e293b;
-      border: 1px solid #334155;
-      padding: 6px 12px;
-      border-radius: 6px;
-      color: #e2e8f0;
-      cursor: pointer;
-      font-size: 0.85rem;
-      min-width: 220px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .dropdown-content {
-      display: none;
-      position: absolute;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 8px 12px;
-      min-width: 230px;
-      margin-top: 4px;
-      z-index: 1000;
-      max-height: 230px;
-      overflow-y: auto;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-    }
-
-    .dropdown.open .dropdown-content {
-      display: block;
-    }
-
-    .dropdown-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 0;
-      color: #e2e8f0;
-      font-size: 0.82rem;
-    }
-
-    .dropdown-item input {
-      accent-color: #38bdf8;
     }
 
     main {
       flex: 1;
-      width: 100%;
       display: flex;
-      flex-direction: column;
+      min-height: 0;
     }
 
     #map {
+      flex: 1;
       width: 100%;
-      height: calc(100vh - 160px); /* header + barra superior */
-      background: #000;
+      min-height: 400px;
+    }
+
+    .sidebar {
+      position: absolute;
+      top: 80px;
+      left: 12px;
+      z-index: 1000;
+    }
+
+    .sidebar-card {
+      background: #020617ee;
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.6);
+      padding: 10px 12px;
+      width: 210px;
+      color: #e5e7eb;
+      border: 1px solid #1f2937;
+      font-size: 0.8rem;
+    }
+
+    .sidebar-card h2 {
+      font-size: 0.85rem;
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+
+    .sidebar-card p {
+      font-size: 0.7rem;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+
+    .sector-list {
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-top: 4px;
+    }
+
+    .sector-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+
+    .sector-item input {
+      margin-right: 6px;
     }
 
     footer {
       background: #020617;
       border-top: 1px solid #111827;
-      padding: 6px 12px;
+      padding: 6px 16px;
       font-size: 0.75rem;
       color: #6b7280;
       text-align: right;
     }
 
     a {
-      color: #38bdf8;
+      color: #60a5fa;
     }
 
     a:hover {
-      color: #0ea5e9;
+      color: #93c5fd;
+    }
+
+    @media (max-width: 640px) {
+      .sidebar-card {
+        width: 180px;
+        font-size: 0.75rem;
+      }
     }
   </style>
 </head>
-
 <body>
-  <!-- HEADER -->
   <header>
-    <div class="header-inner">
-      <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
-      <div class="subtitle">
-        Haz clic en cualquier parte del mapa para generar el reporte de proyectos más cercanos
-        (el reporte se abrirá en una pestaña nueva).
-      </div>
-    </div>
+    <h1>SEA Mining - Proyectos cercanos a un punto</h1>
+    <p>Haz clic en cualquier parte del mapa para generar el reporte de proyectos más cercanos (el reporte se abrirá en una pestaña nueva).</p>
   </header>
 
-  <!-- BARRA SUPERIOR -->
-  <div class="top-bar">
-    <label for="sectorDropdown">Sectores productivos:</label>
-
-    <div class="dropdown" id="sectorDropdown">
-      <div class="dropdown-button">
-        Seleccionar sectores
-        <span>▼</span>
-      </div>
-
-      <div class="dropdown-content">
-        <label class="dropdown-item">
-          <input type="checkbox" id="chkTodos" class="sector-master" checked> Todos
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Energía" checked> Energía
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Minería" checked> Minería
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Infraestructura" checked> Infraestructura
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Industrial" checked> Industrial
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Agropecuario" checked> Agropecuario
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Forestal" checked> Forestal
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Pesca y Acuicultura" checked> Pesca y Acuicultura
-        </label>
-        <label class="dropdown-item">
-          <input type="checkbox" class="sector-checkbox" value="Residuos" checked> Residuos
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <!-- MAPA -->
   <main>
     <div id="map"></div>
+
+    <div class="sidebar">
+      <div class="sidebar-card">
+        <h2>Sectores productivos</h2>
+        <p>Marca uno o varios sectores. Si no seleccionas ninguno, se consideran todos.</p>
+
+        <div class="sector-list">
+          <div class="sector-item">
+            <input type="checkbox" id="sec-todos" checked />
+            <label for="sec-todos"><strong>Todos</strong></label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-mineria" value="Minería" checked />
+            <label for="sec-mineria">Minería</label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-energia" value="Energía" checked />
+            <label for="sec-energia">Energía</label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-infra" value="Infraestructura" checked />
+            <label for="sec-infra">Infraestructura</label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-industrial" value="Industrial" checked />
+            <label for="sec-industrial">Industrial</label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-agro" value="Agropecuario" checked />
+            <label for="sec-agro">Agropecuario</label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-forestal" value="Forestal" checked />
+            <label for="sec-forestal">Forestal</label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-pesca" value="Pesca y Acuicultura" checked />
+            <label for="sec-pesca">Pesca y Acuicultura</label>
+          </div>
+
+          <div class="sector-item">
+            <input type="checkbox" class="sector-check" id="sec-residuos" value="Residuos" checked />
+            <label for="sec-residuos">Residuos</label>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <footer>
-    GeoLIB / GeoIPT © <span id="year"></span>
+    <span id="year"></span> &copy; GeoLIB / GeoIPT
   </footer>
 
   <!-- Leaflet JS -->
@@ -224,78 +205,90 @@
     // Año en el footer
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    // --- Dropdown ---
-    const dropdown = document.getElementById("sectorDropdown");
-    const dropdownButton = dropdown.querySelector(".dropdown-button");
-
-    dropdownButton.addEventListener("click", () => {
-      dropdown.classList.toggle("open");
-    });
-
-    // Cerrar al hacer clic fuera
-    document.addEventListener("click", function (event) {
-      if (!dropdown.contains(event.target)) {
-        dropdown.classList.remove("open");
-      }
-    });
-
-    const chkTodos = document.getElementById("chkTodos");
-    const sectorChecks = document.querySelectorAll(".sector-checkbox");
-
-    // Cuando el usuario marca "Todos"
-    chkTodos.addEventListener("change", () => {
-      const estado = chkTodos.checked;
-      sectorChecks.forEach(cb => cb.checked = estado);
-    });
-
-    // Cuando el usuario marca/desmarca sectores individuales
-    sectorChecks.forEach(cb => {
-      cb.addEventListener("change", () => {
-        const total = sectorChecks.length;
-        const marcados = [...sectorChecks].filter(x => x.checked).length;
-        chkTodos.checked = (marcados === total);
-      });
-    });
-
-    // Obtener sectores seleccionados para enviar al reporte
-    function getSectoresSeleccionados() {
-      // Si "Todos" está marcado => todos los sectores (no filtramos)
-      if (chkTodos.checked) return [];
-
-      const sectores = [];
-      sectorChecks.forEach(cb => {
-        if (cb.checked) sectores.push(cb.value);
-      });
-
-      // Si no hay ninguno marcado, también interpretamos como "todos"
-      if (sectores.length === 0) return [];
-
-      return sectores;
-    }
-
-    // --- Mapa ---
+    // =======================
+    // MAPA BASE HÍBRIDO
+    // =======================
     const centroCopiapo = [-27.366, -70.333];
     const map = L.map("map").setView(centroCopiapo, 8);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    // Satélite ESRI (fondo)
+    const esriSat = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        attribution: "Tiles © Esri",
+        maxZoom: 19,
+        opacity: 1.0
+      }
+    ).addTo(map);
 
-    // Click en el mapa => abrir info.html con lat, lng, z y sec
+    // Calles OSM semitransparentes (encima)
+    const osm = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        attribution:
+          '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        opacity: 0.6
+      }
+    ).addTo(map);
+
+    // Control de capas (opcional)
+    L.control
+      .layers(
+        { "Satélite (Esri)": esriSat },
+        { "Calles (OSM semitransparente)": osm },
+        { collapsed: false }
+      )
+      .addTo(map);
+
+    // =======================
+    // LÓGICA DE SECTORES
+    // =======================
+    const chkTodos = document.getElementById("sec-todos");
+    const sectorChecks = Array.from(document.querySelectorAll(".sector-check"));
+
+    function actualizarEstadoTodos() {
+      const anyUnchecked = sectorChecks.some(chk => !chk.checked);
+      chkTodos.checked = !anyUnchecked;
+    }
+
+    chkTodos.addEventListener("change", () => {
+      const marcar = chkTodos.checked;
+      sectorChecks.forEach(chk => (chk.checked = marcar));
+    });
+
+    sectorChecks.forEach(chk => {
+      chk.addEventListener("change", actualizarEstadoTodos);
+    });
+
+    function obtenerSectoresSeleccionados() {
+      const activos = sectorChecks
+        .filter(chk => chk.checked)
+        .map(chk => chk.value);
+
+      // Si Todos está marcado o no hay ninguno marcado => sin filtro
+      if (chkTodos.checked || activos.length === 0) {
+        return [];
+      }
+      return activos;
+    }
+
+    // =======================
+    // CLICK EN EL MAPA
+    // =======================
     map.on("click", function (e) {
       const lat  = e.latlng.lat.toFixed(6);
       const lng  = e.latlng.lng.toFixed(6);
       const zoom = map.getZoom();
 
-      const sectores = getSectoresSeleccionados();
-      let extra = "";
+      const sectores = obtenerSectoresSeleccionados();
+      let url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}`;
 
       if (sectores.length > 0) {
-        extra = "&sec=" + encodeURIComponent(sectores.join(","));
+        const secParam = encodeURIComponent(sectores.join(","));
+        url += `&sec=${secParam}`;
       }
 
-      const url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}${extra}`;
       window.open(url, "_blank");
     });
   </script>
