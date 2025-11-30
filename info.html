@@ -256,6 +256,26 @@
       return R * c;
     }
 
+    // Polilínea circular (solo borde)
+    function generarCirculoPolyline(latCentro, lngCentro, radioMetros, segmentos = 180) {
+      const puntos = [];
+      const R = 6378137; // radio de la Tierra en metros
+
+      for (let i = 0; i <= segmentos; i++) {
+        const ang = (i / segmentos) * 2 * Math.PI;
+
+        const dLat = (radioMetros * Math.sin(ang)) / R;
+        const dLon = (radioMetros * Math.cos(ang)) / (R * Math.cos(latCentro * Math.PI / 180));
+
+        const latPoint = latCentro + (dLat * 180 / Math.PI);
+        const lngPoint = lngCentro + (dLon * 180 / Math.PI);
+
+        puntos.push([latPoint, lngPoint]);
+      }
+
+      return puntos;
+    }
+
     // ===============================
     // Mapa
     // ===============================
@@ -362,12 +382,18 @@
       if (radioKm > 0) {
         const radioMetros = radioKm * 1000;
 
-        // Círculo de análisis
-        circuloRadio = L.circle([consultaLat, consultaLng], {
-          radius: radioMetros,
+        // Círculo como polilínea (solo borde, sin relleno e ininteractivo)
+        const puntosCirculo = generarCirculoPolyline(
+          consultaLat,
+          consultaLng,
+          radioMetros
+        );
+
+        circuloRadio = L.polyline(puntosCirculo, {
           color: "#38bdf8",
-          weight: 1.5,
-          fillOpacity: 0.05,
+          weight: 2,
+          opacity: 0.9,
+          interactive: false
         }).addTo(mapOverview);
 
         // Ajustar zoom al círculo + puntos
