@@ -114,6 +114,15 @@
       background: #e5e7eb;
       color: #374151;
     }
+
+    .popup-link {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+
+    .popup-link:hover {
+      color: #1e40af;
+    }
   </style>
 </head>
 <body>
@@ -316,12 +325,33 @@
         let popupHtml =
           `<strong>${p.nombre_proyecto || "Proyecto"}</strong><br>` +
           `Estado: ${estadoNorm}<br>` +
-          `Sector: ${p.sector_productivo || "Sin información"}<br>` +
-          `Distancia: ${p.dist_km.toFixed(2)} km`;
+          `Sector: ${p.sector_productivo || "Sin información"}`;
 
-        L.circleMarker([p.lat, p.lon], options)
-          .bindPopup(popupHtml)
-          .addTo(grupo);
+        if (p.inversion_mmu) {
+          popupHtml += `<br>Inversión: ${p.inversion_mmu}`;
+        }
+        if (p.fecha_aprobacion) {
+          popupHtml += `<br>Fecha aprobación: ${p.fecha_aprobacion}`;
+        }
+        popupHtml += `<br>Distancia: ${p.dist_km.toFixed(2)} km`;
+
+        if (p.url_expediente) {
+          popupHtml += `<br><a class="popup-link" href="${p.url_expediente}" target="_blank" rel="noopener">Ver expediente</a>`;
+        }
+
+        const marker = L.circleMarker([p.lat, p.lon], options)
+          .bindPopup(popupHtml);
+
+        // abrir popup al pasar el mouse
+        marker
+          .on("mouseover", function () {
+            this.openPopup();
+          })
+          .on("mouseout", function () {
+            this.closePopup();
+          });
+
+        marker.addTo(grupo);
       });
 
       capaProyectosOverview = grupo.addTo(mapOverview);
@@ -329,7 +359,7 @@
       if (radioKm > 0) {
         const radioMetros = radioKm * 1000;
 
-        // Dibujar círculo
+        // Círculo
         circuloRadio = L.circle([consultaLat, consultaLng], {
           radius: radioMetros,
           color: "#38bdf8",
@@ -337,18 +367,15 @@
           fillOpacity: 0.05,
         }).addTo(mapOverview);
 
-        // ---- ZOOM EXTENT: ajustar al círculo + puntos ----
+        // Ajustar zoom al círculo + puntos
         try {
           const bounds = circuloRadio.getBounds();
-
-          // incluir punto consultado y proyectos, por si están muy hacia un lado
           bounds.extend([consultaLat, consultaLng]);
           proyectosEnRadio.forEach(p => {
             if (p.lat != null && p.lon != null) {
               bounds.extend([p.lat, p.lon]);
             }
           });
-
           mapOverview.fitBounds(bounds, { padding: [30, 30] });
         } catch (err) {
           console.warn("No se pudo ajustar el zoom con fitBounds:", err);
@@ -384,7 +411,11 @@
           idxLon = -1,
           idxEstado = -1,
           idxNombre = -1,
-          idxSector = -1;
+          idxSector = -1,
+          idxInv = -1,
+          idxFechaAprob = -1,
+          idxWeb = -1,
+          idxIdExp = -1;
 
         headers.forEach((h, i) => {
           const n = normalizeHeader(h);
@@ -395,6 +426,27 @@
           if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
             idxNombre = i;
           if (n.includes("sector") && idxSector === -1) idxSector = i;
+
+          if ((n.includes("inversion") || n.includes("inversi")) && idxInv === -1)
+            idxInv = i;
+
+          // fecha de aprobación / calificación / resolución
+          if (
+            idxFechaAprob === -1 &&
+            n.includes("fecha") &&
+            (n.includes("aprob") ||
+              n.includes("calific") ||
+              n.includes("resol"))
+          ) {
+            idxFechaAprob = i;
+          }
+
+          if ((n.includes("web") || n.includes("url")) && idxWeb === -1)
+            idxWeb = i;
+
+          if (n.includes("id expediente") || n.includes("id_expediente")) {
+            if (idxIdExp === -1) idxIdExp = i;
+          }
         });
 
         const filtroSectoresNorm = new Set(
@@ -409,6 +461,10 @@
             const estado_actual = idxEstado >= 0 ? row[idxEstado] : null;
             const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
             const sector_productivo = idxSector >= 0 ? row[idxSector] : null;
+            const inversion_mmu = idxInv >= 0 ? row[idxInv] : null;
+            const fecha_aprobacion = idxFechaAprob >= 0 ? row[idxFechaAprob] : null;
+            const web_raw = idxWeb >= 0 ? row[idxWeb] : null;
+            const id_expediente = idxIdExp >= 0 ? row[idxIdExp] : null;
 
             if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return null;
 
@@ -420,12 +476,28 @@
 
             const dist_km = haversineKm(consultaLat, consultaLng, lat, lon);
 
+            // URL del expediente
+            let url_expediente = null;
+            if (web_raw) {
+              url_expediente = String(web_raw).trim();
+            } else if (id_expediente) {
+              const idStr = String(id_expediente).trim();
+              if (idStr) {
+                url_expediente =
+                  "https://seia.sea.gob.cl/expediente/ficha/fichaPrincipal.php?modo=ficha&id_expediente=" +
+                  encodeURIComponent(idStr);
+              }
+            }
+
             return {
               lat,
               lon,
               estado_actual,
               nombre_proyecto,
               sector_productivo,
+              inversion_mmu,
+              fecha_aprobacion,
+              url_expediente,
               dist_km,
               esTop10Aprobado: false,
             };
