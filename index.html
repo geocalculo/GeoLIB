@@ -23,7 +23,7 @@
         Roboto, Helvetica, Arial, sans-serif;
       background: #020617;
       color: #e5e7eb;
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
     }
@@ -52,24 +52,87 @@
       color: #9ca3af;
     }
 
-    main {
-      flex: 1;
+    /* --- Frame superior estilo GeoIPT --- */
+    .top-bar {
+      width: 100%;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      padding: 8px 16px;
       display: flex;
-      flex-direction: column;
-      min-height: 0;
+      align-items: center;
+      gap: 16px;
+      z-index: 800;
     }
 
-    .map-container {
+    .top-bar label {
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+
+    /* Dropdown estilo GeoIPT */
+    .dropdown {
       position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-button {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 6px;
+      color: #e2e8f0;
+      cursor: pointer;
+      font-size: 0.85rem;
+      min-width: 200px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 12px;
+      min-width: 220px;
+      margin-top: 4px;
+      z-index: 1000;
+      max-height: 220px;
+      overflow-y: auto;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+
+    .dropdown.open .dropdown-content {
+      display: block;
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      color: #e2e8f0;
+      font-size: 0.82rem;
+    }
+
+    .dropdown-item input {
+      accent-color: #38bdf8;
+    }
+
+    main {
       flex: 1;
       width: 100%;
-      min-height: 400px;
-      background: #000;
+      display: flex;
+      flex-direction: column;
     }
 
     #map {
       width: 100%;
-      height: 100%;
+      height: calc(100vh - 160px); /* header + bar superior */
+      background: #000;
     }
 
     footer {
@@ -88,70 +151,11 @@
     a:hover {
       color: #0ea5e9;
     }
-
-    /* Panel de filtros de sectores */
-    .controls-panel {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(15, 23, 42, 0.96);
-      border-radius: 0.75rem;
-      padding: 10px 12px;
-      border: 1px solid #1f2937;
-      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.6);
-      max-width: 280px;
-      font-size: 0.8rem;
-      z-index: 800;
-    }
-
-    .controls-title {
-      font-weight: 600;
-      font-size: 0.85rem;
-      margin-bottom: 4px;
-    }
-
-    .controls-help {
-      font-size: 0.72rem;
-      color: #9ca3af;
-      margin-bottom: 6px;
-    }
-
-    .sector-list {
-      max-height: 160px;
-      overflow-y: auto;
-      padding-right: 2px;
-    }
-
-    .sector-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 3px;
-    }
-
-    .sector-item input[type="checkbox"] {
-      accent-color: #38bdf8;
-      width: 13px;
-      height: 13px;
-    }
-
-    .sector-item span {
-      font-size: 0.8rem;
-      color: #e5e7eb;
-    }
-
-    @media (max-width: 640px) {
-      .controls-panel {
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: calc(100% - 24px);
-        max-width: 360px;
-      }
-    }
   </style>
 </head>
+
 <body>
+  <!-- HEADER ORIGINAL -->
   <header>
     <div class="header-inner">
       <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
@@ -162,107 +166,97 @@
     </div>
   </header>
 
-  <main>
-    <div class="map-container">
-      <div id="map"></div>
+  <!-- FRAME SUPERIOR (estilo GeoIPT) -->
+  <div class="top-bar">
+    <label>Sectores productivos:</label>
 
-      <!-- Panel de selección de sectores productivos -->
-      <div class="controls-panel">
-        <div class="controls-title">Sectores productivos</div>
-        <div class="controls-help">
-          Marca uno o varios sectores. Si no seleccionas ninguno, se considerarán todos.
-        </div>
-        <div class="sector-list">
-          <!--
-            IMPORTANTE:
-            Los valores (value="...") deberían coincidir con los textos que vienen
-            en la columna "Sector productivo" del Excel, para que luego info.html
-            pueda filtrar correctamente.
-          -->
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Energía" checked />
-            <span>Energía</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Minería" checked />
-            <span>Minería</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Infraestructura" checked />
-            <span>Infraestructura</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Industrial" checked />
-            <span>Industrial</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Agropecuario" checked />
-            <span>Agropecuario</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Forestal" checked />
-            <span>Forestal</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Pesca y Acuicultura" checked />
-            <span>Pesca y Acuicultura</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Residuos" checked />
-            <span>Residuos</span>
-          </label>
-          <label class="sector-item">
-            <input type="checkbox" class="sector-checkbox" value="Otros" checked />
-            <span>Otros</span>
-          </label>
-        </div>
+    <div class="dropdown" id="sectorDropdown">
+      <div class="dropdown-button">
+        Seleccionar sectores
+        <span>▼</span>
+      </div>
+
+      <div class="dropdown-content">
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Energía" checked> Energía
+        </label>
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Minería" checked> Minería
+        </label>
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Infraestructura" checked> Infraestructura
+        </label>
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Industrial" checked> Industrial
+        </label>
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Agropecuario" checked> Agropecuario
+        </label>
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Forestal" checked> Forestal
+        </label>
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Pesca y Acuicultura" checked> Pesca y Acuicultura
+        </label>
+        <label class="dropdown-item">
+          <input type="checkbox" class="sector-checkbox" value="Residuos" checked> Residuos
+        </label>
       </div>
     </div>
+  </div>
+
+  <!-- MAPA -->
+  <main>
+    <div id="map"></div>
   </main>
 
   <footer>
-    GeoLIB / GeoIPT &copy; <span id="year"></span>
+    GeoLIB / GeoIPT © <span id="year"></span>
   </footer>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Año en el footer
+    // Año
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    // Mapa centrado en Copiapó
+    // Dropdown
+    const dropdown = document.getElementById("sectorDropdown");
+    dropdown.querySelector(".dropdown-button").addEventListener("click", () => {
+      dropdown.classList.toggle("open");
+    });
+
+    // Cerrar dropdown al hacer clic fuera
+    document.addEventListener("click", function(event) {
+      if (!dropdown.contains(event.target)) {
+        dropdown.classList.remove("open");
+      }
+    });
+
+    // Obtener sectores seleccionados
+    function getSectoresSeleccionados() {
+      const checkboxes = document.querySelectorAll(".sector-checkbox");
+      const seleccionados = [];
+
+      checkboxes.forEach(cb => { if (cb.checked) seleccionados.push(cb.value); });
+
+      if (seleccionados.length === 0 || seleccionados.length === checkboxes.length) {
+        return [];
+      }
+      return seleccionados;
+    }
+
+    // Mapa
     const centroCopiapo = [-27.366, -70.333];
     const map = L.map("map").setView(centroCopiapo, 8);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Función para obtener sectores seleccionados
-    function getSectoresSeleccionados() {
-      const checkboxes = document.querySelectorAll(".sector-checkbox");
-      const seleccionados = [];
-
-      checkboxes.forEach(cb => {
-        if (cb.checked) {
-          seleccionados.push(cb.value);
-        }
-      });
-
-      // Regla:
-      // - Si no hay ninguno marcado => se asume TODOS (devolvemos array vacío para no filtrar)
-      // - Si están todos marcados => también se asume TODOS (array vacío)
-      if (seleccionados.length === 0 || seleccionados.length === checkboxes.length) {
-        return [];
-      }
-
-      return seleccionados;
-    }
-
-    // Click en el mapa => abrir info.html en pestaña nueva con lat, lng, z y sec (si aplica)
+    // Click en mapa → abrir reporte
     map.on("click", function (e) {
       const lat  = e.latlng.lat.toFixed(6);
       const lng  = e.latlng.lng.toFixed(6);
@@ -272,15 +266,14 @@
       let extra = "";
 
       if (sectores.length > 0) {
-        // Lista separada por comas, URL encoded
         extra = "&sec=" + encodeURIComponent(sectores.join(","));
       }
 
       const url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}${extra}`;
 
-      // Abrir en pestaña nueva
       window.open(url, "_blank");
     });
   </script>
+
 </body>
 </html>
