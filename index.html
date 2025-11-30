@@ -52,7 +52,7 @@
       color: #9ca3af;
     }
 
-    /* --- Frame superior estilo GeoIPT --- */
+    /* Barra superior estilo GeoIPT */
     .top-bar {
       width: 100%;
       background: #0f172a;
@@ -70,7 +70,7 @@
       font-weight: 500;
     }
 
-    /* Dropdown estilo GeoIPT */
+    /* Dropdown estilos */
     .dropdown {
       position: relative;
       display: inline-block;
@@ -84,7 +84,7 @@
       color: #e2e8f0;
       cursor: pointer;
       font-size: 0.85rem;
-      min-width: 200px;
+      min-width: 220px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -97,10 +97,10 @@
       border: 1px solid #334155;
       border-radius: 8px;
       padding: 8px 12px;
-      min-width: 220px;
+      min-width: 230px;
       margin-top: 4px;
       z-index: 1000;
-      max-height: 220px;
+      max-height: 230px;
       overflow-y: auto;
       box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     }
@@ -131,7 +131,7 @@
 
     #map {
       width: 100%;
-      height: calc(100vh - 160px); /* header + bar superior */
+      height: calc(100vh - 160px); /* header + barra superior */
       background: #000;
     }
 
@@ -155,7 +155,7 @@
 </head>
 
 <body>
-  <!-- HEADER ORIGINAL -->
+  <!-- HEADER -->
   <header>
     <div class="header-inner">
       <div class="title">SEA Mining - Proyectos cercanos a un punto</div>
@@ -166,9 +166,9 @@
     </div>
   </header>
 
-  <!-- FRAME SUPERIOR (estilo GeoIPT) -->
+  <!-- BARRA SUPERIOR -->
   <div class="top-bar">
-    <label>Sectores productivos:</label>
+    <label for="sectorDropdown">Sectores productivos:</label>
 
     <div class="dropdown" id="sectorDropdown">
       <div class="dropdown-button">
@@ -177,6 +177,9 @@
       </div>
 
       <div class="dropdown-content">
+        <label class="dropdown-item">
+          <input type="checkbox" id="chkTodos" class="sector-master" checked> Todos
+        </label>
         <label class="dropdown-item">
           <input type="checkbox" class="sector-checkbox" value="Energía" checked> Energía
         </label>
@@ -218,45 +221,68 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Año
+    // Año en el footer
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    // Dropdown
+    // --- Dropdown ---
     const dropdown = document.getElementById("sectorDropdown");
-    dropdown.querySelector(".dropdown-button").addEventListener("click", () => {
+    const dropdownButton = dropdown.querySelector(".dropdown-button");
+
+    dropdownButton.addEventListener("click", () => {
       dropdown.classList.toggle("open");
     });
 
-    // Cerrar dropdown al hacer clic fuera
-    document.addEventListener("click", function(event) {
+    // Cerrar al hacer clic fuera
+    document.addEventListener("click", function (event) {
       if (!dropdown.contains(event.target)) {
         dropdown.classList.remove("open");
       }
     });
 
-    // Obtener sectores seleccionados
+    const chkTodos = document.getElementById("chkTodos");
+    const sectorChecks = document.querySelectorAll(".sector-checkbox");
+
+    // Cuando el usuario marca "Todos"
+    chkTodos.addEventListener("change", () => {
+      const estado = chkTodos.checked;
+      sectorChecks.forEach(cb => cb.checked = estado);
+    });
+
+    // Cuando el usuario marca/desmarca sectores individuales
+    sectorChecks.forEach(cb => {
+      cb.addEventListener("change", () => {
+        const total = sectorChecks.length;
+        const marcados = [...sectorChecks].filter(x => x.checked).length;
+        chkTodos.checked = (marcados === total);
+      });
+    });
+
+    // Obtener sectores seleccionados para enviar al reporte
     function getSectoresSeleccionados() {
-      const checkboxes = document.querySelectorAll(".sector-checkbox");
-      const seleccionados = [];
+      // Si "Todos" está marcado => todos los sectores (no filtramos)
+      if (chkTodos.checked) return [];
 
-      checkboxes.forEach(cb => { if (cb.checked) seleccionados.push(cb.value); });
+      const sectores = [];
+      sectorChecks.forEach(cb => {
+        if (cb.checked) sectores.push(cb.value);
+      });
 
-      if (seleccionados.length === 0 || seleccionados.length === checkboxes.length) {
-        return [];
-      }
-      return seleccionados;
+      // Si no hay ninguno marcado, también interpretamos como "todos"
+      if (sectores.length === 0) return [];
+
+      return sectores;
     }
 
-    // Mapa
+    // --- Mapa ---
     const centroCopiapo = [-27.366, -70.333];
     const map = L.map("map").setView(centroCopiapo, 8);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // Click en mapa → abrir reporte
+    // Click en el mapa => abrir info.html con lat, lng, z y sec
     map.on("click", function (e) {
       const lat  = e.latlng.lat.toFixed(6);
       const lng  = e.latlng.lng.toFixed(6);
@@ -270,10 +296,8 @@
       }
 
       const url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}${extra}`;
-
       window.open(url, "_blank");
     });
   </script>
-
 </body>
 </html>
