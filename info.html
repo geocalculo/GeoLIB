@@ -123,6 +123,28 @@
     .popup-link:hover {
       color: #1e40af;
     }
+
+    /* Tooltip Leaflet personalizado (hover) */
+    .custom-tooltip {
+      background: #ffffff;
+      border-radius: 6px;
+      padding: 6px 8px;
+      border: 1px solid #e5e7eb;
+      color: #111827;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+      max-width: 260px;
+      font-size: 0.78rem;
+      line-height: 1.15rem;
+    }
+
+    .custom-tooltip a {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+
+    .custom-tooltip a:hover {
+      color: #1e40af;
+    }
   </style>
 </head>
 <body>
@@ -339,17 +361,20 @@
           popupHtml += `<br><a class="popup-link" href="${p.url_expediente}" target="_blank" rel="noopener">Ver expediente</a>`;
         }
 
-        const marker = L.circleMarker([p.lat, p.lon], options)
-          .bindPopup(popupHtml);
+        // Marker con tooltip HTML (hover)
+        const marker = L.circleMarker([p.lat, p.lon], {
+          ...options,
+          interactive: true
+        });
 
-        // abrir popup al pasar el mouse
-        marker
-          .on("mouseover", function () {
-            this.openPopup();
-          })
-          .on("mouseout", function () {
-            this.closePopup();
-          });
+        marker.bindTooltip(popupHtml, {
+          direction: "top",
+          offset: L.point(0, -4),
+          opacity: 0.95,
+          className: "custom-tooltip",
+          permanent: false,
+          sticky: true
+        });
 
         marker.addTo(grupo);
       });
@@ -359,7 +384,7 @@
       if (radioKm > 0) {
         const radioMetros = radioKm * 1000;
 
-        // Círculo
+        // Círculo de análisis
         circuloRadio = L.circle([consultaLat, consultaLng], {
           radius: radioMetros,
           color: "#38bdf8",
@@ -430,7 +455,6 @@
           if ((n.includes("inversion") || n.includes("inversi")) && idxInv === -1)
             idxInv = i;
 
-          // fecha de aprobación / calificación / resolución
           if (
             idxFechaAprob === -1 &&
             n.includes("fecha") &&
