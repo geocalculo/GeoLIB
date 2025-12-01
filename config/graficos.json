@@ -10,7 +10,6 @@
       "metric": "sum_inversion_mmu",
       "legend": "Inversión (MMU$)"
     },
-
     {
       "id": "inv_anio",
       "title": "Inversión por año de aprobación",
@@ -20,10 +19,7 @@
       "groupBy": "anio_aprobacion",
       "metric": "sum_inversion_mmu",
       "legend": "Inversión (MMU$)"
-    }
-
-
-    
+    },    
     {
       "id": "estado_torta",
       "title": "Estados de los proyectos",
