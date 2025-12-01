@@ -1,0 +1,24 @@
+{
+  "charts": [
+    {
+      "id": "inv_sector",
+      "title": "Inversión por sector",
+      "subtitle": "Proyectos dentro del radio",
+      "type": "bar-horizontal",
+      "dataset": "proyectosEnRadio",
+      "groupBy": "sector",
+      "metric": "sum_inversion_mmu",
+      "legend": "Inversión (MMU$)"
+    },
+    {
+      "id": "estado_torta",
+      "title": "Estados de los proyectos",
+      "subtitle": "Distribución por estado",
+      "type": "pie",
+      "dataset": "proyectosEnRadio",
+      "groupBy": "estado",
+      "metric": "count",
+      "legend": "N° de proyectos"
+    }
+  ]
+}
