@@ -389,6 +389,14 @@
           popupHtml += `<br><a class="popup-link" href="${p.url_expediente}" target="_blank" rel="noopener">Ver expediente</a>`;
         }
 
+        // 🔹 NUEVO: link a Documentación (columna "documentacion")
+        if (p.documentacion) {
+          const docUrl = String(p.documentacion).trim();
+          if (docUrl) {
+            popupHtml += `<br><a class="popup-link" href="${docUrl}" target="_blank" rel="noopener">Documentación</a>`;
+          }
+        }
+
         const marker = L.circleMarker([p.lat, p.lon], {
           ...options,
           interactive: true
@@ -468,7 +476,8 @@
           idxFechaAprob = -1,
           idxWeb = -1,
           idxIdExp = -1,
-          idxTipo = -1;
+          idxTipo = -1,
+          idxDoc = -1; // NUEVO: columna documentacion
 
         headers.forEach((h, i) => {
           const n = normalizeHeader(h);
@@ -497,6 +506,9 @@
           }
           if (n.includes("tipo") && n.includes("present") && idxTipo === -1)
             idxTipo = i;
+
+          // NUEVO: columna "documentacion"
+          if (n.includes("documentacion") && idxDoc === -1) idxDoc = i;
         });
 
         const filtroSectoresNorm = new Set(
@@ -533,6 +545,9 @@
             const web_raw = idxWeb >= 0 ? row[idxWeb] : null;
             const id_expediente = idxIdExp >= 0 ? row[idxIdExp] : null;
 
+            // NUEVO: columna documentacion
+            const documentacion = idxDoc >= 0 ? row[idxDoc] : null;
+
             if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return null;
 
             // Filtro por sector
@@ -566,6 +581,7 @@
               fecha_aprobacion,
               tipo_presentacion,
               url_expediente,
+              documentacion, // NUEVO
               dist_km,
               esTop10Aprobado: false,
             };
