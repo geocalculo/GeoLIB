@@ -19,6 +19,8 @@
       "groupBy": "anio_aprobacion",
       "metric": "sum_inversion_mmu",
       "legend": "Inversión (MMU$)"
+      "sort": "asc",
+      "omit": ["Sin año", ""]
     },
     {
       "id": "estado_torta",
