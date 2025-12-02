@@ -28,9 +28,9 @@
     }
 
     header {
-      background-color: #0f172a;
+      background-color: #020617;
       color: #e5e7eb;
-      padding: 0.75rem 1.5rem;
+      padding: 0.9rem 1.5rem;
       border-bottom: 1px solid #111827;
     }
 
@@ -61,7 +61,7 @@
       background: #ffffff;
       border-radius: 0.75rem;
       box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.1);
-      padding: 1.25rem;
+      padding: 1.25rem 1.5rem;
       margin-bottom: 1rem;
     }
 
@@ -184,7 +184,7 @@
       const R = 6371;
       const toRad = deg => (deg * Math.PI) / 180;
       const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lat2 - lon1);
+      const dLon = toRad(lon2 - lon1);
       const a =
         Math.sin(dLat / 2) ** 2 +
         Math.cos(toRad(lat1)) *
@@ -194,7 +194,7 @@
       return R * c;
     }
 
-    // 🔹 Conversión Excel serial date → "AAAA-MM-DD"
+    // Conversión Excel serial date → "AAAA-MM-DD"
     function excelDateToYMD(value) {
       if (value == null) return null;
 
@@ -316,7 +316,7 @@
 
             const dist_km = haversineKm(consultaLat, consultaLng, lat, lon);
 
-            // URL del expediente (por si quieres usarla en algún gráfico futuro)
+            // URL del expediente (disponible si quieres usarla después)
             let url_expediente = null;
             if (web_raw) {
               url_expediente = String(web_raw).trim();
@@ -411,29 +411,29 @@
         console.warn("Error cargando config/graficos.json, usando config por defecto:", err);
       }
 
-      // Config por defecto si no hay JSON
+      // Config por defecto si no hay JSON válido
       if (!config) {
         config = {
           charts: [
             {
               id: "inv_sector",
               title: "Inversión por sector",
-              subtitle: "Proyectos dentro del radio de análisis",
+              subtitle: "Proyectos dentro del radio",
               type: "bar-horizontal",
               dataset: "proyectosEnRadio",
               groupBy: "sector",
               metric: "sum_inversion_mmu",
-              legend: "Inversión total (MMU$)"
+              legend: "Inversión (MMU$)"
             },
             {
               id: "estado_torta",
-              title: "Distribución por estado",
-              subtitle: "Conteo de proyectos por estado",
+              title: "Estados de los proyectos",
+              subtitle: "Distribución por estado",
               type: "pie",
               dataset: "proyectosEnRadio",
               groupBy: "estado",
               metric: "count",
-              legend: "Número de proyectos"
+              legend: "N° de proyectos"
             }
           ]
         };
@@ -511,6 +511,14 @@
             }
           }
         };
+      } else if (chartType === "bar") {
+        options.scales = {
+          y: {
+            ticks: {
+              callback: v => Number(v).toLocaleString("es-CL")
+            }
+          }
+        };
       }
 
       new Chart(ctx, {
@@ -557,18 +565,23 @@
       for (const p of proyectos) {
         let clave;
 
+        // --- AGRUPADORES ---
         if (groupBy === "sector") {
           clave = (p.sector_productivo || "Sin información").toString().trim();
           if (!clave) clave = "Sin información";
-        } else if (groupBy === "estado") {
+        }
+        else if (groupBy === "estado") {
           clave = normalizarEstado(p.estado_actual);
-        } else if (groupBy === "anio_aprobacion") {
+        }
+        else if (groupBy === "anio_aprobacion") {
           const fa = p.fecha_aprobacion ? String(p.fecha_aprobacion) : "";
           clave = fa && fa.length >= 4 ? fa.slice(0, 4) : "Sin año";
-        } else {
+        }
+        else {
           clave = "Otros";
         }
 
+        // --- MÉTRICAS ---
         let delta = 0;
         if (metric === "count") {
           delta = 1;
@@ -581,12 +594,44 @@
         mapa.set(clave, (mapa.get(clave) || 0) + delta);
       }
 
-      const labels = [];
-      const data = [];
+      // Convertir Map a arrays
+      let labels = [];
+      let data = [];
 
       for (const [k, v] of mapa.entries()) {
         labels.push(k);
         data.push(v);
+      }
+
+      // --- FILTRO OMIT ---
+      if (def.omit && Array.isArray(def.omit)) {
+        const omitSet = new Set(def.omit.map(o => o.toString()));
+        const filtrados = [];
+        const filtradosData = [];
+
+        labels.forEach((lab, idx) => {
+          if (!omitSet.has(lab)) {
+            filtrados.push(lab);
+            filtradosData.push(data[idx]);
+          }
+        });
+
+        labels = filtrados;
+        data = filtradosData;
+      }
+
+      // --- ORDENAR ASC o DESC ---
+      if (def.sort === "asc" || def.sort === "desc") {
+        const zipped = labels.map((lab, i) => ({ lab, val: data[i] }));
+
+        zipped.sort((a, b) => {
+          const ka = isNaN(a.lab) ? a.lab : Number(a.lab);
+          const kb = isNaN(b.lab) ? b.lab : Number(b.lab);
+          return def.sort === "asc" ? ka - kb : kb - ka;
+        });
+
+        labels = zipped.map(z => z.lab);
+        data = zipped.map(z => z.val);
       }
 
       return { labels, data };
