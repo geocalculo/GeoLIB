@@ -2,13 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>SEA Mining - Proyectos cercanos a un punto</title>
+  <title>SEA Mining - Explorador de proyectos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
   />
 
   <style>
@@ -21,8 +23,8 @@
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
-      background: #020617;
-      color: #e5e7eb;
+      background: #e5e7eb;
+      color: #0f172a;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -30,266 +32,290 @@
 
     header {
       background: #020617;
+      color: #e5e7eb;
       border-bottom: 1px solid #111827;
-      padding: 8px 16px;
-      text-align: center;
+      padding: 10px 16px;
     }
 
     header h1 {
-      font-size: 1.1rem;
+      font-size: 1.25rem;
       font-weight: 600;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
     }
 
     header p {
-      font-size: 0.85rem;
-      color: #9ca3af;
+      font-size: 0.875rem;
+      opacity: 0.85;
     }
 
     main {
       flex: 1;
       display: flex;
-      min-height: 0;
+      flex-direction: column;
+      padding: 12px;
+      gap: 12px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .panel {
+      background: #f9fafb;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      padding: 14px 16px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+    }
+
+    .panel h2 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    .panel p {
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      color: #4b5563;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+
+    select,
+    input[type="number"] {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #cbd5f5;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+      outline: none;
+    }
+
+    select:focus,
+    input[type="number"]:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+    }
+
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #e5e7eb;
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chip input {
+      margin: 0;
+    }
+
+    #coordsDisplay {
+      font-size: 0.8rem;
+      color: #4b5563;
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 6px 8px;
+      margin-top: 6px;
+      word-break: break-all;
     }
 
     #map {
-      flex: 1;
       width: 100%;
-      min-height: 400px;
+      height: calc(100vh - 140px);
+      min-height: 360px;
+      border-radius: 16px;
+      border: 1px solid #cbd5e1;
+      overflow: hidden;
+      box-shadow: 0 15px 30px rgba(15, 23, 42, 0.2);
     }
 
-    .sidebar {
-      position: absolute;
-      top: 80px;
-      left: 12px;
-      z-index: 1000;
+    @media (max-width: 900px) {
+      #map {
+        height: 55vh;
+      }
     }
 
-    .sidebar-card {
-      background: #020617ee;
-      border-radius: 0.75rem;
-      box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.6);
-      padding: 10px 12px;
-      width: 210px;
-      color: #e5e7eb;
-      border: 1px solid #1f2937;
+    .hint {
       font-size: 0.8rem;
-    }
-
-    .sidebar-card h2 {
-      font-size: 0.85rem;
-      margin-bottom: 2px;
-      font-weight: 600;
-    }
-
-    .sidebar-card p {
-      font-size: 0.7rem;
-      color: #9ca3af;
-      margin-bottom: 6px;
-    }
-
-    .sector-list {
-      max-height: 220px;
-      overflow-y: auto;
-      padding-right: 4px;
+      color: #6b7280;
       margin-top: 4px;
     }
 
-    .sector-item {
-      display: flex;
+    .badge {
+      display: inline-flex;
       align-items: center;
-      margin-bottom: 2px;
-    }
-
-    .sector-item input {
-      margin-right: 6px;
-    }
-
-    footer {
-      background: #020617;
-      border-top: 1px solid #111827;
-      padding: 6px 16px;
-      font-size: 0.75rem;
-      color: #6b7280;
-      text-align: right;
-    }
-
-    a {
-      color: #60a5fa;
-    }
-
-    a:hover {
-      color: #93c5fd;
-    }
-
-    @media (max-width: 640px) {
-      .sidebar-card {
-        width: 180px;
-        font-size: 0.75rem;
-      }
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>SEA Mining - Proyectos cercanos a un punto</h1>
-    <p>Haz clic en cualquier parte del mapa para generar el reporte de proyectos más cercanos (el reporte se abrirá en una pestaña nueva).</p>
+    <h1>SEA Mining - Explorador de proyectos</h1>
+    <p>Haz clic en el mapa para generar el reporte de proyectos cercanos.</p>
   </header>
 
   <main>
-    <div id="map"></div>
+    <div class="layout">
+      <!-- Panel de configuración -->
+      <section class="panel">
+        <div class="badge">Paso 1</div>
+        <h2>Configura la consulta</h2>
+        <p>
+          Selecciona el sector productivo y el radio de análisis. Luego haz clic
+          en el mapa sobre el punto de interés.
+        </p>
 
-    <div class="sidebar">
-      <div class="sidebar-card">
-        <h2>Sectores productivos</h2>
-        <p>Marca uno o varios sectores. Si no seleccionas ninguno, se consideran todos.</p>
+        <label for="sectorSelect">Sector productivo</label>
+        <select id="sectorSelect">
+          <option value="Todos" selected>Todos</option>
+          <option value="Energía">Energía</option>
+          <option value="Infraestructura">Infraestructura</option>
+          <option value="Minería">Minería</option>
+          <option value="Industria">Industria</option>
+          <option value="Otros">Otros</option>
+        </select>
 
-        <div class="sector-list">
-          <div class="sector-item">
-            <input type="checkbox" id="sec-todos" checked />
-            <label for="sec-todos"><strong>Todos</strong></label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-mineria" value="Minería" checked />
-            <label for="sec-mineria">Minería</label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-energia" value="Energía" checked />
-            <label for="sec-energia">Energía</label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-infra" value="Infraestructura" checked />
-            <label for="sec-infra">Infraestructura</label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-industrial" value="Industrial" checked />
-            <label for="sec-industrial">Industrial</label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-agro" value="Agropecuario" checked />
-            <label for="sec-agro">Agropecuario</label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-forestal" value="Forestal" checked />
-            <label for="sec-forestal">Forestal</label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-pesca" value="Pesca y Acuicultura" checked />
-            <label for="sec-pesca">Pesca y Acuicultura</label>
-          </div>
-
-          <div class="sector-item">
-            <input type="checkbox" class="sector-check" id="sec-residuos" value="Residuos" checked />
-            <label for="sec-residuos">Residuos</label>
-          </div>
+        <label>Radio de análisis (km)</label>
+        <div class="radio-group">
+          <label class="chip">
+            <input type="radio" name="radio" value="50" />
+            50
+          </label>
+          <label class="chip">
+            <input type="radio" name="radio" value="100" checked />
+            100
+          </label>
+          <label class="chip">
+            <input type="radio" name="radio" value="150" />
+            150
+          </label>
+          <label class="chip">
+            <input type="radio" name="radio" value="200" />
+            200
+          </label>
+          <label class="chip">
+            <input type="radio" name="radio" value="250" />
+            250
+          </label>
         </div>
-      </div>
+
+        <span class="hint">
+          El análisis en <strong>info.html</strong> se hace sobre el archivo
+          <code>capas/nacional.xlsx</code> usando solo coordenadas (lat/lng).
+        </span>
+
+        <div id="coordsDisplay">
+          Coordenadas clic: —
+        </div>
+      </section>
+
+      <!-- Mapa principal -->
+      <section>
+        <div id="map"></div>
+      </section>
     </div>
   </main>
 
-  <footer>
-    <span id="year"></span> &copy; GeoLIB / GeoIPT
-  </footer>
-
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
 
   <script>
-    // Año en el footer
-    document.getElementById("year").textContent = new Date().getFullYear();
+    // Mapa centrado en Chile
+    const map = L.map("map", {
+      zoomControl: true,
+    }).setView([-27.5, -70.5], 5);
 
-    // =======================
-    // MAPA BASE HÍBRIDO
-    // =======================
-    const centroCopiapo = [-27.366, -70.333];
-    const map = L.map("map").setView(centroCopiapo, 8);
+    // Capa base
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
 
-    // Satélite ESRI (fondo)
-    const esriSat = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      {
-        attribution: "Tiles © Esri",
-        maxZoom: 19,
-        opacity: 1.0
+    const coordsDisplay = document.getElementById("coordsDisplay");
+    const sectorSelect = document.getElementById("sectorSelect");
+
+    function getRadioKm() {
+      const radios = document.querySelectorAll('input[name="radio"]');
+      for (const r of radios) {
+        if (r.checked) return parseInt(r.value, 10);
       }
-    ).addTo(map);
-
-    // Calles OSM semitransparentes (encima)
-    const osm = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        attribution:
-          '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-        opacity: 0.6
-      }
-    ).addTo(map);
-
-    // Control de capas (opcional)
-    L.control
-      .layers(
-        { "Satélite (Esri)": esriSat },
-        { "Calles (OSM semitransparente)": osm },
-        { collapsed: false }
-      )
-      .addTo(map);
-
-    // =======================
-    // LÓGICA DE SECTORES
-    // =======================
-    const chkTodos = document.getElementById("sec-todos");
-    const sectorChecks = Array.from(document.querySelectorAll(".sector-check"));
-
-    function actualizarEstadoTodos() {
-      const anyUnchecked = sectorChecks.some(chk => !chk.checked);
-      chkTodos.checked = !anyUnchecked;
+      return 100;
     }
 
-    chkTodos.addEventListener("change", () => {
-      const marcar = chkTodos.checked;
-      sectorChecks.forEach(chk => (chk.checked = marcar));
-    });
-
-    sectorChecks.forEach(chk => {
-      chk.addEventListener("change", actualizarEstadoTodos);
-    });
-
-    function obtenerSectoresSeleccionados() {
-      const activos = sectorChecks
-        .filter(chk => chk.checked)
-        .map(chk => chk.value);
-
-      // Si Todos está marcado o no hay ninguno marcado => sin filtro
-      if (chkTodos.checked || activos.length === 0) {
-        return [];
-      }
-      return activos;
+    function actualizarCoords(lat, lng) {
+      coordsDisplay.textContent =
+        "Coordenadas clic: lat " +
+        lat.toFixed(6) +
+        ", lng " +
+        lng.toFixed(6) +
+        ". Zoom: " +
+        map.getZoom();
     }
 
-    // =======================
-    // CLICK EN EL MAPA
-    // =======================
-    map.on("click", function (e) {
-      const lat  = e.latlng.lat.toFixed(6);
-      const lng  = e.latlng.lng.toFixed(6);
+    // Evento de clic en el mapa
+    map.on("click", (e) => {
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
       const zoom = map.getZoom();
 
-      const sectores = obtenerSectoresSeleccionados();
-      let url = `info.html?lat=${lat}&lng=${lng}&z=${zoom}`;
+      actualizarCoords(lat, lng);
 
-      if (sectores.length > 0) {
-        const secParam = encodeURIComponent(sectores.join(","));
-        url += `&sec=${secParam}`;
-      }
+      const sector = encodeURIComponent(sectorSelect.value || "Todos");
+      const radioKm = getRadioKm();
 
-      window.open(url, "_blank");
+      const url =
+        "info.html" +
+        "?lat=" +
+        lat.toFixed(6) +
+        "&lng=" +
+        lng.toFixed(6) +
+        "&z=" +
+        zoom +
+        "&radio_km=" +
+        radioKm +
+        "&sector=" +
+        sector;
+
+      // Abrir en la misma pestaña (puedes cambiar a '_blank' si prefieres nueva pestaña)
+      window.location.href = url;
     });
   </script>
 </body>
