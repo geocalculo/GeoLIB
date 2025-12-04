@@ -297,6 +297,42 @@
     }
 
     // ===============================
+    // NUEVO: abrir nueva consulta desde el mapa de resultado
+    // ===============================
+    function abrirNuevaConsultaDesdeClick(lat, lng) {
+      if (!mapOverview) return;
+
+      // Bounds actuales de la vista
+      const bounds = mapOverview.getBounds();
+      const southWest = bounds.getSouthWest();
+      const northEast = bounds.getNorthEast();
+
+      // BBOX: oeste,sur,este,norte
+      const bbox = [
+        southWest.lng.toFixed(6),
+        southWest.lat.toFixed(6),
+        northEast.lng.toFixed(6),
+        northEast.lat.toFixed(6)
+      ].join(",");
+
+      const params = new URLSearchParams();
+      params.set("lat", lat.toFixed(6));
+      params.set("lng", lng.toFixed(6));
+      params.set("z", mapOverview.getZoom());
+      if (secParam && secParam.trim() !== "") {
+        params.set("sec", secParam);
+      }
+      // Param opcional, por si luego quieres usarlo en el flujo
+      params.set("bbox", bbox);
+
+      const basePath = window.location.pathname.split("?")[0]; // ruta a info.html
+      const url = `${basePath}?${params.toString()}`;
+
+      // Abre nueva pestaña con el nuevo reporte
+      window.open(url, "_blank");
+    }
+
+    // ===============================
     // Mapa
     // ===============================
     function initMap() {
@@ -319,6 +355,13 @@
       })
         .bindPopup("Punto consultado")
         .addTo(mapOverview);
+
+      // 🔹 NUEVO: permitir nueva consulta clickeando en el mapa de resultado
+      mapOverview.on("click", function (e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        abrirNuevaConsultaDesdeClick(lat, lng);
+      });
     }
 
     function dibujarOverview(radioKm) {
@@ -389,7 +432,7 @@
           popupHtml += `<br><a class="popup-link" href="${p.url_expediente}" target="_blank" rel="noopener">Ver expediente</a>`;
         }
 
-        // 🔹 NUEVO: link a Documentación (columna "documentacion")
+        // 🔹 link a Documentación (columna "documentacion")
         if (p.documentacion) {
           const docUrl = String(p.documentacion).trim();
           if (docUrl) {
@@ -477,7 +520,7 @@
           idxWeb = -1,
           idxIdExp = -1,
           idxTipo = -1,
-          idxDoc = -1; // NUEVO: columna documentacion
+          idxDoc = -1; // columna documentacion
 
         headers.forEach((h, i) => {
           const n = normalizeHeader(h);
@@ -507,7 +550,7 @@
           if (n.includes("tipo") && n.includes("present") && idxTipo === -1)
             idxTipo = i;
 
-          // NUEVO: columna "documentacion"
+          // columna "documentacion"
           if (n.includes("documentacion") && idxDoc === -1) idxDoc = i;
         });
 
@@ -545,7 +588,7 @@
             const web_raw = idxWeb >= 0 ? row[idxWeb] : null;
             const id_expediente = idxIdExp >= 0 ? row[idxIdExp] : null;
 
-            // NUEVO: columna documentacion
+            // columna documentacion
             const documentacion = idxDoc >= 0 ? row[idxDoc] : null;
 
             if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return null;
@@ -581,7 +624,7 @@
               fecha_aprobacion,
               tipo_presentacion,
               url_expediente,
-              documentacion, // NUEVO
+              documentacion,
               dist_km,
               esTop10Aprobado: false,
             };
