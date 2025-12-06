@@ -1,22 +1,24 @@
-// ===============================
-// Configuración de datos
-// ===============================
-const DATA_XLSX_URL = "capas/nacional.xlsx"; 
-// 👉 Si en tu repo el archivo se llama distinto (por ej. nacional_corregido.xlsx),
-// cambia SOLO esta línea.
+// js/index.js
+// =======================================
+// Configuración general
+// =======================================
+const DATA_XLSX_URL = "capas/nacional.xlsx";
 
-// Aquí guardaremos todos los proyectos con lat/lon
-let proyectos = [];
+let map;
+let proyectos = [];         // { lat, lon, sector, region, estado, raw }
+let proyectosLayer = null;  // capa para los puntos
 let datosCargados = false;
 
-// ===============================
-// Helpers para lectura del Excel
-// ===============================
+// =======================================
+// Helpers
+// =======================================
 function normalizeHeader(h) {
   return String(h || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9_]/g, "");
 }
 
 function parseCoord(value) {
@@ -24,208 +26,415 @@ function parseCoord(value) {
   let s = String(value).trim();
   if (!s) return null;
 
-  // limpia espacios y formatos raros
+  // limpia espacios
   s = s.replace(/\s/g, "");
 
+  // elimina sufijos tipo "S", "N", "E", "O"
+  s = s.replace(/[sSneEoO]$/g, "");
+
   // manejo de coma y punto
-  if (s.indexOf(",") >= 0 && s.indexOf(".") >= 0) {
-    // ejemplo: "-23.456,78" → "-23456.78" (no suele pasar aquí, pero por si acaso)
-    s = s.replace(".", "").replace(",", ".");
-  } else {
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    // Asumimos "." como separador de miles y "," como decimal
+    s = s.replace(/\./g, "");
+    s = s.replace(",", ".");
+  } else if (hasComma && !hasDot) {
+    // solo coma, usamos como decimal
     s = s.replace(",", ".");
   }
-
-  const n = Number(s);
-  return isNaN(n) ? null : n;
+  const num = Number(s);
+  return Number.isFinite(num) ? num : null;
 }
 
-// ===============================
-// Inicializar mapa
-// ===============================
-const map = L.map("map", {
-  zoomControl: true,
-}).setView([-27.5, -70.5], 5);
-
-// Capa base
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18,
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-}).addTo(map);
-
-const coordsDisplay = document.getElementById("coordsDisplay");
-const sectorSelect = document.getElementById("sectorSelect");
-const bboxInfo = document.getElementById("bboxInfo");
-
-function getRadioKm() {
+function getSelectedRadioKm() {
   const radios = document.querySelectorAll('input[name="radio"]');
   for (const r of radios) {
-    if (r.checked) return parseInt(r.value, 10);
+    if (r.checked) return Number(r.value);
   }
-  return 100;
+  return 100; // default
 }
 
-function actualizarCoords(lat, lng) {
-  coordsDisplay.textContent =
-    "Coordenadas clic: lat " +
-    lat.toFixed(6) +
-    ", lng " +
-    lng.toFixed(6) +
-    ". Zoom: " +
-    map.getZoom();
+function getSelectedSector() {
+  const sel = document.getElementById("sectorSelect");
+  return sel ? sel.value : "Todos";
 }
 
-// ===============================
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// =======================================
 // Carga del Excel nacional
-// ===============================
-async function cargarProyectosNacionales() {
-  try {
-    if (bboxInfo) {
-      bboxInfo.textContent = "Proyectos en pantalla: cargando…";
-    }
+// =======================================
+async function cargarExcelNacional() {
+  console.log("Cargando Excel:", DATA_XLSX_URL);
+  const bboxInfo = document.getElementById("bboxInfo");
+  if (bboxInfo) {
+    bboxInfo.textContent = "Cargando proyectos…";
+  }
 
+  try {
     const resp = await fetch(DATA_XLSX_URL);
     if (!resp.ok) {
-      console.error("No se pudo leer el Excel nacional:", DATA_XLSX_URL, resp.status, resp.statusText);
-      if (bboxInfo) {
-        bboxInfo.textContent = "Proyectos en pantalla: error al leer Excel";
-      }
-      return;
+      throw new Error("No se pudo descargar el archivo Excel");
     }
 
     const arrayBuffer = await resp.arrayBuffer();
-    const data = new Uint8Array(arrayBuffer);
-    const workbook = XLSX.read(data, { type: "array" });
+    const workbook = XLSX.read(arrayBuffer, { type: "array" });
 
-    // hoja "Proyectos" si existe, si no la primera
-    let sheetName = workbook.SheetNames[0];
-    const hojaProyectos = workbook.SheetNames.find(
-      (n) => n.toLowerCase() === "proyectos"
-    );
-    if (hojaProyectos) sheetName = hojaProyectos;
+    // Tomamos la primera hoja
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
 
-    console.log("index.js → usando hoja:", sheetName);
-
-    const sheet = workbook.Sheets[sheetName];
-    const arr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-
-    if (!arr.length) {
-      console.warn("index.js → la hoja está vacía.");
-      if (bboxInfo) {
-        bboxInfo.textContent = "Proyectos en pantalla: 0 (hoja vacía)";
-      }
-      return;
-    }
-
-    const headers = arr[0];
-    const filas = arr.slice(1);
-
-    console.log("index.js → headers:", headers);
-
-    let idxLat = -1;
-    let idxLon = -1;
-
-    headers.forEach((h, i) => {
-      const n = normalizeHeader(h);
-      // muy flexible: lat / latitud / punto lat / latitud punto representativo
-      if (/(lat|latitud)/.test(n) && idxLat === -1) idxLat = i;
-      // lon / lng / longitud / punto lon / longitud punto representativo
-      if (/(lon|lng|longitud)/.test(n) && idxLon === -1) idxLon = i;
+    // Leemos como matriz [ [header1, header2, ...], [fila1...], ... ]
+    const rows = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: null
     });
 
-    console.log("index.js → idxLat, idxLon:", idxLat, idxLon);
+    if (!rows.length) {
+      throw new Error("La hoja está vacía");
+    }
 
-    if (idxLat === -1 || idxLon === -1) {
-      console.warn("No se detectaron columnas de lat/lon en el Excel nacional.");
-      if (bboxInfo) {
-        bboxInfo.textContent = "Proyectos en pantalla: error en columnas lat/lon";
+    const headerRow = rows[0];
+    const dataRows = rows.slice(1);
+
+    const indexToHeader = headerRow.map((h) => String(h || ""));
+    const normToHeader = {};
+    indexToHeader.forEach((h) => {
+      const norm = normalizeHeader(h);
+      if (norm) normToHeader[norm] = h;
+    });
+
+    // Buscar columnas lat/lon/sector/region/estado
+    function findHeader(candidates) {
+      for (const c of candidates) {
+        if (normToHeader[c]) return normToHeader[c];
       }
-      return;
+      return null;
     }
 
-    proyectos = filas
-      .map((row, filaIdx) => {
-        const lat = parseCoord(row[idxLat]);
-        const lon = parseCoord(row[idxLon]);
-        if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) {
-          return null;
+    const latHeader = findHeader(["lat", "latitud", "latitude"]);
+    const lonHeader = findHeader(["lon", "longitud", "longitude", "long"]);
+    const sectorHeader = findHeader([
+      "sectorproductivo",
+      "sector",
+      "sectoreconomico"
+    ]);
+    const regionHeader = findHeader([
+      "region",
+      "regionproyecto",
+      "region_evaluacion"
+    ]);
+    const estadoHeader = findHeader([
+      "estado",
+      "estadoproyecto",
+      "estado_proyecto",
+      "estadoevaluacion",
+      "etapa",
+      "etapaproyecto"
+    ]);
+
+    console.log("Cabeceras detectadas:", {
+      latHeader,
+      lonHeader,
+      sectorHeader,
+      regionHeader,
+      estadoHeader
+    });
+
+    if (!latHeader || !lonHeader) {
+      throw new Error(
+        "No se encontraron columnas de LAT/LON en el Excel (revisa nombres)."
+      );
+    }
+
+    const latIndex = indexToHeader.indexOf(latHeader);
+    const lonIndex = indexToHeader.indexOf(lonHeader);
+    const sectorIndex =
+      sectorHeader !== null ? indexToHeader.indexOf(sectorHeader) : -1;
+    const regionIndex =
+      regionHeader !== null ? indexToHeader.indexOf(regionHeader) : -1;
+    const estadoIndex =
+      estadoHeader !== null ? indexToHeader.indexOf(estadoHeader) : -1;
+
+    const tmpProyectos = [];
+
+    for (const row of dataRows) {
+      const latVal = row[latIndex];
+      const lonVal = row[lonIndex];
+
+      const lat = parseCoord(latVal);
+      const lon = parseCoord(lonVal);
+
+      if (lat === null || lon === null) continue;
+
+      let sector = "Otros";
+      if (sectorIndex >= 0) {
+        const sVal = row[sectorIndex];
+        if (sVal !== null && sVal !== undefined && String(sVal).trim() !== "") {
+          sector = String(sVal).trim();
         }
-        return { lat, lon };
-      })
-      .filter((p) => p !== null);
+      }
 
-    datosCargados = true;
+      let region = "Sin región";
+      if (regionIndex >= 0) {
+        const rVal = row[regionIndex];
+        if (rVal !== null && rVal !== undefined && String(rVal).trim() !== "") {
+          region = String(rVal).trim();
+        }
+      }
 
-    console.log("index.js → total proyectos cargados en index:", proyectos.length);
+      let estado = "Sin estado";
+      if (estadoIndex >= 0) {
+        const eVal = row[estadoIndex];
+        if (eVal !== null && eVal !== undefined && String(eVal).trim() !== "") {
+          estado = String(eVal).trim();
+        }
+      }
 
-    if (!proyectos.length && bboxInfo) {
-      bboxInfo.textContent = "Proyectos en pantalla: 0 (sin coordenadas válidas)";
-      return;
+      const raw = {};
+      indexToHeader.forEach((h, idx) => {
+        raw[h] = row[idx];
+      });
+
+      tmpProyectos.push({ lat, lon, sector, region, estado, raw });
     }
 
-    // una vez cargados, actualizamos el conteo para el BBOX actual
+    proyectos = tmpProyectos;
+    datosCargados = true;
+    console.log("Proyectos cargados:", proyectos.length);
+
+    if (bboxInfo) {
+      bboxInfo.textContent = `Proyectos en pantalla: — (mueve el mapa para actualizar)`;
+    }
+
+    // Dibujamos los puntos
+    dibujarProyectos();
+    // Actualizamos el conteo inicial
     actualizarConteoBbox();
   } catch (err) {
-    console.error("Error cargando proyectos nacionales en index:", err);
+    console.error(err);
+    const bboxInfo = document.getElementById("bboxInfo");
     if (bboxInfo) {
-      bboxInfo.textContent = "Proyectos en pantalla: error inesperado";
+      bboxInfo.textContent =
+        "Error cargando proyectos. Revisa la consola (F12 → Console).";
+    }
+    const summaryContainer = document.getElementById("summaryTableContainer");
+    if (summaryContainer) {
+      summaryContainer.innerHTML =
+        "<p>Error al cargar los proyectos. No se pudo generar el resumen.</p>";
     }
   }
 }
 
-// ===============================
+// =======================================
+// Mapa y puntos
+// =======================================
+function initMap() {
+  map = L.map("map").setView([-27, -70], 5); // Vista general sobre Chile
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  proyectosLayer = L.layerGroup().addTo(map);
+
+  map.on("moveend", () => {
+    if (datosCargados) {
+      actualizarConteoBbox();
+    }
+  });
+
+  map.on("click", onMapClick);
+}
+
+function dibujarProyectos() {
+  if (!map || !proyectosLayer) return;
+  proyectosLayer.clearLayers();
+
+  proyectos.forEach((p) => {
+    L.circleMarker([p.lat, p.lon], {
+      radius: 3,
+      weight: 1,
+      opacity: 0.8,
+      fillOpacity: 0.7
+    }).addTo(proyectosLayer);
+  });
+}
+
+// =======================================
 // Conteo de proyectos en el BBOX visible
-// ===============================
+// + Cuadro Región vs Estado
+// =======================================
 function actualizarConteoBbox() {
-  if (!datosCargados || !proyectos.length || !bboxInfo) return;
+  if (!map || !datosCargados) return;
 
   const bounds = map.getBounds();
+  const sectorFiltro = getSelectedSector();
+
   let count = 0;
+  const summaryByRegion = {}; // { region: { estado: count } }
+  const estadosSet = new Set();
 
   for (const p of proyectos) {
-    if (bounds.contains([p.lat, p.lon])) {
-      count++;
+    // filtro por sector
+    if (sectorFiltro !== "Todos" && String(p.sector) !== sectorFiltro) {
+      continue;
     }
+
+    if (!bounds.contains([p.lat, p.lon])) {
+      continue;
+    }
+
+    count++;
+
+    const region = p.region || "Sin región";
+    const estado = p.estado || "Sin estado";
+
+    if (!summaryByRegion[region]) {
+      summaryByRegion[region] = {};
+    }
+    summaryByRegion[region][estado] =
+      (summaryByRegion[region][estado] || 0) + 1;
+
+    estadosSet.add(estado);
   }
 
-  bboxInfo.textContent =
-    "Proyectos en pantalla: " + count.toLocaleString("es-CL");
+  const bboxInfo = document.getElementById("bboxInfo");
+  if (bboxInfo) {
+    const sectorText =
+      sectorFiltro === "Todos" ? "todos los sectores" : `sector: ${sectorFiltro}`;
+    bboxInfo.textContent = `Proyectos en pantalla: ${count} (${sectorText})`;
+  }
+
+  const estadosList = Array.from(estadosSet).sort();
+  renderSummaryTable(summaryByRegion, estadosList);
+
+  console.log("Conteo BBOX:", { count, sectorFiltro, summaryByRegion });
 }
 
-// Actualizar al terminar movimiento / cambio de zoom
-map.on("moveend", actualizarConteoBbox);
-map.on("zoomend", actualizarConteoBbox);
+function renderSummaryTable(summaryByRegion, estadosList) {
+  const container = document.getElementById("summaryTableContainer");
+  if (!container) return;
 
-// ===============================
-// Evento de clic en el mapa
-// ===============================
-map.on("click", (e) => {
-  const lat = e.latlng.lat;
-  const lng = e.latlng.lng;
-  const zoom = map.getZoom();
+  const regiones = Object.keys(summaryByRegion).sort();
+  if (regiones.length === 0) {
+    container.innerHTML =
+      "<p>No hay proyectos en el área visible para el filtro seleccionado.</p>";
+    return;
+  }
 
-  actualizarCoords(lat, lng);
+  let html = '<table class="summary-table">';
+  html += "<thead><tr>";
+  html += "<th>Región / Estado</th>";
 
-  const sector = encodeURIComponent(sectorSelect.value || "Todos");
-  const radioKm = getRadioKm();
+  estadosList.forEach((estado) => {
+    html += `<th>${escapeHtml(estado)}</th>`;
+  });
 
-  const url =
-    "info.html" +
-    "?lat=" +
-    lat.toFixed(6) +
-    "&lng=" +
-    lng.toFixed(6) +
-    "&z=" +
-    zoom +
-    "&radio_km=" +
-    radioKm +
-    "&sector=" +
-    sector;
+  html += "</tr></thead><tbody>";
 
-  window.location.href = url;
+  regiones.forEach((region) => {
+    html += `<tr><th>${escapeHtml(region)}</th>`;
+    estadosList.forEach((estado) => {
+      const val = summaryByRegion[region][estado] || 0;
+      html += `<td>${val > 0 ? val : ""}</td>`;
+    });
+    html += "</tr>";
+  });
+
+  html += "</tbody></table>";
+  container.innerHTML = html;
+}
+
+// =======================================
+// Click en el mapa → solo debug (NO abre info.html)
+// =======================================
+let lastClickMarker = null;
+
+function onMapClick(e) {
+  const { lat, lng } = e.latlng;
+
+  if (lastClickMarker) {
+    lastClickMarker.remove();
+  }
+  lastClickMarker = L.marker([lat, lng]).addTo(map);
+
+  const coordsDisplay = document.getElementById("coordsDisplay");
+  if (coordsDisplay) {
+    coordsDisplay.textContent = `Coordenadas clic: ${lat.toFixed(
+      5
+    )}, ${lng.toFixed(5)}`;
+  }
+
+  const radioKm = getSelectedRadioKm();
+  const sector = getSelectedSector();
+  const b = map.getBounds();
+
+  // Construimos igualmente la URL, pero NO la abrimos (modo debug)
+  const url = new URL("info.html", window.location.href);
+  url.searchParams.set("lat", lat.toFixed(6));
+  url.searchParams.set("lon", lng.toFixed(6));
+  url.searchParams.set("radio_km", String(radioKm));
+  url.searchParams.set("sector", sector);
+  url.searchParams.set("bbox_min_lat", b.getSouth().toFixed(6));
+  url.searchParams.set("bbox_min_lon", b.getWest().toFixed(6));
+  url.searchParams.set("bbox_max_lat", b.getNorth().toFixed(6));
+  url.searchParams.set("bbox_max_lon", b.getEast().toFixed(6));
+
+  console.log("Click debug:", {
+    lat,
+    lng,
+    radioKm,
+    sector,
+    bbox: {
+      min_lat: b.getSouth(),
+      min_lon: b.getWest(),
+      max_lat: b.getNorth(),
+      max_lon: b.getEast()
+    },
+    urlInfo: url.toString()
+  });
+
+  // ⚠️ Modo debug: NO abrimos info.html
+  // window.open(url.toString(), "_blank");
+}
+
+// =======================================
+// Listeners UI
+// =======================================
+function initUI() {
+  const sectorSelect = document.getElementById("sectorSelect");
+  if (sectorSelect) {
+    sectorSelect.addEventListener("change", () => {
+      if (datosCargados) {
+        actualizarConteoBbox();
+      }
+    });
+  }
+
+  const radios = document.querySelectorAll('input[name="radio"]');
+  radios.forEach((r) => {
+    r.addEventListener("change", () => {
+      console.log("Radio de análisis (km):", getSelectedRadioKm());
+    });
+  });
+}
+
+// =======================================
+// Init
+// =======================================
+document.addEventListener("DOMContentLoaded", () => {
+  initMap();
+  initUI();
+  cargarExcelNacional();
 });
-
-// ===============================
-// Inicio: cargar datos
-// ===============================
-cargarProyectosNacionales();
