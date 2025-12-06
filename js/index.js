@@ -9,6 +9,10 @@ let proyectos = [];         // { lat, lon, sector, region, estado, raw }
 let proyectosLayer = null;  // capa para los puntos
 let datosCargados = false;
 
+// Overview
+let overviewMap = null;
+let overviewRect = null;
+
 // =======================================
 // Helpers
 // =======================================
@@ -89,11 +93,9 @@ async function cargarExcelNacional() {
     const arrayBuffer = await resp.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: "array" });
 
-    // Tomamos la primera hoja
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
 
-    // Leemos como matriz [ [header1, header2, ...], [fila1...], ... ]
     const rows = XLSX.utils.sheet_to_json(worksheet, {
       header: 1,
       defval: null
@@ -216,15 +218,13 @@ async function cargarExcelNacional() {
       bboxInfo.textContent = `Proyectos en pantalla: — (mueve el mapa para actualizar)`;
     }
 
-    // Dibujamos los puntos
     dibujarProyectos();
-    // Actualizamos el conteo inicial
     actualizarConteoBbox();
   } catch (err) {
     console.error(err);
-    const bboxInfo = document.getElementById("bboxInfo");
-    if (bboxInfo) {
-      bboxInfo.textContent =
+    const bboxInfo2 = document.getElementById("bboxInfo");
+    if (bboxInfo2) {
+      bboxInfo2.textContent =
         "Error cargando proyectos. Revisa la consola (F12 → Console).";
     }
     const summaryContainer = document.getElementById("summaryTableContainer");
@@ -236,13 +236,18 @@ async function cargarExcelNacional() {
 }
 
 // =======================================
-// Mapa y puntos
+// Mapa principal
 // =======================================
 function initMap() {
-  map = L.map("map").setView([-27, -70], 15); // Vista general sobre Chile
+  // Vista tipo 1:10.000 en Copiapó aprox.
+  map = L.map("map", {
+    zoomControl: true,
+    minZoom: 15,
+    maxZoom: 15
+  }).setView([-27.366, -70.333], 15);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 15,
+    maxZoom: 18,
     attribution: "&copy; OpenStreetMap contributors"
   }).addTo(map);
 
@@ -252,11 +257,54 @@ function initMap() {
     if (datosCargados) {
       actualizarConteoBbox();
     }
+    actualizarOverviewRectangle();
   });
 
   map.on("click", onMapClick);
 }
 
+// =======================================
+// Overview map (Chile completo)
+// =======================================
+function initOverviewMap() {
+  const el = document.getElementById("overviewMap");
+  if (!el) return;
+
+  overviewMap = L.map("overviewMap", {
+    zoomControl: false,
+    attributionControl: false,
+    dragging: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    boxZoom: false,
+    keyboard: false,
+    tap: false
+  }).setView([-30, -70], 4); // Chile completo aprox.
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 10
+  }).addTo(overviewMap);
+}
+
+function actualizarOverviewRectangle() {
+  if (!map || !overviewMap) return;
+
+  const bounds = map.getBounds();
+
+  if (!overviewRect) {
+    overviewRect = L.rectangle(bounds, {
+      color: "red",
+      weight: 2,
+      fill: false
+    }).addTo(overviewMap);
+  } else {
+    overviewRect.setBounds(bounds);
+  }
+}
+
+// =======================================
+// Dibujo de proyectos
+// =======================================
 function dibujarProyectos() {
   if (!map || !proyectosLayer) return;
   proyectosLayer.clearLayers();
@@ -272,8 +320,7 @@ function dibujarProyectos() {
 }
 
 // =======================================
-// Conteo de proyectos en el BBOX visible
-// + Cuadro Región vs Estado
+// Conteo + tabla Región vs Estado
 // =======================================
 function actualizarConteoBbox() {
   if (!map || !datosCargados) return;
@@ -282,11 +329,10 @@ function actualizarConteoBbox() {
   const sectorFiltro = getSelectedSector();
 
   let count = 0;
-  const summaryByRegion = {}; // { region: { estado: count } }
+  const summaryByRegion = {};
   const estadosSet = new Set();
 
   for (const p of proyectos) {
-    // filtro por sector
     if (sectorFiltro !== "Todos" && String(p.sector) !== sectorFiltro) {
       continue;
     }
@@ -380,7 +426,6 @@ function onMapClick(e) {
   const sector = getSelectedSector();
   const b = map.getBounds();
 
-  // Construimos igualmente la URL, pero NO la abrimos (modo debug)
   const url = new URL("info.html", window.location.href);
   url.searchParams.set("lat", lat.toFixed(6));
   url.searchParams.set("lon", lng.toFixed(6));
@@ -405,7 +450,7 @@ function onMapClick(e) {
     urlInfo: url.toString()
   });
 
-  // ⚠️ Modo debug: NO abrimos info.html
+  // Modo debug: NO abrimos info.html
   // window.open(url.toString(), "_blank");
 }
 
@@ -435,6 +480,9 @@ function initUI() {
 // =======================================
 document.addEventListener("DOMContentLoaded", () => {
   initMap();
+  initOverviewMap();
   initUI();
   cargarExcelNacional();
+  // sincroniza rectángulo inicial
+  setTimeout(actualizarOverviewRectangle, 500);
 });
