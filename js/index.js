@@ -367,11 +367,6 @@ function actualizarConteoBbox() {
   }
 
   const estadosList = Array.from(estadosSet).sort();
-  renderSummaryTable(summaryByRegion, estadosList);
-
-  console.log("Conteo BBOX:", { count, sectorFiltro, summaryByRegion });
-}
-
 function renderSummaryTable(summaryByRegion, estadosList) {
   const container = document.getElementById("summaryTableContainer");
   if (!container) return;
@@ -385,32 +380,51 @@ function renderSummaryTable(summaryByRegion, estadosList) {
 
   let html = '<table class="summary-table">';
 
-  
+  // ============================================
+  // ENCABEZADO (SOLO VERSION CORTA)
+  // ============================================
+  html += "<thead><tr>";
+  html += "<th>Región / Estado</th>";
 
-html += "<thead><tr>";
-html += "<th>Región / Estado</th>";
+  estadosList.forEach((estado) => {
+    let short = estado;
 
-estadosList.forEach((estado) => {
-  let short = estado;
+    // Normalizar el texto
+    const n = estado
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
 
-  // normalizar
-  const n = estado
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+    if (n.includes("aprob")) short = "Aprob";
+    else if (n.includes("calific")) short = "Calif";
+    else if (n.includes("rech")) short = "Rech";
 
-  if (n.includes("aprob")) short = "Aprob";
-  else if (n.includes("calific")) short = "Calif";
-  else if (n.includes("rech")) short = "Rech";
+    html += `<th>${escapeHtml(short)}</th>`;
+  });
 
-  html += `<th>${escapeHtml(short)}</th>`;
-});
+  html += "</tr></thead>";
 
-html += "</tr></thead><tbody>";
+  // ============================================
+  // CUERPO DE TABLA
+  // ============================================
+  html += "<tbody>";
 
-  
+  regiones.forEach((region) => {
+    html += `<tr><th>${escapeHtml(region)}</th>`;
+
+    estadosList.forEach((estado) => {
+      const val = summaryByRegion[region][estado] || 0;
+      html += `<td>${val > 0 ? val : ""}</td>`;
+    });
+
+    html += "</tr>";
+  });
+
+  html += "</tbody></table>";
+
   container.innerHTML = html;
 }
+
 
 // =======================================
 // Click en el mapa → solo debug (NO abre info.html)
