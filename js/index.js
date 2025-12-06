@@ -121,7 +121,7 @@ async function cargarExcelNacional() {
       for (const c of candidates) {
         if (normToHeader[c]) return normToHeader[c];
       }
-      // 2) parcial
+      // 2) parcial (contiene)
       for (let i = 0; i < indexToHeader.length; i++) {
         const original = indexToHeader[i];
         const norm = normalizeHeader(original);
@@ -392,7 +392,7 @@ function renderSummaryTable(summaryByRegion, estadosList) {
   estadosList.forEach((estado) => {
     let short = estado;
 
-    // Normalizar
+    // Normalizar (para detectar Aprob / Calif / Rech)
     const n = estado
       .toLowerCase()
       .normalize("NFD")
