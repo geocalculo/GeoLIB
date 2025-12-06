@@ -384,36 +384,31 @@ function renderSummaryTable(summaryByRegion, estadosList) {
   }
 
   let html = '<table class="summary-table">';
-  html += "<thead><tr>";
-  html += "<th>Región / Estado</th>";
 
-  estadosList.forEach((estado) => {
-    html += `<th>${escapeHtml(estado)}</th>`;
-  });
-
-  html += "</tr></thead><tbody>";
-
-  regiones.forEach((region) => {
-    html += `<tr><th>${escapeHtml(region)}</th>`;
-
-  estadosList.forEach((estado) => {
-    let short = estado;
   
-    // Normalización en minúsculas para comparar sin tildes
-    const n = estado.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-  
-    if (n.includes("aprob")) short = "Aprob";
-    else if (n.includes("calific")) short = "Calif";
-    else if (n.includes("rech")) short = "Rech";
-  
-    html += `<th>${escapeHtml(short)}</th>`;
-  });
 
-    
-    html += "</tr>";
-  });
+html += "<thead><tr>";
+html += "<th>Región / Estado</th>";
 
-  html += "</tbody></table>";
+estadosList.forEach((estado) => {
+  let short = estado;
+
+  // normalizar
+  const n = estado
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+
+  if (n.includes("aprob")) short = "Aprob";
+  else if (n.includes("calific")) short = "Calif";
+  else if (n.includes("rech")) short = "Rech";
+
+  html += `<th>${escapeHtml(short)}</th>`;
+});
+
+html += "</tr></thead><tbody>";
+
+  
   container.innerHTML = html;
 }
 
