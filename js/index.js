@@ -115,16 +115,29 @@ async function cargarExcelNacional() {
       if (norm) normToHeader[norm] = h;
     });
 
-    // Buscar columnas lat/lon/sector/region/estado
+    // Buscar columnas sector / región / estado usando cabeceras
     function findHeader(candidates) {
+      // 1) exacto
       for (const c of candidates) {
         if (normToHeader[c]) return normToHeader[c];
+      }
+      // 2) parcial
+      for (let i = 0; i < indexToHeader.length; i++) {
+        const original = indexToHeader[i];
+        const norm = normalizeHeader(original);
+        for (const c of candidates) {
+          if (norm.includes(c)) {
+            return original;
+          }
+        }
       }
       return null;
     }
 
-    const latHeader = findHeader(["lat", "latitud", "latitude"]);
-    const lonHeader = findHeader(["lon", "longitud", "longitude", "long"]);
+    // Coordenadas: fijamos columnas O y P
+    const latIndex = 14; // Columna O
+    const lonIndex = 15; // Columna P
+
     const sectorHeader = findHeader([
       "sectorproductivo",
       "sector",
@@ -144,22 +157,12 @@ async function cargarExcelNacional() {
       "etapaproyecto"
     ]);
 
-    console.log("Cabeceras detectadas:", {
-      latHeader,
-      lonHeader,
+    console.log("Cabeceras detectadas (no incluyen lat/lon fijas):", {
       sectorHeader,
       regionHeader,
       estadoHeader
     });
 
-    if (!latHeader || !lonHeader) {
-      throw new Error(
-        "No se encontraron columnas de LAT/LON en el Excel (revisa nombres)."
-      );
-    }
-
-    const latIndex = indexToHeader.indexOf(latHeader);
-    const lonIndex = indexToHeader.indexOf(lonHeader);
     const sectorIndex =
       sectorHeader !== null ? indexToHeader.indexOf(sectorHeader) : -1;
     const regionIndex =
@@ -221,16 +224,17 @@ async function cargarExcelNacional() {
     dibujarProyectos();
     actualizarConteoBbox();
   } catch (err) {
-    console.error(err);
+    console.error("Error en cargarExcelNacional:", err);
     const bboxInfo2 = document.getElementById("bboxInfo");
     if (bboxInfo2) {
-      bboxInfo2.textContent =
-        "Error cargando proyectos. Revisa la consola (F12 → Console).";
+      bboxInfo2.textContent = `Error cargando proyectos: ${err.message}`;
     }
     const summaryContainer = document.getElementById("summaryTableContainer");
     if (summaryContainer) {
       summaryContainer.innerHTML =
-        "<p>Error al cargar los proyectos. No se pudo generar el resumen.</p>";
+        `<p>Error al cargar los proyectos:<br><code>${escapeHtml(
+          err.message
+        )}</code></p>`;
     }
   }
 }
@@ -242,9 +246,9 @@ function initMap() {
   // Vista aproximada 1:50.000 sobre Copiapó
   map = L.map("map", {
     zoomControl: true,
-    minZoom: 8,     // puedes alejarte un poco
-    maxZoom: 16     // y también acercarte si quieres
-  }).setView([-27.366, -70.333], 12);  // zoom ~1:50.000
+    minZoom: 8,
+    maxZoom: 16
+  }).setView([-27.366, -70.333], 12);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18,
@@ -257,12 +261,11 @@ function initMap() {
     if (datosCargados) {
       actualizarConteoBbox();
     }
-    actualizarOverviewRectangle();   // si tienes el mini-mapa
+    actualizarOverviewRectangle();
   });
 
   map.on("click", onMapClick);
 }
-
 
 // =======================================
 // Overview map (Chile completo)
@@ -484,6 +487,5 @@ document.addEventListener("DOMContentLoaded", () => {
   initOverviewMap();
   initUI();
   cargarExcelNacional();
-  // sincroniza rectángulo inicial
   setTimeout(actualizarOverviewRectangle, 500);
 });
