@@ -395,10 +395,21 @@ function renderSummaryTable(summaryByRegion, estadosList) {
 
   regiones.forEach((region) => {
     html += `<tr><th>${escapeHtml(region)}</th>`;
-    estadosList.forEach((estado) => {
-      const val = summaryByRegion[region][estado] || 0;
-      html += `<td>${val > 0 ? val : ""}</td>`;
-    });
+
+  estadosList.forEach((estado) => {
+    let short = estado;
+  
+    // Normalización en minúsculas para comparar sin tildes
+    const n = estado.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  
+    if (n.includes("aprob")) short = "Aprob";
+    else if (n.includes("calific")) short = "Calif";
+    else if (n.includes("rech")) short = "Rech";
+  
+    html += `<th>${escapeHtml(short)}</th>`;
+  });
+
+    
     html += "</tr>";
   });
 
