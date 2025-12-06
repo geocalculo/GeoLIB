@@ -367,6 +367,11 @@ function actualizarConteoBbox() {
   }
 
   const estadosList = Array.from(estadosSet).sort();
+  renderSummaryTable(summaryByRegion, estadosList);
+
+  console.log("Conteo BBOX:", { count, sectorFiltro, summaryByRegion });
+}
+
 function renderSummaryTable(summaryByRegion, estadosList) {
   const container = document.getElementById("summaryTableContainer");
   if (!container) return;
@@ -380,16 +385,14 @@ function renderSummaryTable(summaryByRegion, estadosList) {
 
   let html = '<table class="summary-table">';
 
-  // ============================================
-  // ENCABEZADO (SOLO VERSION CORTA)
-  // ============================================
+  // ENCABEZADO abreviado
   html += "<thead><tr>";
   html += "<th>Región / Estado</th>";
 
   estadosList.forEach((estado) => {
     let short = estado;
 
-    // Normalizar el texto
+    // Normalizar
     const n = estado
       .toLowerCase()
       .normalize("NFD")
@@ -404,9 +407,7 @@ function renderSummaryTable(summaryByRegion, estadosList) {
 
   html += "</tr></thead>";
 
-  // ============================================
-  // CUERPO DE TABLA
-  // ============================================
+  // CUERPO
   html += "<tbody>";
 
   regiones.forEach((region) => {
@@ -424,7 +425,6 @@ function renderSummaryTable(summaryByRegion, estadosList) {
 
   container.innerHTML = html;
 }
-
 
 // =======================================
 // Click en el mapa → solo debug (NO abre info.html)
