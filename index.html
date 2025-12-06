@@ -17,7 +17,7 @@
 <body>
   <header>
     <h1>SEA Mining - Explorador de proyectos</h1>
-    <p>Haz clic en el mapa para generar el reporte de proyectos cercanos.</p>
+    <p>Haz clic en el mapa para depurar el comportamiento (modo debug).</p>
   </header>
 
   <main>
@@ -27,8 +27,8 @@
         <div class="badge">Paso 1</div>
         <h2>Configura la consulta</h2>
         <p>
-          Selecciona el sector productivo y el radio de análisis. Luego haz clic
-          en el mapa sobre el punto de interés.
+          Selecciona el sector productivo y mueve el mapa. El cuadro resumen
+          se actualiza con los proyectos visibles en pantalla.
         </p>
 
         <label for="sectorSelect">Sector productivo</label>
@@ -51,15 +51,20 @@
         </div>
 
         <span class="hint">
-          El análisis detallado se realiza en <strong>info.html</strong> usando el archivo
-          <code>capas/nacional.xlsx</code>.
+          El análisis detallado se realizará más adelante en <strong>info.html</strong>.
+          Por ahora, este visor está en <strong>modo debug</strong> (sin abrir info.html).
         </span>
 
         <div id="coordsDisplay">Coordenadas clic: —</div>
 
-        <!-- 🔹 Nuevo: resumen de proyectos en el BBOX visible -->
+        <!-- Resumen rápido: total en BBOX -->
         <div id="bboxInfo" class="bbox-info">
           Proyectos en pantalla: —
+        </div>
+
+        <!-- 🔹 Nuevo: cuadro resumen Región vs Estado -->
+        <div id="summaryTableContainer" class="summary-table-container">
+          <p>El resumen por región y estado se mostrará aquí.</p>
         </div>
       </section>
 
