@@ -11,7 +11,7 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
 
-  <!-- CSS externo (RUTA CORREGIDA) -->
+  <!-- CSS externo -->
   <link rel="stylesheet" href="css/index.css" />
 </head>
 <body>
@@ -26,7 +26,6 @@
       <section class="panel">
         <div class="badge">Paso 1</div>
         <h2>Configura la consulta</h2>
-
         <p>
           Selecciona el sector productivo y el radio de análisis. Luego haz clic
           en el mapa sobre el punto de interés.
@@ -52,11 +51,16 @@
         </div>
 
         <span class="hint">
-          El análisis se realiza en <strong>info.html</strong> usando el archivo
+          El análisis detallado se realiza en <strong>info.html</strong> usando el archivo
           <code>capas/nacional.xlsx</code>.
         </span>
 
         <div id="coordsDisplay">Coordenadas clic: —</div>
+
+        <!-- 🔹 Nuevo: resumen de proyectos en el BBOX visible -->
+        <div id="bboxInfo" class="bbox-info">
+          Proyectos en pantalla: —
+        </div>
       </section>
 
       <!-- Mapa -->
@@ -69,7 +73,10 @@
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- JS externo (RUTA CORREGIDA) -->
+  <!-- SheetJS para leer el Excel nacional -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- JS externo -->
   <script src="js/index.js"></script>
 </body>
 </html>
