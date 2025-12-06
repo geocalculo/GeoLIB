@@ -242,7 +242,7 @@ function initMap() {
   map = L.map("map").setView([-27, -70], 5); // Vista general sobre Chile
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
+    maxZoom: 15,
     attribution: "&copy; OpenStreetMap contributors"
   }).addTo(map);
 
