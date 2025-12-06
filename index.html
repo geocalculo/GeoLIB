@@ -11,8 +11,8 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
 
-  <!-- CSS externo -->
-  <link rel="stylesheet" href="index.css" />
+  <!-- CSS externo (RUTA CORREGIDA) -->
+  <link rel="stylesheet" href="css/index.css" />
 </head>
 <body>
   <header>
@@ -26,6 +26,7 @@
       <section class="panel">
         <div class="badge">Paso 1</div>
         <h2>Configura la consulta</h2>
+
         <p>
           Selecciona el sector productivo y el radio de análisis. Luego haz clic
           en el mapa sobre el punto de interés.
@@ -43,21 +44,11 @@
 
         <label>Radio de análisis (km)</label>
         <div class="radio-group">
-          <label class="chip">
-            <input type="radio" name="radio" value="50" /> 50
-          </label>
-          <label class="chip">
-            <input type="radio" name="radio" value="100" checked /> 100
-          </label>
-          <label class="chip">
-            <input type="radio" name="radio" value="150" /> 150
-          </label>
-          <label class="chip">
-            <input type="radio" name="radio" value="200" /> 200
-          </label>
-          <label class="chip">
-            <input type="radio" name="radio" value="250" /> 250
-          </label>
+          <label class="chip"><input type="radio" name="radio" value="50" /> 50</label>
+          <label class="chip"><input type="radio" name="radio" value="100" checked /> 100</label>
+          <label class="chip"><input type="radio" name="radio" value="150" /> 150</label>
+          <label class="chip"><input type="radio" name="radio" value="200" /> 200</label>
+          <label class="chip"><input type="radio" name="radio" value="250" /> 250</label>
         </div>
 
         <span class="hint">
@@ -65,9 +56,7 @@
           <code>capas/nacional.xlsx</code>.
         </span>
 
-        <div id="coordsDisplay">
-          Coordenadas clic: —
-        </div>
+        <div id="coordsDisplay">Coordenadas clic: —</div>
       </section>
 
       <!-- Mapa -->
@@ -80,7 +69,7 @@
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- JS externo -->
-  <script src="index.js"></script>
+  <!-- JS externo (RUTA CORREGIDA) -->
+  <script src="js/index.js"></script>
 </body>
 </html>
