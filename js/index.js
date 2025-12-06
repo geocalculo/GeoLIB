@@ -239,12 +239,12 @@ async function cargarExcelNacional() {
 // Mapa principal
 // =======================================
 function initMap() {
-  // Vista tipo 1:10.000 en Copiapó aprox.
+  // Vista aproximada 1:50.000 sobre Copiapó
   map = L.map("map", {
     zoomControl: true,
-    minZoom: 15,
-    maxZoom: 15
-  }).setView([-27.366, -70.333], 15);
+    minZoom: 8,     // puedes alejarte un poco
+    maxZoom: 16     // y también acercarte si quieres
+  }).setView([-27.366, -70.333], 12);  // zoom ~1:50.000
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18,
@@ -257,11 +257,12 @@ function initMap() {
     if (datosCargados) {
       actualizarConteoBbox();
     }
-    actualizarOverviewRectangle();
+    actualizarOverviewRectangle();   // si tienes el mini-mapa
   });
 
   map.on("click", onMapClick);
 }
+
 
 // =======================================
 // Overview map (Chile completo)
