@@ -15,69 +15,174 @@
   <link rel="stylesheet" href="css/index.css" />
 </head>
 <body>
-  <header>
-    <h1>SEA Mining - Explorador de proyectos</h1>
-    <p>Haz clic en el mapa para depurar el comportamiento (modo debug).</p>
+  <header class="app-header">
+    <div class="app-header-inner">
+      <h1>SEA Mining - Explorador de proyectos</h1>
+      <p>Haz clic en el mapa para depurar el comportamiento (modo debug).</p>
+    </div>
+
+    <!-- Botón para abrir/cerrar el panel en modo móvil -->
+    <button
+      id="togglePanelBtn"
+      class="panel-toggle-btn"
+      aria-label="Mostrar u ocultar configuración"
+    >
+      ☰ Configuración
+    </button>
   </header>
 
   <main>
     <div class="layout">
-      <!-- Panel -->
-      <section class="panel">
-        <div class="badge">Paso 1</div>
-        <h2>Configura la consulta</h2>
-        <p>
-          Selecciona el sector productivo y mueve el mapa. El cuadro resumen
-          se actualiza con los proyectos visibles en pantalla.
-        </p>
+      <!-- Panel lateral (plegable en móvil) -->
+      <section class="panel is-open" id="configPanel">
+        <div class="panel-scroll">
+          <div class="badge">PASO 1</div>
+          <h2>Configura la consulta</h2>
+          <p>
+            Selecciona los sectores productivos y mueve el mapa.
+            El cuadro resumen se actualiza con los proyectos visibles en pantalla.
+          </p>
 
-        <label for="sectorSelect">Sector productivo</label>
-        <select id="sectorSelect">
-          <option value="Todos" selected>Todos</option>
-          <option value="Energía">Energía</option>
-          <option value="Infraestructura">Infraestructura</option>
-          <option value="Minería">Minería</option>
-          <option value="Industria">Industria</option>
-          <option value="Otros">Otros</option>
-        </select>
+          <!-- Sectores productivos (multi-selección dinámica) -->
+          <div class="field-block">
+            <label class="field-label">Sectores productivos (vista actual)</label>
+            <div class="sector-multiselect">
+              <div id="sectorCheckboxContainer">
+                <!-- Checkbox fijo "Todos" -->
+                <label class="checkbox-item">
+                  <input
+                    type="checkbox"
+                    id="sectorTodos"
+                    checked
+                  />
+                  <span>Todos</span>
+                </label>
 
-        <label>Radio de análisis (km)</label>
-        <div class="radio-group">
-          <label class="chip"><input type="radio" name="radio" value="50" /> 50</label>
-          <label class="chip"><input type="radio" name="radio" value="100" checked /> 100</label>
-          <label class="chip"><input type="radio" name="radio" value="150" /> 150</label>
-          <label class="chip"><input type="radio" name="radio" value="200" /> 200</label>
-          <label class="chip"><input type="radio" name="radio" value="250" /> 250</label>
-        </div>
+                <!-- Aquí se inyectan dinámicamente los sectores -->
+                <div id="sectorDynamic"></div>
 
-        <span class="hint">
-          El análisis detallado se realizará más adelante en <strong>info.html</strong>.
-          Por ahora, este visor está en <strong>modo debug</strong> (sin abrir info.html).
-        </span>
+                <p class="hint">
+                  Los sectores se cargan automáticamente según los proyectos visibles
+                  en el mapa. Si está marcada la opción <strong>Todos</strong>, no se
+                  aplica filtro por sector.
+                </p>
+              </div>
 
-        <div id="coordsDisplay">Coordenadas clic: —</div>
+              <button
+                id="sectorSelectAllBtn"
+                type="button"
+                class="link-btn"
+              >
+                Seleccionar todos
+              </button>
+              <button id="sectorClearBtn" type="button" class="link-btn">
+                Limpiar selección
+              </button>
+            </div>
+          </div>
 
-        <!-- Resumen rápido: total en BBOX -->
-        <div id="bboxInfo" class="bbox-info">
-          Proyectos en pantalla: —
-        </div>
+          <!-- Modo de selección -->
+          <div class="field-block">
+            <label class="field-label">Modo de selección</label>
+            <div class="radio-group">
+              <label class="chip">
+                <input
+                  type="radio"
+                  name="modoSeleccion"
+                  value="radio"
+                  checked
+                />
+                Por Radio
+              </label>
+              <label class="chip">
+                <input
+                  type="radio"
+                  name="modoSeleccion"
+                  value="proximidad"
+                />
+                Por Proximidad
+              </label>
+            </div>
+            <span class="hint">
+              <strong>Por Radio:</strong> se consideran todos los proyectos con
+              distancia ≤ R al punto clic.<br />
+              <strong>Por Proximidad:</strong> se toman los <strong>N proyectos
+              aprobados más cercanos</strong>, y se define un radio con el más lejano
+              de ellos.
+            </span>
+          </div>
 
-        <!-- 🔹 Nuevo: cuadro resumen Región vs Estado -->
-        <div id="summaryTableContainer" class="summary-table-container">
-          <p>El resumen por región y estado se mostrará aquí.</p>
+          <!-- Radio de análisis con slider -->
+          <div class="field-block">
+            <label class="field-label">
+              Modo de selección / por Radio<br />
+              <span style="font-weight:400;">Barra deslizante Radio (Distancia ≤ R)</span>
+            </label>
+            <input
+              type="range"
+              id="radioSlider"
+              min="5"
+              max="20"
+              step="1"
+              value="10"
+              class="range-input"
+            />
+            <div class="hint">
+              Distancia máxima:
+              <strong><span id="radioValue">10</span> km</strong>
+            </div>
+          </div>
+
+          <!-- Proximidad N aprobados con slider -->
+          <div class="field-block">
+            <label class="field-label">
+              Modo de selección / por Proximidad<br />
+              <span style="font-weight:400;">Barra deslizante los “N” más cercanos</span>
+            </label>
+            <input
+              type="range"
+              id="nSlider"
+              min="5"
+              max="20"
+              step="1"
+              value="10"
+              class="range-input"
+            />
+            <div class="hint">
+              N proyectos <strong>aprobados</strong> más cercanos:
+              <strong><span id="nValue">10</span></strong>
+            </div>
+          </div>
+
+          <span class="hint">
+            El análisis detallado se visualiza en
+            <strong>mapainfo.html</strong>, que se abre al hacer clic en el mapa.
+          </span>
+
+          <!-- Coordenadas del clic -->
+          <div id="coordsDisplay" class="debug-pill">
+            Coordenadas clic: —
+          </div>
+
+          <!-- Resumen rápido: total en BBOX -->
+          <div id="bboxInfo" class="bbox-info">
+            Proyectos en pantalla: —
+          </div>
+
+          <!-- Resumen Región vs Estado -->
+          <div
+            id="summaryTableContainer"
+            class="summary-table-container"
+          >
+            <p>El resumen por región y estado se mostrará aquí.</p>
+          </div>
         </div>
       </section>
 
-      <!-- Mapa + Overview -->
+      <!-- Mapa (sin overview) -->
       <section class="map-section">
         <div id="map" class="map-main"></div>
-
-        <!-- Mini overview de Chile -->
-        <div id="overviewMap" class="overview-map"></div>
       </section>
-
-
-      
     </div>
   </main>
 

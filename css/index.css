@@ -1,5 +1,16 @@
-* {
+/* ===========================
+   Reset básico / layout
+   =========================== */
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -7,195 +18,348 @@
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
-  background: #e5e7eb;
-  color: #0f172a;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
-header {
+/* ===========================
+   Header
+   =========================== */
+
+.app-header {
   background: #020617;
   color: #e5e7eb;
-  border-bottom: 1px solid #111827;
-  padding: 10px 16px;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
 }
 
-header h1 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 4px;
+.app-header-inner h1 {
+  font-size: 1.2rem;
+  margin: 0;
 }
 
-header p {
-  font-size: 0.875rem;
-  opacity: 0.85;
+.app-header-inner p {
+  margin: 0.1rem 0 0;
+  font-size: 0.85rem;
+  color: #9ca3af;
 }
+
+/* Botón para abrir/cerrar panel en móvil */
+.panel-toggle-btn {
+  border: none;
+  background: #111827;
+  color: #f9fafb;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: none; /* visible solo en móvil */
+}
+
+.panel-toggle-btn:hover {
+  background: #1f2937;
+}
+
+/* ===========================
+   Layout principal
+   =========================== */
 
 main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 12px;
-  gap: 12px;
+  height: calc(100% - 64px);
 }
 
 .layout {
-  display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
-  gap: 12px;
-  align-items: stretch;
+  display: flex;
+  height: 100%;
+  padding: 0.75rem 1.5rem 1.5rem;
+  gap: 1rem;
 }
 
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-}
+/* ===========================
+   Panel lateral
+   =========================== */
 
 .panel {
+  width: 320px;
   background: #f9fafb;
-  border-radius: 12px;
-  border: 1px solid #d1d5db;
-  padding: 14px 16px;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  padding: 1rem 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-scroll {
+  overflow-y: auto;
+  max-height: 100%;
+  padding-right: 0.25rem;
+}
+
+.badge {
+  display: inline-block;
+  background: #e5e7eb;
+  color: #111827;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
 }
 
 .panel h2 {
   font-size: 1rem;
-  margin-bottom: 8px;
+  margin: 0 0 0.25rem;
 }
 
 .panel p {
-  font-size: 0.85rem;
-  margin-bottom: 10px;
-  color: #4b5563;
-}
-
-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-bottom: 4px;
-  color: #111827;
-}
-
-select,
-input[type="number"] {
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid #cbd5f5;
+  margin: 0 0 0.75rem;
   font-size: 0.9rem;
-  margin-bottom: 10px;
+}
+
+/* Campos del panel */
+
+.field-block {
+  margin-bottom: 0.9rem;
+}
+
+.field-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Checkboxes de sector */
+
+.sector-multiselect {
+  background: #f3f4f6;
+  border-radius: 12px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+}
+
+.link-btn {
+  margin-top: 0.2rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Número de proyectos cercanos */
+
+.number-input {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.9rem;
   outline: none;
 }
 
-select:focus,
-input[type="number"]:focus {
+.number-input:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
 }
 
+/* Chips de radio / modo */
+
 .radio-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 0.35rem;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 8px;
+  gap: 0.25rem;
   border-radius: 999px;
-  border: 1px solid #cbd5e1;
   background: #e5e7eb;
-  font-size: 0.8rem;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.85rem;
   cursor: pointer;
-  user-select: none;
 }
 
 .chip input {
   margin: 0;
 }
 
-#coordsDisplay {
-  font-size: 0.8rem;
-  color: #4b5563;
-  background: #f3f4f6;
-  border-radius: 8px;
-  padding: 6px 8px;
-  margin-top: 6px;
-  word-break: break-all;
-}
+/* Slider de radio */
 
-#map {
+.range-input {
   width: 100%;
-  height: calc(100vh - 140px);
-  min-height: 360px;
-  border-radius: 16px;
-  border: 1px solid #cbd5e1;
-  overflow: hidden;
-  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.2);
 }
 
-@media (max-width: 900px) {
-  #map {
-    height: 55vh;
-  }
-}
+/* Ayudas / debug */
 
 .hint {
-  font-size: 0.8rem;
+  display: block;
+  font-size: 0.78rem;
   color: #6b7280;
-  margin-top: 4px;
+  margin-top: 0.25rem;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid #4b5563;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* 🔹 Caja de texto para el conteo de proyectos en pantalla */
-.bbox-info {
-  margin-top: 8px;
-  font-size: 0.8rem;
-  color: #111827;
+.debug-pill {
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.6rem;
   background: #e5e7eb;
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: #111827;
 }
+
+/* Bbox info */
+
+.bbox-info {
+  margin-top: 0.7rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #1e293b;
+  font-size: 0.83rem;
+  font-weight: 500;
+}
+
+/* Tabla resumen */
+
+.summary-table-container {
+  margin-top: 0.8rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #e5e7eb;
+  font-size: 0.83rem;
+}
+
+.summary-table-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.summary-table-container th,
+.summary-table-container td {
+  padding: 0.25rem 0.2rem;
+  text-align: right;
+}
+
+.summary-table-container th:first-child,
+.summary-table-container td:first-child {
+  text-align: left;
+}
+
+.summary-table-container thead {
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.78rem;
+}
+
+.summary-table-container tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+/* ===========================
+   Mapa principal
+   =========================== */
 
 .map-section {
-  position: relative;
   flex: 1;
-  min-height: 600px;
+  position: relative;
+  min-width: 0;
 }
 
 .map-main {
   width: 100%;
   height: 100%;
-}
-
-/* Mini overview a la derecha, sobre el mapa principal */
-.overview-map {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  width: 220px;
-  height: 260px;
-  border-radius: 12px;
+  border-radius: 18px;
   overflow: hidden;
-  border: 2px solid rgba(15, 23, 42, 0.85);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.4);
-  z-index: 500;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
 }
 
+/* ===========================
+   Leaflet overrides
+   =========================== */
+
+.leaflet-container {
+  font-family: inherit;
+}
+
+/* ===========================
+   Responsive
+   =========================== */
+
+@media (max-width: 900px) {
+  main {
+    height: calc(100% - 56px);
+  }
+
+  .app-header {
+    padding: 0.6rem 0.9rem;
+  }
+
+  .layout {
+    padding: 0.5rem 0.5rem 0.9rem;
+  }
+
+  .panel-toggle-btn {
+    display: inline-flex;
+  }
+
+  .layout {
+    position: relative;
+  }
+
+  .panel {
+    position: absolute;
+    top: 0.25rem;
+    left: 0.25rem;
+    height: calc(100% - 0.5rem);
+    z-index: 1000;
+    max-width: 85vw;
+    transform: translateX(-105%);
+    transition: transform 0.22s ease-out;
+  }
+
+  .panel.is-open {
+    transform: translateX(0);
+  }
+
+  .map-section {
+    flex: 1;
+  }
+}
+
+/* En desktop, el panel siempre visible como columna fija */
+@media (min-width: 901px) {
+  .panel {
+    position: relative;
+    transform: none !important;
+  }
+
+  .map-main {
+    min-height: 540px;
+  }
+}

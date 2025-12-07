@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>SEA Mining - Mapa detalle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f3f4f6;
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #020617;
+      color: #e5e7eb;
+      padding: 0.75rem 1.25rem;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      margin-bottom: 0.2rem;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    .info-bar {
+      padding: 0.4rem 1.25rem;
+      font-size: 0.85rem;
+      background: #e5e7eb;
+      border-bottom: 1px solid #d1d5db;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .info-bar span {
+      margin-right: 0.5rem;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+    }
+
+    @media (min-width: 900px) {
+      #map {
+        height: calc(100vh - 80px);
+      }
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 6px 8px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      font-size: 0.78rem;
+      line-height: 1.3;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SEA Mining – Detalle de proximidad</h1>
+    <p>Proyectos dentro del radio definido desde el punto consultado.</p>
+  </header>
+
+  <div class="info-bar">
+    <span id="coordsLabel">Punto: —</span>
+    <span id="modoLabel">Modo: —</span>
+    <span id="radioLabel">Radio: —</span>
+    <span id="countLabel">Resumen: —</span>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- SheetJS para leer el Excel nacional -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    const DATA_XLSX_URL = "capas/nacional.xlsx";
+
+    function normalizeHeader(h) {
+      return String(h || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+    }
+
+    function parseCoord(value) {
+      if (value === null || value === undefined) return null;
+      let s = String(value).trim();
+      if (!s) return null;
+
+      s = s.replace(/\s/g, "");
+
+      if (s.indexOf(",") >= 0 && s.indexOf(".") >= 0) {
+        if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+          s = s.replace(/\./g, "").replace(",", ".");
+        } else {
+          s = s.replace(/,/g, "");
+        }
+      } else if (s.indexOf(",") >= 0) {
+        s = s.replace(",", ".");
+      }
+
+      const num = Number(s);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function distanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const rad = Math.PI / 180;
+      const dLat = (lat2 - lat1) * rad;
+      const dLon = (lon2 - lon1) * rad;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * rad) *
+          Math.cos(lat2 * rad) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    async function loadExcelData() {
+      const resp = await fetch(DATA_XLSX_URL);
+      const buf = await resp.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+
+      const sheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+
+      const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+      if (!json.length) return [];
+
+      const headersRaw = json[0];
+      const rows = json.slice(1);
+      const headersNorm = headersRaw.map((h) => normalizeHeader(h));
+
+      const idxNombre = headersNorm.indexOf("nombre_del_proyecto");
+      const idxRegion = headersNorm.indexOf("region");
+      const idxEstado = headersNorm.indexOf("estado_del_proyecto");
+      const idxSectorBase = headersNorm.indexOf("sector_productivo");
+      const idxLat = headersNorm.indexOf("latitud_punto_representativo");
+      const idxLon = headersNorm.indexOf("longitud_punto_representativo");
+
+      const data = [];
+
+      for (const row of rows) {
+        if (!row || row.length === 0) continue;
+
+        const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
+        const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
+        if (lat === null || lon === null) continue;
+
+        const nombre = idxNombre >= 0 ? String(row[idxNombre] || "") : "";
+        const region = idxRegion >= 0 ? String(row[idxRegion] || "") : "";
+        const estado = idxEstado >= 0 ? String(row[idxEstado] || "") : "";
+        const sector = idxSectorBase >= 0 ? String(row[idxSectorBase] || "") : "";
+
+        data.push({ lat, lon, region, estado, sector, nombre });
+      }
+
+      return data;
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const params = new URLSearchParams(window.location.search);
+      const lat = parseFloat(params.get("lat"));
+      const lng = parseFloat(params.get("lng"));
+      const modo = params.get("modo") || "radio";       // "radio" | "proximidad"
+      const radioParam = parseFloat(params.get("radio")) || 10;
+      const nParam = parseInt(params.get("n") || "10", 10);
+      const sectoresParam = params.get("sectores") || "";
+      const sectoresFiltro = sectoresParam
+        ? sectoresParam.split("|").filter(Boolean)
+        : [];
+
+      const coordsLabel = document.getElementById("coordsLabel");
+      const modoLabel = document.getElementById("modoLabel");
+      const radioLabel = document.getElementById("radioLabel");
+      const countLabel = document.getElementById("countLabel");
+
+      coordsLabel.textContent = `Punto: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      modoLabel.textContent =
+        modo === "proximidad"
+          ? `Modo: Proximidad (N=${nParam} aprobados)`
+          : `Modo: Radio (R=${radioParam} km)`;
+
+      // Inicializar mapa
+      const map = L.map("map", {
+        center: [lat, lng],
+        zoom: 10,
+        minZoom: 4,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      L.control.scale().addTo(map);
+
+      // Punto exacto del clic
+      L.circleMarker([lat, lng], {
+        radius: 6,
+        color: "#1d4ed8",
+        weight: 2,
+        fillColor: "#1d4ed8",
+        fillOpacity: 1,
+      }).addTo(map);
+
+      const markersLayer = L.layerGroup().addTo(map);
+
+      // Leyenda
+      const legend = L.control({ position: "bottomleft" });
+      legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "legend");
+        div.innerHTML = `
+          <div class="legend-item">
+            <span class="legend-color" style="background:#16a34a;"></span> Aprobado (N más cercanos)
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background:#ea580c;"></span> En calificación / evaluación
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background:#dc2626;"></span> Rechazado
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background:#6b7280;"></span> Otros estados
+          </div>
+        `;
+        return div;
+      };
+      legend.addTo(map);
+
+      try {
+        let proyectos = await loadExcelData();
+
+        // Filtro por sectores (mismos que en index.html)
+        if (sectoresFiltro.length) {
+          proyectos = proyectos.filter((p) => {
+            const sectorLower = (p.sector || "").toLowerCase();
+            return sectoresFiltro.some(
+              (s) => sectorLower === s.trim().toLowerCase()
+            );
+          });
+        }
+
+        const todosConDist = proyectos.map((p) => ({
+          ...p,
+          distKm: distanceKm(lat, lng, p.lat, p.lon),
+        }));
+
+        let radioKm = radioParam;
+        let resumenAprob = 0;
+        let resumenCalif = 0;
+        let resumenRech = 0;
+        let resumenOtros = 0;
+
+        let aprobTopN = [];
+
+        if (modo === "proximidad") {
+          // Sólo aprobados, ordenados por distancia
+          const aprobados = todosConDist.filter((p) =>
+            (p.estado || "").toLowerCase().includes("aprob")
+          );
+          aprobados.sort((a, b) => a.distKm - b.distKm);
+
+          aprobTopN = aprobados.slice(0, nParam);
+
+          if (aprobTopN.length) {
+            radioKm = aprobTopN[aprobTopN.length - 1].distKm;
+          } else {
+            radioKm = radioParam; // fallback
+          }
+        }
+
+        // Círculo (sólo perímetro, sin relleno)
+        const circle = L.circle([lat, lng], {
+          radius: radioKm * 1000,
+          color: "#1d4ed8",
+          weight: 3,
+          fill: false,
+          fillOpacity: 0,
+          interactive: false,
+        }).addTo(map);
+
+        map.fitBounds(circle.getBounds(), { padding: [20, 20] });
+
+        // Filtrar todos los proyectos dentro del radio definitivo
+        const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
+
+        // Conjunto de aprobados top N (para identificarlos)
+        const topNSet =
+          modo === "proximidad"
+            ? new Set(
+                aprobTopN.map(
+                  (p) => `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`
+                )
+              )
+            : new Set();
+
+        dentro.forEach((p) => {
+          const estadoL = (p.estado || "").toLowerCase();
+          const key = `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`;
+
+          let color = "#6b7280"; // otros
+          if (modo === "proximidad" && topNSet.has(key)) {
+            color = "#16a34a"; // aprobados N más cercanos
+            resumenAprob++;
+          } else if (estadoL.includes("rech")) {
+            color = "#dc2626";
+            resumenRech++;
+          } else if (estadoL.includes("calif") || estadoL.includes("eval")) {
+            color = "#ea580c";
+            resumenCalif++;
+          } else if (estadoL.includes("aprob")) {
+            // aprobados dentro del radio pero fuera del top N
+            color = "#16a34a";
+            resumenAprob++;
+          } else {
+            resumenOtros++;
+          }
+
+          const m = L.circleMarker([p.lat, p.lon], {
+            radius: 4,
+            color,
+            weight: 1,
+            fillColor: color,
+            fillOpacity: 0.8,
+          });
+
+          m.bindPopup(
+            `<strong>${p.nombre || "Proyecto sin nombre"}</strong><br/>
+             Distancia: ${p.distKm.toFixed(1)} km<br/>
+             Sector: ${p.sector || "—"}<br/>
+             Estado: ${p.estado || "—"}<br/>
+             Región: ${p.region || "—"}`
+          );
+
+          m.addTo(markersLayer);
+        });
+
+        radioLabel.textContent = `Radio: ${radioKm.toFixed(1)} km`;
+        countLabel.textContent =
+          `Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
+          `Rech: ${resumenRech} | Otros: ${resumenOtros}`;
+      } catch (err) {
+        console.error("Error cargando nacional.xlsx en mapainfo.html:", err);
+        radioLabel.textContent = "Radio: —";
+        countLabel.textContent =
+          "Error al cargar datos de proyectos para este detalle.";
+      }
+    });
+  </script>
+</body>
+</html>

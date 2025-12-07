@@ -1,28 +1,31 @@
-// js/index.js
-// =======================================
-// Configuración general
-// =======================================
+/************************************************************
+ * SEA Mining - index.js
+ *  - Carga /capas/nacional.xlsx con proyectos
+ *  - Dibuja puntos en Leaflet
+ *  - Cuenta proyectos dentro del BBOX actual (total y filtrados)
+ *  - Sectores dinámicos según BBOX + opción "Todos"
+ *  - Modo de selección:
+ *      • Por Radio (slider R 5–20 km)
+ *      • Por Proximidad (slider N 5–20 aprobados)
+ *  - Click → abre mapainfo.html con lat, lng, modo, R, N y sectores
+ ************************************************************/
+
 const DATA_XLSX_URL = "capas/nacional.xlsx";
 
+let proyectos = [];
 let map;
-let proyectos = [];         // { lat, lon, sector, region, estado, raw }
-let proyectosLayer = null;  // capa para los puntos
-let datosCargados = false;
+let markersLayer;
 
-// Overview
-let overviewMap = null;
-let overviewRect = null;
+// ===============================
+// Helpers generales
+// ===============================
 
-// =======================================
-// Helpers
-// =======================================
 function normalizeHeader(h) {
   return String(h || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/[^a-z0-9_]/g, "");
+    .replace(/\s+/g, "_");
 }
 
 function parseCoord(value) {
@@ -30,482 +33,462 @@ function parseCoord(value) {
   let s = String(value).trim();
   if (!s) return null;
 
-  // limpia espacios
   s = s.replace(/\s/g, "");
 
-  // elimina sufijos tipo "S", "N", "E", "O"
-  s = s.replace(/[sSneEoO]$/g, "");
-
-  // manejo de coma y punto
-  const hasComma = s.includes(",");
-  const hasDot = s.includes(".");
-
-  if (hasComma && hasDot) {
-    // Asumimos "." como separador de miles y "," como decimal
-    s = s.replace(/\./g, "");
-    s = s.replace(",", ".");
-  } else if (hasComma && !hasDot) {
-    // solo coma, usamos como decimal
+  if (s.indexOf(",") >= 0 && s.indexOf(".") >= 0) {
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      s = s.replace(/,/g, "");
+    }
+  } else if (s.indexOf(",") >= 0) {
     s = s.replace(",", ".");
   }
+
   const num = Number(s);
   return Number.isFinite(num) ? num : null;
 }
 
-function getSelectedRadioKm() {
-  const radios = document.querySelectorAll('input[name="radio"]');
-  for (const r of radios) {
-    if (r.checked) return Number(r.value);
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * rad) *
+      Math.cos(lat2 * rad) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// ===============================
+// Lectura de controles
+// ===============================
+
+function getSelectedSectors() {
+  const todosCb = document.getElementById("sectorTodos");
+  const todosOn = todosCb ? todosCb.checked : true;
+  if (todosOn) return []; // sin filtro
+
+  const cbs = document.querySelectorAll(
+    '#sectorDynamic input[name="sector"]:checked'
+  );
+  return Array.from(cbs).map((cb) => cb.value);
+}
+
+function getModoSeleccion() {
+  const rb = document.querySelector('input[name="modoSeleccion"]:checked');
+  return rb ? rb.value : "radio"; // "radio" o "proximidad"
+}
+
+function getRadioAnalisisKm() {
+  const slider = document.getElementById("radioSlider");
+  if (!slider) return 10;
+  const val = parseInt(slider.value, 10);
+  return Number.isFinite(val) && val > 0 ? val : 10;
+}
+
+function getNProximos() {
+  const slider = document.getElementById("nSlider");
+  if (!slider) return 10;
+  const val = parseInt(slider.value, 10);
+  return Number.isFinite(val) && val > 0 ? val : 10;
+}
+
+// ===============================
+// Carga del Excel
+// ===============================
+
+async function loadExcelData() {
+  const resp = await fetch(DATA_XLSX_URL);
+  const buf = await resp.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+
+  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  if (!json.length) return [];
+
+  const headersRaw = json[0];
+  const rows = json.slice(1);
+  const headersNorm = headersRaw.map((h) => normalizeHeader(h));
+
+  console.log("Encabezados normalizados:", headersNorm);
+
+  const idxNombre = headersNorm.indexOf("nombre_del_proyecto");
+  const idxRegion = headersNorm.indexOf("region");
+  const idxEstado = headersNorm.indexOf("estado_del_proyecto");
+  const idxSectorBase = headersNorm.indexOf("sector_productivo");
+  const idxLat = headersNorm.indexOf("latitud_punto_representativo");
+  const idxLon = headersNorm.indexOf("longitud_punto_representativo");
+
+  const data = [];
+
+  for (const row of rows) {
+    if (!row || row.length === 0) continue;
+
+    const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
+    const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
+    if (lat === null || lon === null) continue;
+
+    const nombre = idxNombre >= 0 ? String(row[idxNombre] || "") : "";
+    const region = idxRegion >= 0 ? String(row[idxRegion] || "") : "";
+    const estado = idxEstado >= 0 ? String(row[idxEstado] || "") : "";
+    const sector = idxSectorBase >= 0 ? String(row[idxSectorBase] || "") : "";
+
+    data.push({ lat, lon, region, estado, sector, nombre });
   }
-  return 100; // default
+
+  return data;
 }
 
-function getSelectedSector() {
-  const sel = document.getElementById("sectorSelect");
-  return sel ? sel.value : "Todos";
-}
+// ===============================
+// Inicialización de mapa
+// ===============================
 
-function escapeHtml(text) {
-  return String(text)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-// =======================================
-// Carga del Excel nacional
-// =======================================
-async function cargarExcelNacional() {
-  console.log("Cargando Excel:", DATA_XLSX_URL);
-  const bboxInfo = document.getElementById("bboxInfo");
-  if (bboxInfo) {
-    bboxInfo.textContent = "Cargando proyectos…";
-  }
-
-  try {
-    const resp = await fetch(DATA_XLSX_URL);
-    if (!resp.ok) {
-      throw new Error("No se pudo descargar el archivo Excel");
-    }
-
-    const arrayBuffer = await resp.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: "array" });
-
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-
-    const rows = XLSX.utils.sheet_to_json(worksheet, {
-      header: 1,
-      defval: null
-    });
-
-    if (!rows.length) {
-      throw new Error("La hoja está vacía");
-    }
-
-    const headerRow = rows[0];
-    const dataRows = rows.slice(1);
-
-    const indexToHeader = headerRow.map((h) => String(h || ""));
-    const normToHeader = {};
-    indexToHeader.forEach((h) => {
-      const norm = normalizeHeader(h);
-      if (norm) normToHeader[norm] = h;
-    });
-
-    // Buscar columnas sector / región / estado usando cabeceras
-    function findHeader(candidates) {
-      // 1) exacto
-      for (const c of candidates) {
-        if (normToHeader[c]) return normToHeader[c];
-      }
-      // 2) parcial (contiene)
-      for (let i = 0; i < indexToHeader.length; i++) {
-        const original = indexToHeader[i];
-        const norm = normalizeHeader(original);
-        for (const c of candidates) {
-          if (norm.includes(c)) {
-            return original;
-          }
-        }
-      }
-      return null;
-    }
-
-    // Coordenadas: fijamos columnas O y P
-    const latIndex = 14; // Columna O
-    const lonIndex = 15; // Columna P
-
-    const sectorHeader = findHeader([
-      "sectorproductivo",
-      "sector",
-      "sectoreconomico"
-    ]);
-    const regionHeader = findHeader([
-      "region",
-      "regionproyecto",
-      "region_evaluacion"
-    ]);
-    const estadoHeader = findHeader([
-      "estado",
-      "estadoproyecto",
-      "estado_proyecto",
-      "estadoevaluacion",
-      "etapa",
-      "etapaproyecto"
-    ]);
-
-    console.log("Cabeceras detectadas (no incluyen lat/lon fijas):", {
-      sectorHeader,
-      regionHeader,
-      estadoHeader
-    });
-
-    const sectorIndex =
-      sectorHeader !== null ? indexToHeader.indexOf(sectorHeader) : -1;
-    const regionIndex =
-      regionHeader !== null ? indexToHeader.indexOf(regionHeader) : -1;
-    const estadoIndex =
-      estadoHeader !== null ? indexToHeader.indexOf(estadoHeader) : -1;
-
-    const tmpProyectos = [];
-
-    for (const row of dataRows) {
-      const latVal = row[latIndex];
-      const lonVal = row[lonIndex];
-
-      const lat = parseCoord(latVal);
-      const lon = parseCoord(lonVal);
-
-      if (lat === null || lon === null) continue;
-
-      let sector = "Otros";
-      if (sectorIndex >= 0) {
-        const sVal = row[sectorIndex];
-        if (sVal !== null && sVal !== undefined && String(sVal).trim() !== "") {
-          sector = String(sVal).trim();
-        }
-      }
-
-      let region = "Sin región";
-      if (regionIndex >= 0) {
-        const rVal = row[regionIndex];
-        if (rVal !== null && rVal !== undefined && String(rVal).trim() !== "") {
-          region = String(rVal).trim();
-        }
-      }
-
-      let estado = "Sin estado";
-      if (estadoIndex >= 0) {
-        const eVal = row[estadoIndex];
-        if (eVal !== null && eVal !== undefined && String(eVal).trim() !== "") {
-          estado = String(eVal).trim();
-        }
-      }
-
-      const raw = {};
-      indexToHeader.forEach((h, idx) => {
-        raw[h] = row[idx];
-      });
-
-      tmpProyectos.push({ lat, lon, sector, region, estado, raw });
-    }
-
-    proyectos = tmpProyectos;
-    datosCargados = true;
-    console.log("Proyectos cargados:", proyectos.length);
-
-    if (bboxInfo) {
-      bboxInfo.textContent = `Proyectos en pantalla: — (mueve el mapa para actualizar)`;
-    }
-
-    dibujarProyectos();
-    actualizarConteoBbox();
-  } catch (err) {
-    console.error("Error en cargarExcelNacional:", err);
-    const bboxInfo2 = document.getElementById("bboxInfo");
-    if (bboxInfo2) {
-      bboxInfo2.textContent = `Error cargando proyectos: ${err.message}`;
-    }
-    const summaryContainer = document.getElementById("summaryTableContainer");
-    if (summaryContainer) {
-      summaryContainer.innerHTML =
-        `<p>Error al cargar los proyectos:<br><code>${escapeHtml(
-          err.message
-        )}</code></p>`;
-    }
-  }
-}
-
-// =======================================
-// Mapa principal
-// =======================================
-function initMap() {
-  // Vista aproximada 1:50.000 sobre Copiapó
+function initMaps() {
   map = L.map("map", {
-    zoomControl: true,
-    minZoom: 8,
-    maxZoom: 16
-  }).setView([-27.366, -70.333], 12);
+    center: [-33.45, -70.65],
+    zoom: 10,
+    minZoom: 4,
+  });
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: "&copy; OpenStreetMap contributors"
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
   }).addTo(map);
 
-  proyectosLayer = L.layerGroup().addTo(map);
+  L.control.scale().addTo(map);
+
+  markersLayer = L.layerGroup().addTo(map);
 
   map.on("moveend", () => {
-    if (datosCargados) {
-      actualizarConteoBbox();
-    }
-    actualizarOverviewRectangle();
+    actualizarResumenYCapas();
   });
 
   map.on("click", onMapClick);
 }
 
-// =======================================
-// Overview map (Chile completo)
-// =======================================
-function initOverviewMap() {
-  const el = document.getElementById("overviewMap");
-  if (!el) return;
+// ===============================
+// Sectores dinámicos
+// ===============================
 
-  overviewMap = L.map("overviewMap", {
-    zoomControl: false,
-    attributionControl: false,
-    dragging: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    boxZoom: false,
-    keyboard: false,
-    tap: false
-  }).setView([-30, -70], 4); // Chile completo aprox.
+function updateSectorCheckboxes(sectorSet) {
+  const dynamic = document.getElementById("sectorDynamic");
+  if (!dynamic) return;
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 10
-  }).addTo(overviewMap);
-}
+  // Guardar selección previa
+  const prevSelected = new Set(
+    Array.from(
+      document.querySelectorAll('#sectorDynamic input[name="sector"]:checked')
+    ).map((cb) => cb.value)
+  );
 
-function actualizarOverviewRectangle() {
-  if (!map || !overviewMap) return;
+  dynamic.innerHTML = "";
 
-  const bounds = map.getBounds();
+  const sectores = Array.from(sectorSet)
+    .filter((s) => s && s.trim() !== "")
+    .sort((a, b) => a.localeCompare(b, "es"));
 
-  if (!overviewRect) {
-    overviewRect = L.rectangle(bounds, {
-      color: "red",
-      weight: 2,
-      fill: false
-    }).addTo(overviewMap);
-  } else {
-    overviewRect.setBounds(bounds);
-  }
-}
-
-// =======================================
-// Dibujo de proyectos
-// =======================================
-function dibujarProyectos() {
-  if (!map || !proyectosLayer) return;
-  proyectosLayer.clearLayers();
-
-  proyectos.forEach((p) => {
-    L.circleMarker([p.lat, p.lon], {
-      radius: 3,
-      weight: 1,
-      opacity: 0.8,
-      fillOpacity: 0.7
-    }).addTo(proyectosLayer);
-  });
-}
-
-// =======================================
-// Conteo + tabla Región vs Estado
-// =======================================
-function actualizarConteoBbox() {
-  if (!map || !datosCargados) return;
-
-  const bounds = map.getBounds();
-  const sectorFiltro = getSelectedSector();
-
-  let count = 0;
-  const summaryByRegion = {};
-  const estadosSet = new Set();
-
-  for (const p of proyectos) {
-    if (sectorFiltro !== "Todos" && String(p.sector) !== sectorFiltro) {
-      continue;
-    }
-
-    if (!bounds.contains([p.lat, p.lon])) {
-      continue;
-    }
-
-    count++;
-
-    const region = p.region || "Sin región";
-    const estado = p.estado || "Sin estado";
-
-    if (!summaryByRegion[region]) {
-      summaryByRegion[region] = {};
-    }
-    summaryByRegion[region][estado] =
-      (summaryByRegion[region][estado] || 0) + 1;
-
-    estadosSet.add(estado);
-  }
-
-  const bboxInfo = document.getElementById("bboxInfo");
-  if (bboxInfo) {
-    const sectorText =
-      sectorFiltro === "Todos" ? "todos los sectores" : `sector: ${sectorFiltro}`;
-    bboxInfo.textContent = `Proyectos en pantalla: ${count} (${sectorText})`;
-  }
-
-  const estadosList = Array.from(estadosSet).sort();
-  renderSummaryTable(summaryByRegion, estadosList);
-
-  console.log("Conteo BBOX:", { count, sectorFiltro, summaryByRegion });
-}
-
-function renderSummaryTable(summaryByRegion, estadosList) {
-  const container = document.getElementById("summaryTableContainer");
-  if (!container) return;
-
-  const regiones = Object.keys(summaryByRegion).sort();
-  if (regiones.length === 0) {
-    container.innerHTML =
-      "<p>No hay proyectos en el área visible para el filtro seleccionado.</p>";
+  if (!sectores.length) {
+    dynamic.innerHTML = '<p class="hint">No hay proyectos visibles en el mapa.</p>';
     return;
   }
 
-  let html = '<table class="summary-table">';
+  sectores.forEach((sec) => {
+    const safeId =
+      "sector_" +
+      sec
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "_");
 
-  // ENCABEZADO abreviado
-  html += "<thead><tr>";
-  html += "<th>Región / Estado</th>";
+    const checked = prevSelected.size ? prevSelected.has(sec) : true;
 
-  estadosList.forEach((estado) => {
-    let short = estado;
-
-    // Normalizar (para detectar Aprob / Calif / Rech)
-    const n = estado
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "");
-
-    if (n.includes("aprob")) short = "Aprob";
-    else if (n.includes("calific")) short = "Calif";
-    else if (n.includes("rech")) short = "Rech";
-
-    html += `<th>${escapeHtml(short)}</th>`;
+    const label = document.createElement("label");
+    label.className = "checkbox-item";
+    label.innerHTML = `
+      <input type="checkbox" id="${safeId}" name="sector" value="${sec}" ${
+      checked ? "checked" : ""
+    } />
+      <span>${sec}</span>
+    `;
+    dynamic.appendChild(label);
   });
 
-  html += "</tr></thead>";
+  // Listeners: si se toca algún sector, se apaga "Todos"
+  const todosCb = document.getElementById("sectorTodos");
+  dynamic
+    .querySelectorAll('input[name="sector"]')
+    .forEach((cb) =>
+      cb.addEventListener("change", () => {
+        const anyChecked = dynamic.querySelector(
+          'input[name="sector"]:checked'
+        );
+        if (todosCb && anyChecked) {
+          todosCb.checked = false;
+        } else if (todosCb && !anyChecked) {
+          todosCb.checked = true;
+        }
+        actualizarResumenYCapas();
+      })
+    );
+}
 
-  // CUERPO
-  html += "<tbody>";
+// ===============================
+// Render de proyectos y resumen
+// ===============================
 
-  regiones.forEach((region) => {
-    html += `<tr><th>${escapeHtml(region)}</th>`;
+function actualizarResumenYCapas() {
+  if (!map || !proyectos.length) return;
 
-    estadosList.forEach((estado) => {
-      const val = summaryByRegion[region][estado] || 0;
-      html += `<td>${val > 0 ? val : ""}</td>`;
+  const bboxInfo = document.getElementById("bboxInfo");
+  const bounds = map.getBounds();
+
+  const selectedSectors = getSelectedSectors();
+  const resumen = {};
+  const sectorSetBbox = new Set();
+
+  markersLayer.clearLayers();
+
+  let totalEnPantalla = 0;
+  let filtradosEnPantalla = 0;
+
+  for (const p of proyectos) {
+    const latlng = [p.lat, p.lon];
+
+    if (!bounds.contains(latlng)) continue;
+    totalEnPantalla++;
+
+    const sectorProyectoRaw = (p.sector || "").trim();
+    if (sectorProyectoRaw) {
+      sectorSetBbox.add(sectorProyectoRaw);
+    }
+
+    // Filtro por sector (si hay)
+    if (selectedSectors.length > 0) {
+      const sectorLower = sectorProyectoRaw.toLowerCase();
+      const match = selectedSectors.some(
+        (s) => sectorLower === s.trim().toLowerCase()
+      );
+      if (!match) continue;
+    }
+
+    filtradosEnPantalla++;
+
+    const marker = L.circleMarker(latlng, {
+      radius: 4,
+      opacity: 0.9,
+      weight: 1,
+      fillOpacity: 0.7,
     });
+    marker.bindPopup(
+      `<strong>${p.nombre || "Proyecto sin nombre"}</strong><br/>` +
+        `Sector: ${p.sector || "—"}<br/>` +
+        `Estado: ${p.estado || "—"}<br/>` +
+        `Región: ${p.region || "—"}`
+    );
+    marker.addTo(markersLayer);
 
-    html += "</tr>";
-  });
+    const region = p.region || "Sin región";
+    const estadoRaw = (p.estado || "").toLowerCase();
+
+    if (!resumen[region]) {
+      resumen[region] = { Aprob: 0, Calif: 0, Rech: 0, Otros: 0 };
+    }
+
+    let key = "Otros";
+    if (estadoRaw.includes("aprob")) key = "Aprob";
+    else if (estadoRaw.includes("calif") || estadoRaw.includes("eval"))
+      key = "Calif";
+    else if (estadoRaw.includes("rech")) key = "Rech";
+
+    resumen[region][key] += 1;
+  }
+
+  // Actualizar checkboxes de sector según el BBOX
+  updateSectorCheckboxes(sectorSetBbox);
+
+  let detalleSectores = "sin filtro de sector";
+  if (selectedSectors.length) {
+    detalleSectores = "filtro: " + selectedSectors.join(", ");
+  } else {
+    const todosCb = document.getElementById("sectorTodos");
+    if (todosCb && todosCb.checked) detalleSectores = "Todos los sectores";
+  }
+
+  bboxInfo.textContent =
+    `Proyectos en pantalla (total BBOX): ${totalEnPantalla} ` +
+    `| Dibujados (filtro): ${filtradosEnPantalla} ` +
+    `(${detalleSectores})`;
+
+  renderSummaryTable(resumen);
+}
+
+function renderSummaryTable(resumen) {
+  const container = document.getElementById("summaryTableContainer");
+  const regiones = Object.keys(resumen);
+
+  if (!regiones.length) {
+    container.innerHTML =
+      "<p>No hay proyectos visibles para los filtros seleccionados.</p>";
+    return;
+  }
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Región / Estado</th>
+          <th>Aprob</th>
+          <th>Calif</th>
+          <th>Rech</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const region of regiones) {
+    const r = resumen[region];
+    html += `
+      <tr>
+        <td>${region}</td>
+        <td>${r.Aprob}</td>
+        <td>${r.Calif}</td>
+        <td>${r.Rech}</td>
+      </tr>
+    `;
+  }
 
   html += "</tbody></table>";
-
   container.innerHTML = html;
 }
 
-// =======================================
-// Click en el mapa → solo debug (NO abre info.html)
-// =======================================
-let lastClickMarker = null;
+// ===============================
+// Click en el mapa
+// ===============================
 
 function onMapClick(e) {
   const { lat, lng } = e.latlng;
-
-  if (lastClickMarker) {
-    lastClickMarker.remove();
-  }
-  lastClickMarker = L.marker([lat, lng]).addTo(map);
-
   const coordsDisplay = document.getElementById("coordsDisplay");
-  if (coordsDisplay) {
-    coordsDisplay.textContent = `Coordenadas clic: ${lat.toFixed(
-      5
-    )}, ${lng.toFixed(5)}`;
-  }
+  coordsDisplay.textContent = `Coordenadas clic: ${lat.toFixed(
+    5
+  )}, ${lng.toFixed(5)}`;
 
-  const radioKm = getSelectedRadioKm();
-  const sector = getSelectedSector();
-  const b = map.getBounds();
+  const modo = getModoSeleccion(); // "radio" o "proximidad"
+  const radioKm = getRadioAnalisisKm();
+  const n = getNProximos();
+  const sectores = getSelectedSectors(); // [] => sin filtro
 
-  const url = new URL("info.html", window.location.href);
+  console.log(
+    `Clic en: ${lat}, ${lng} | modo=${modo} | R=${radioKm} km | N=${n} | sectores=`,
+    sectores
+  );
+
+  const url = new URL("mapainfo.html", window.location.href);
   url.searchParams.set("lat", lat.toFixed(6));
-  url.searchParams.set("lon", lng.toFixed(6));
-  url.searchParams.set("radio_km", String(radioKm));
-  url.searchParams.set("sector", sector);
-  url.searchParams.set("bbox_min_lat", b.getSouth().toFixed(6));
-  url.searchParams.set("bbox_min_lon", b.getWest().toFixed(6));
-  url.searchParams.set("bbox_max_lat", b.getNorth().toFixed(6));
-  url.searchParams.set("bbox_max_lon", b.getEast().toFixed(6));
+  url.searchParams.set("lng", lng.toFixed(6));
+  url.searchParams.set("modo", modo);
+  url.searchParams.set("radio", radioKm.toString());
+  url.searchParams.set("n", n.toString());
+  if (sectores.length) {
+    url.searchParams.set("sectores", sectores.join("|"));
+  }
 
-  console.log("Click debug:", {
-    lat,
-    lng,
-    radioKm,
-    sector,
-    bbox: {
-      min_lat: b.getSouth(),
-      min_lon: b.getWest(),
-      max_lat: b.getNorth(),
-      max_lon: b.getEast()
-    },
-    urlInfo: url.toString()
-  });
-
-  // Modo debug: NO abrimos info.html
-  // window.open(url.toString(), "_blank");
+  window.open(url.toString(), "_blank");
 }
 
-// =======================================
-// Listeners UI
-// =======================================
-function initUI() {
-  const sectorSelect = document.getElementById("sectorSelect");
-  if (sectorSelect) {
-    sectorSelect.addEventListener("change", () => {
-      if (datosCargados) {
-        actualizarConteoBbox();
-      }
+// ===============================
+// Panel plegable + controles
+// ===============================
+
+function initPanelToggle() {
+  const btn = document.getElementById("togglePanelBtn");
+  const panel = document.getElementById("configPanel");
+  if (!btn || !panel) return;
+
+  btn.addEventListener("click", () => {
+    panel.classList.toggle("is-open");
+  });
+}
+
+function initControls() {
+  // Botón seleccionar todos
+  const selectAllBtn = document.getElementById("sectorSelectAllBtn");
+  const clearBtn = document.getElementById("sectorClearBtn");
+  const todosCb = document.getElementById("sectorTodos");
+
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("click", () => {
+      if (todosCb) todosCb.checked = true;
+      document
+        .querySelectorAll('#sectorDynamic input[name="sector"]')
+        .forEach((cb) => (cb.checked = true));
+      actualizarResumenYCapas();
     });
   }
 
-  const radios = document.querySelectorAll('input[name="radio"]');
-  radios.forEach((r) => {
-    r.addEventListener("change", () => {
-      console.log("Radio de análisis (km):", getSelectedRadioKm());
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (todosCb) todosCb.checked = false;
+      document
+        .querySelectorAll('#sectorDynamic input[name="sector"]')
+        .forEach((cb) => (cb.checked = false));
+      actualizarResumenYCapas();
     });
-  });
+  }
+
+  if (todosCb) {
+    todosCb.addEventListener("change", () => {
+      actualizarResumenYCapas();
+    });
+  }
+
+  // Sliders R y N
+  const radioSlider = document.getElementById("radioSlider");
+  const radioValueSpan = document.getElementById("radioValue");
+  if (radioSlider && radioValueSpan) {
+    radioValueSpan.textContent = radioSlider.value;
+    radioSlider.addEventListener("input", () => {
+      radioValueSpan.textContent = radioSlider.value;
+    });
+  }
+
+  const nSlider = document.getElementById("nSlider");
+  const nValueSpan = document.getElementById("nValue");
+  if (nSlider && nValueSpan) {
+    nValueSpan.textContent = nSlider.value;
+    nSlider.addEventListener("input", () => {
+      nValueSpan.textContent = nSlider.value;
+    });
+  }
 }
 
-// =======================================
-// Init
-// =======================================
-document.addEventListener("DOMContentLoaded", () => {
-  initMap();
-  initOverviewMap();
-  initUI();
-  cargarExcelNacional();
-  setTimeout(actualizarOverviewRectangle, 500);
+// ===============================
+// Main
+// ===============================
+
+document.addEventListener("DOMContentLoaded", async () => {
+  initMaps();
+  initPanelToggle();
+  initControls();
+
+  try {
+    proyectos = await loadExcelData();
+    console.log(
+      "✔ Proyectos cargados desde /capas/nacional.xlsx:",
+      proyectos.length
+    );
+    console.log("Ejemplo primer proyecto:", proyectos[0]);
+  } catch (err) {
+    console.error("Error cargando Excel:", err);
+    return;
+  }
+
+  actualizarResumenYCapas();
 });
