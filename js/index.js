@@ -99,7 +99,7 @@ function getNProximos() {
 }
 
 // ===============================
-// Carga del Excel
+// Carga del Excel (por letras de columna)
 // ===============================
 
 async function loadExcelData() {
@@ -113,34 +113,34 @@ async function loadExcelData() {
   const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
   if (!json.length) return [];
 
-  const headersRaw = json[0];
+  // Fila 0 = encabezados, la saltamos
   const rows = json.slice(1);
-  const headersNorm = headersRaw.map((h) => normalizeHeader(h));
 
-  console.log("Encabezados normalizados:", headersNorm);
-
-  const idxNombre = headersNorm.indexOf("nombre_del_proyecto");
-  const idxRegion = headersNorm.indexOf("region");
-  const idxEstado = headersNorm.indexOf("estado_del_proyecto");
-  const idxSectorBase = headersNorm.indexOf("sector_productivo");
-  const idxLat = headersNorm.indexOf("latitud_punto_representativo");
-  const idxLon = headersNorm.indexOf("longitud_punto_representativo");
+  // Índices FIJOS por letra de columna (según tu planilla nacional.xlsx)
+  const COL_NOMBRE = 0;   // A - Nombre del Proyecto
+  const COL_REGION = 3;   // D - Región
+  const COL_ESTADO = 11;  // L - Estado del Proyecto
+  const COL_SECTOR = 13;  // N - Sector Productivo
+  const COL_LAT = 14;     // O - Latitud Punto Representativo
+  const COL_LON = 15;     // P - Longitud Punto Representativo
 
   const data = [];
 
   for (const row of rows) {
     if (!row || row.length === 0) continue;
 
-    const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
-    const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
+    const lat = parseCoord(row[COL_LAT]);
+    const lon = parseCoord(row[COL_LON]);
     if (lat === null || lon === null) continue;
 
-    const nombre = idxNombre >= 0 ? String(row[idxNombre] || "") : "";
-    const region = idxRegion >= 0 ? String(row[idxRegion] || "") : "";
-    const estado = idxEstado >= 0 ? String(row[idxEstado] || "") : "";
-    const sector = idxSectorBase >= 0 ? String(row[idxSectorBase] || "") : "";
-
-    data.push({ lat, lon, region, estado, sector, nombre });
+    data.push({
+      lat,
+      lon,
+      nombre: row[COL_NOMBRE] || "",
+      region: row[COL_REGION] || "",
+      estado: row[COL_ESTADO] || "",
+      sector: row[COL_SECTOR] || ""
+    });
   }
 
   return data;
@@ -157,10 +157,24 @@ function initMaps() {
     minZoom: 4,
   });
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
-  }).addTo(map);
+  // 🌎 Capa base OSM (abajo, sin transparencia)
+  const capaOSM = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      opacity: 1.0, // 0% transparencia → completamente visible
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }
+  ).addTo(map);
+
+  // 🛰️ Capa Satelital ESRI (arriba, 90% transparente)
+  const capaSatelite = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      opacity: 0.20, // 90% transparencia
+      maxZoom: 19,
+    }
+  ).addTo(map);
 
   L.control.scale().addTo(map);
 
@@ -437,7 +451,7 @@ function initPanelToggle() {
 }
 
 function initControls() {
-  // Botón seleccionar todos / limpiar
+  // Botones seleccionar todos / limpiar
   const selectAllBtn = document.getElementById("sectorSelectAllBtn");
   const clearBtn = document.getElementById("sectorClearBtn");
   const todosCb = document.getElementById("sectorTodos");

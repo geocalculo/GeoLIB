@@ -44,17 +44,24 @@
       color: #9ca3af;
     }
 
+    /* Cinta superior */
     .info-bar {
       padding: 0.4rem 1.25rem;
       font-size: 0.85rem;
       background: #e5e7eb;
       border-bottom: 1px solid #d1d5db;
       display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .info-row {
+      display: flex;
       flex-wrap: wrap;
       gap: 1rem;
     }
 
-    .info-bar span {
+    .info-row span {
       margin-right: 0.5rem;
     }
 
@@ -101,11 +108,17 @@
     <p>Proyectos dentro del radio definido desde el punto consultado.</p>
   </header>
 
+  <!-- CINTA ORDENADA EN DOS FILAS -->
   <div class="info-bar">
-    <span id="coordsLabel">Punto: —</span>
-    <span id="modoLabel">Modo: —</span>
-    <span id="radioLabel">Radio: —</span>
-    <span id="countLabel">Resumen: —</span>
+    <div class="info-row">
+      <span id="coordsLabel">Punto: —</span>
+      <span id="modoLabel">Modo: —</span>
+      <span id="radioLabel">Radio: —</span>
+    </div>
+    <div class="info-row">
+      <span id="countLabel">Resumen: —</span>
+      <span id="invLabel">Inversión: —</span>
+    </div>
   </div>
 
   <div id="map"></div>
@@ -118,14 +131,7 @@
 
   <script>
     const DATA_XLSX_URL = "capas/nacional.xlsx";
-
-    function normalizeHeader(h) {
-      return String(h || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .replace(/\s+/g, "_");
-    }
+    let globalParams = null; // para reconsulta
 
     function parseCoord(value) {
       if (value === null || value === undefined) return null;
@@ -163,6 +169,18 @@
       return R * c;
     }
 
+    // Formato de inversión en MMU$
+    function formatMMU(value) {
+      if (!Number.isFinite(value) || value <= 0) return "—";
+      return (
+        value.toLocaleString("es-CL", {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        }) + " MMU$"
+      );
+    }
+
+    // Carga de nacional.xlsx (por letras de columna)
     async function loadExcelData() {
       const resp = await fetch(DATA_XLSX_URL);
       const buf = await resp.arrayBuffer();
@@ -174,32 +192,44 @@
       const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
       if (!json.length) return [];
 
-      const headersRaw = json[0];
+      // Fila 0 = encabezados, la saltamos
       const rows = json.slice(1);
-      const headersNorm = headersRaw.map((h) => normalizeHeader(h));
 
-      const idxNombre = headersNorm.indexOf("nombre_del_proyecto");
-      const idxRegion = headersNorm.indexOf("region");
-      const idxEstado = headersNorm.indexOf("estado_del_proyecto");
-      const idxSectorBase = headersNorm.indexOf("sector_productivo");
-      const idxLat = headersNorm.indexOf("latitud_punto_representativo");
-      const idxLon = headersNorm.indexOf("longitud_punto_representativo");
+      // Índices FIJOS por letra de columna
+      const COL_NOMBRE = 0;   // A
+      const COL_WEB = 1;      // B
+      const COL_TIPO = 2;     // C
+      const COL_REGION = 3;   // D
+      const COL_INV = 9;      // J
+      const COL_ESTADO = 11;  // L
+      const COL_SECTOR = 13;  // N
+      const COL_LAT = 14;     // O
+      const COL_LON = 15;     // P
+      const COL_ANEXOS = 16;  // Q
 
       const data = [];
 
       for (const row of rows) {
         if (!row || row.length === 0) continue;
 
-        const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
-        const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
+        const lat = parseCoord(row[COL_LAT]);
+        const lon = parseCoord(row[COL_LON]);
         if (lat === null || lon === null) continue;
 
-        const nombre = idxNombre >= 0 ? String(row[idxNombre] || "") : "";
-        const region = idxRegion >= 0 ? String(row[idxRegion] || "") : "";
-        const estado = idxEstado >= 0 ? String(row[idxEstado] || "") : "";
-        const sector = idxSectorBase >= 0 ? String(row[idxSectorBase] || "") : "";
+        const invNum = parseCoord(row[COL_INV]); // inversión como número
 
-        data.push({ lat, lon, region, estado, sector, nombre });
+        data.push({
+          lat,
+          lon,
+          nombre: row[COL_NOMBRE] || "",
+          web: row[COL_WEB] || "",
+          tipo: row[COL_TIPO] || "",
+          region: row[COL_REGION] || "",
+          estado: row[COL_ESTADO] || "",
+          sector: row[COL_SECTOR] || "",
+          inversion: invNum,
+          anexos: row[COL_ANEXOS] || ""
+        });
       }
 
       return data;
@@ -207,9 +237,11 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       const params = new URLSearchParams(window.location.search);
+      globalParams = params; // para usar en abrirReconsulta
+
       const lat = parseFloat(params.get("lat"));
       const lng = parseFloat(params.get("lng"));
-      const modo = params.get("modo") || "radio";       // "radio" | "proximidad"
+      const modo = params.get("modo") || "radio";  // "radio" | "proximidad"
       const radioParam = parseFloat(params.get("radio")) || 10;
       const nParam = parseInt(params.get("n") || "10", 10);
       const sectoresParam = params.get("sectores") || "";
@@ -221,6 +253,7 @@
       const modoLabel = document.getElementById("modoLabel");
       const radioLabel = document.getElementById("radioLabel");
       const countLabel = document.getElementById("countLabel");
+      const invLabel = document.getElementById("invLabel");
 
       coordsLabel.textContent = `Punto: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
       modoLabel.textContent =
@@ -235,10 +268,24 @@
         minZoom: 4,
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors",
-      }).addTo(map);
+      // 🌎 OSM abajo
+      const capaOSM = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          opacity: 1.0,
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors"
+        }
+      ).addTo(map);
+
+      // 🛰️ Satélite arriba (90% transparente)
+      const capaSatelite = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          opacity: 0.10,
+          maxZoom: 19
+        }
+      ).addTo(map);
 
       L.control.scale().addTo(map);
 
@@ -294,11 +341,6 @@
         }));
 
         let radioKm = radioParam;
-        let resumenAprob = 0;
-        let resumenCalif = 0;
-        let resumenRech = 0;
-        let resumenOtros = 0;
-
         let aprobTopN = [];
 
         if (modo === "proximidad") {
@@ -317,7 +359,7 @@
           }
         }
 
-        // Círculo (sólo perímetro, sin relleno)
+        // Círculo (sólo perímetro)
         const circle = L.circle([lat, lng], {
           radius: radioKm * 1000,
           color: "#1d4ed8",
@@ -327,12 +369,13 @@
           interactive: false,
         }).addTo(map);
 
+        // Ajustar vista
         map.fitBounds(circle.getBounds(), { padding: [20, 20] });
 
-        // Filtrar todos los proyectos dentro del radio definitivo
+        // Proyectos dentro del radio
         const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
 
-        // Conjunto de aprobados top N (para identificarlos)
+        // Conjunto de aprobados top N (para marcarlos en verde en modo proximidad)
         const topNSet =
           modo === "proximidad"
             ? new Set(
@@ -342,26 +385,50 @@
               )
             : new Set();
 
+        // Contadores y sumas de inversión
+        let resumenAprob = 0;
+        let resumenCalif = 0;
+        let resumenRech = 0;
+        let resumenOtros = 0;
+
+        let invAprob = 0;
+        let invCalif = 0;
+        let invRech = 0;
+        let invOtros = 0;
+
         dentro.forEach((p) => {
           const estadoL = (p.estado || "").toLowerCase();
           const key = `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`;
 
           let color = "#6b7280"; // otros
+          let bucket = "Otros";
+
           if (modo === "proximidad" && topNSet.has(key)) {
-            color = "#16a34a"; // aprobados N más cercanos
-            resumenAprob++;
+            color = "#16a34a"; // Aprobados N más cercanos
+            bucket = "Aprob";
           } else if (estadoL.includes("rech")) {
             color = "#dc2626";
-            resumenRech++;
+            bucket = "Rech";
           } else if (estadoL.includes("calif") || estadoL.includes("eval")) {
             color = "#ea580c";
-            resumenCalif++;
+            bucket = "Calif";
           } else if (estadoL.includes("aprob")) {
-            // aprobados dentro del radio pero fuera del top N
             color = "#16a34a";
-            resumenAprob++;
-          } else {
-            resumenOtros++;
+            bucket = "Aprob";
+          }
+
+          // Contadores
+          if (bucket === "Aprob") resumenAprob++;
+          else if (bucket === "Calif") resumenCalif++;
+          else if (bucket === "Rech") resumenRech++;
+          else resumenOtros++;
+
+          // Inversión
+          if (Number.isFinite(p.inversion)) {
+            if (bucket === "Aprob") invAprob += p.inversion;
+            else if (bucket === "Calif") invCalif += p.inversion;
+            else if (bucket === "Rech") invRech += p.inversion;
+            else invOtros += p.inversion;
           }
 
           const m = L.circleMarker([p.lat, p.lon], {
@@ -372,28 +439,69 @@
             fillOpacity: 0.8,
           });
 
-          m.bindPopup(
-            `<strong>${p.nombre || "Proyecto sin nombre"}</strong><br/>
-             Distancia: ${p.distKm.toFixed(1)} km<br/>
-             Sector: ${p.sector || "—"}<br/>
-             Estado: ${p.estado || "—"}<br/>
-             Región: ${p.region || "—"}`
-          );
+          m.bindPopup(`
+            <strong>${p.nombre || "Proyecto sin nombre"}</strong><br/>
+            <b>Tipo:</b> ${p.tipo || "—"}<br/>
+            <b>Sector:</b> ${p.sector || "—"}<br/>
+            <b>Inversión:</b> ${formatMMU(p.inversion)}<br/>
+            <b>Estado:</b> ${p.estado || "—"}<br/>
+            <b>Distancia:</b> ${p.distKm.toFixed(2)} km<br/><br/>
+            <b>Expediente:</b> ${
+              p.web
+                ? `<a href="${p.web}" target="_blank">Abrir expediente</a>`
+                : "—"
+            }<br/>
+            <b>Anexos:</b> ${
+              p.anexos
+                ? `<a href="${p.anexos}" target="_blank">Abrir anexos</a>`
+                : "—"
+            }<br/><br/>
+            <button onclick="abrirReconsulta(${p.lat}, ${p.lon})"
+                    style="padding:6px 10px; cursor:pointer;">
+              🔎 Reconsultar desde este proyecto
+            </button>
+          `);
 
           m.addTo(markersLayer);
         });
 
+        // Actualizar cinta
         radioLabel.textContent = `Radio: ${radioKm.toFixed(1)} km`;
         countLabel.textContent =
-          `Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
+          `Resumen – Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
           `Rech: ${resumenRech} | Otros: ${resumenOtros}`;
+        invLabel.textContent =
+          `Inversión – Aprob: ${formatMMU(invAprob)} | ` +
+          `Calif: ${formatMMU(invCalif)} | ` +
+          `Rech: ${formatMMU(invRech)} | ` +
+          `Otros: ${formatMMU(invOtros)}`;
       } catch (err) {
         console.error("Error cargando nacional.xlsx en mapainfo.html:", err);
         radioLabel.textContent = "Radio: —";
         countLabel.textContent =
           "Error al cargar datos de proyectos para este detalle.";
+        invLabel.textContent = "Inversión: —";
       }
     });
+
+    // Reconsulta desde popup
+    function abrirReconsulta(lat, lon) {
+      const params = globalParams || new URLSearchParams(window.location.search);
+      const modo = params.get("modo") || "radio";
+      const radio = params.get("radio") || 10;
+      const n = params.get("n") || 10;
+      const sectores = params.get("sectores") || "";
+
+      const url = new URL("mapainfo.html", window.location.href);
+      url.searchParams.set("lat", lat);
+      url.searchParams.set("lng", lon);
+      url.searchParams.set("modo", modo);
+      url.searchParams.set("radio", radio);
+      url.searchParams.set("n", n);
+      if (sectores) url.searchParams.set("sectores", sectores);
+
+      window.open(url.toString(), "_blank");
+    }
   </script>
 </body>
 </html>

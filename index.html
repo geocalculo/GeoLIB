@@ -14,14 +14,18 @@
   <!-- CSS externo -->
   <link rel="stylesheet" href="css/index.css" />
 </head>
+
 <body>
+  <!-- ========================================================= -->
+  <!-- ENCABEZADO -->
+  <!-- ========================================================= -->
   <header class="app-header">
     <div class="app-header-inner">
       <h1>SEA Mining - Explorador de proyectos</h1>
-      <p>Haz clic en el mapa para depurar el comportamiento (modo debug).</p>
+      <p>Haz clic en el mapa para consultar en detalle (mapainfo.html).</p>
     </div>
 
-    <!-- Botón para abrir/cerrar el panel en modo móvil -->
+    <!-- Botón móvil para mostrar/ocultar panel -->
     <button
       id="togglePanelBtn"
       class="panel-toggle-btn"
@@ -31,59 +35,65 @@
     </button>
   </header>
 
+  <!-- ========================================================= -->
+  <!-- ÁREA PRINCIPAL -->
+  <!-- ========================================================= -->
   <main>
     <div class="layout">
-      <!-- Panel lateral (plegable en móvil) -->
+      
+      <!-- ========================================================= -->
+      <!-- PANEL LATERAL (PLEGABLE) -->
+      <!-- ========================================================= -->
       <section class="panel is-open" id="configPanel">
         <div class="panel-scroll">
+
           <div class="badge">PASO 1</div>
           <h2>Configura la consulta</h2>
           <p>
-            Selecciona los sectores productivos y mueve el mapa.
-            El cuadro resumen se actualiza con los proyectos visibles en pantalla.
+            Selecciona los sectores productivos y mueve el mapa.  
+            El cuadro resumen se actualiza automáticamente con los proyectos visibles.
           </p>
 
-          <!-- Sectores productivos (multi-selección dinámica) -->
+          <!-- ========================================================= -->
+          <!-- SECTOR PRODUCTIVO (DINÁMICO) -->
+          <!-- ========================================================= -->
           <div class="field-block">
             <label class="field-label">Sectores productivos (vista actual)</label>
+
             <div class="sector-multiselect">
               <div id="sectorCheckboxContainer">
-                <!-- Checkbox fijo "Todos" -->
+
+                <!-- Checkbox fijo: TODOS -->
                 <label class="checkbox-item">
-                  <input
-                    type="checkbox"
-                    id="sectorTodos"
-                    checked
-                  />
+                  <input type="checkbox" id="sectorTodos" checked />
                   <span>Todos</span>
                 </label>
 
-                <!-- Aquí se inyectan dinámicamente los sectores -->
+                <!-- Aquí se cargan dinámicamente los sectores -->
                 <div id="sectorDynamic"></div>
 
                 <p class="hint">
-                  Los sectores se cargan automáticamente según los proyectos visibles
-                  en el mapa. Si está marcada la opción <strong>Todos</strong>, no se
-                  aplica filtro por sector.
+                  Los sectores se cargan automáticamente según la vista actual del mapa.
+                  Con <strong>Todos</strong> marcado, no se aplica filtro por sector.
                 </p>
               </div>
 
-              <button
-                id="sectorSelectAllBtn"
-                type="button"
-                class="link-btn"
-              >
+              <button id="sectorSelectAllBtn" type="button" class="link-btn">
                 Seleccionar todos
               </button>
+
               <button id="sectorClearBtn" type="button" class="link-btn">
                 Limpiar selección
               </button>
             </div>
           </div>
 
-          <!-- Modo de selección -->
+          <!-- ========================================================= -->
+          <!-- MODO DE SELECCIÓN -->
+          <!-- ========================================================= -->
           <div class="field-block">
             <label class="field-label">Modo de selección</label>
+
             <div class="radio-group">
               <label class="chip">
                 <input
@@ -94,6 +104,7 @@
                 />
                 Por Radio
               </label>
+
               <label class="chip">
                 <input
                   type="radio"
@@ -103,21 +114,22 @@
                 Por Proximidad
               </label>
             </div>
+
             <span class="hint">
-              <strong>Por Radio:</strong> se consideran todos los proyectos con
-              distancia ≤ R al punto clic.<br />
-              <strong>Por Proximidad:</strong> se toman los <strong>N proyectos
-              aprobados más cercanos</strong>, y se define un radio con el más lejano
-              de ellos.
+              <strong>Por Radio:</strong> considera todos los proyectos con distancia ≤ R.<br />
+              <strong>Por Proximidad:</strong> selecciona los <strong>N proyectos aprobados más cercanos</strong>.
+              El último determina el radio automático.
             </span>
           </div>
 
-          <!-- Radio de análisis con slider -->
+          <!-- ========================================================= -->
+          <!-- SLIDER RADIO (Distancia ≤ R) -->
+          <!-- ========================================================= -->
           <div class="field-block">
             <label class="field-label">
-              Modo de selección / por Radio<br />
-              <span style="font-weight:400;">Barra deslizante Radio (Distancia ≤ R)</span>
+              Selección por Radio
             </label>
+
             <input
               type="range"
               id="radioSlider"
@@ -127,18 +139,19 @@
               value="10"
               class="range-input"
             />
+
             <div class="hint">
               Distancia máxima:
               <strong><span id="radioValue">10</span> km</strong>
             </div>
           </div>
 
-          <!-- Proximidad N aprobados con slider -->
+          <!-- ========================================================= -->
+          <!-- SLIDER POR PROXIMIDAD (N APROBADOS MÁS CERCANOS) -->
+          <!-- ========================================================= -->
           <div class="field-block">
-            <label class="field-label">
-              Modo de selección / por Proximidad<br />
-              <span style="font-weight:400;">Barra deslizante los “N” más cercanos</span>
-            </label>
+            <label class="field-label">Selección por Proximidad</label>
+
             <input
               type="range"
               id="nSlider"
@@ -148,51 +161,55 @@
               value="10"
               class="range-input"
             />
+
             <div class="hint">
               N proyectos <strong>aprobados</strong> más cercanos:
               <strong><span id="nValue">10</span></strong>
             </div>
           </div>
 
+          <!-- Mensaje -->
           <span class="hint">
-            El análisis detallado se visualiza en
-            <strong>mapainfo.html</strong>, que se abre al hacer clic en el mapa.
+            El análisis detallado se mostrará en
+            <strong>mapainfo.html</strong>, que se abre al hacer clic sobre el mapa.
           </span>
 
-          <!-- Coordenadas del clic -->
+          <!-- Coordenadas clic -->
           <div id="coordsDisplay" class="debug-pill">
             Coordenadas clic: —
           </div>
 
-          <!-- Resumen rápido: total en BBOX -->
+          <!-- Resumen en BBOX -->
           <div id="bboxInfo" class="bbox-info">
             Proyectos en pantalla: —
           </div>
 
-          <!-- Resumen Región vs Estado -->
-          <div
-            id="summaryTableContainer"
-            class="summary-table-container"
-          >
+          <!-- Tabla resumen Región vs Estado -->
+          <div id="summaryTableContainer" class="summary-table-container">
             <p>El resumen por región y estado se mostrará aquí.</p>
           </div>
         </div>
       </section>
 
-      <!-- Mapa (sin overview) -->
+      <!-- ========================================================= -->
+      <!-- MAPA PRINCIPAL -->
+      <!-- ========================================================= -->
       <section class="map-section">
         <div id="map" class="map-main"></div>
       </section>
+
     </div>
   </main>
 
-  <!-- Leaflet JS -->
+  <!-- ========================================================= -->
+  <!-- SCRIPTS -->
+  <!-- ========================================================= -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- SheetJS para leer el Excel nacional -->
+  <!-- SheetJS para leer /capas/nacional.xlsx -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- JS externo -->
+  <!-- JS principal -->
   <script src="js/index.js"></script>
 </body>
 </html>
