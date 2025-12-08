@@ -294,6 +294,7 @@
       const COL_LAT    = 14;  // O
       const COL_LON    = 15;  // P
       const COL_ANEXOS = 16;  // Q
+      const COL_ANIO   = 17;  // R - Año corregido
 
       const data = [];
 
@@ -305,6 +306,11 @@
         if (lat === null || lon === null) continue;
 
         const invNum = parseCoord(row[COL_INV]);
+        const anioVal = row[COL_ANIO];
+        const anioNum =
+          anioVal !== null && anioVal !== undefined && anioVal !== ""
+            ? parseInt(anioVal, 10)
+            : null;
 
         data.push({
           lat,
@@ -317,7 +323,8 @@
           fechaIngreso: row[COL_FECHA] || null,
           estado: row[COL_ESTADO] || "",
           sector: row[COL_SECTOR] || "",
-          anexos: row[COL_ANEXOS] || ""
+          anexos: row[COL_ANEXOS] || "",
+          anio: anioNum,
         });
       }
 
@@ -575,8 +582,12 @@
           estado: p.estado || "Otros",
           sector: p.sector || "Sin sector",
           region: p.region || "Sin región",
-          inversion: p.inversion || 0,
-          distKm: p.distKm
+          inversionMm: p.inversion || 0,      // usado por graficos.js
+          anio:
+            p.anio !== null && p.anio !== undefined && p.anio !== ""
+              ? parseInt(p.anio, 10)
+              : null,
+          distKm: p.distKm,
         };
       });
 

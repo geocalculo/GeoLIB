@@ -363,3 +363,74 @@ main {
   width: 100%;
   margin: 0;
 }
+
+html,
+body {
+  height: 100%;
+}
+
+.app-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* El área principal ocupa todo el alto disponible */
+.app-wrapper > main {
+  flex: 1;
+  display: flex;
+}
+
+.layout {
+  flex: 1;
+  display: flex;
+  min-height: 0; /* clave para que el hijo pueda crecer en flex */
+}
+
+/* El mapa siempre tiene altura visible */
+.map-section {
+  flex: 1;
+  min-height: 300px;
+}
+
+.map-main {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;    /* asegura algo de alto incluso si el flex falla */
+}
+
+/* Asegura que el mapa siempre tenga altura visible */
+.map-section {
+  width: 100%;
+}
+
+.map-main {
+  width: 100%;
+  height: 60vh;       /* 60% del alto de la ventana */
+  min-height: 320px;  /* por si la pantalla es muy chica */
+}
+
+/* En pantallas grandes, un poco más de mapa */
+@media (min-width: 1024px) {
+  .map-main {
+    height: 70vh;
+  }
+}
+
+/* En móviles, panel arriba y mapa abajo (en columna) */
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .panel {
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  .map-section,
+  .map-main {
+    min-height: 45vh;
+  }
+}
+

@@ -162,7 +162,7 @@ function initMaps() {
   const capaOSM = L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
-      opacity: 1.0, // 0% transparencia → completamente visible
+      opacity: 1.0,
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap contributors",
     }
@@ -225,7 +225,6 @@ function updateSectorCheckboxes(sectorSet) {
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9]+/g, "_");
 
-    // Si está activo "Todos", todos los sectores dinámicos quedan chequeados.
     const checked =
       (todosCb && todosCb.checked) ||
       (prevSelected.size ? prevSelected.has(sec) : true);
@@ -267,7 +266,7 @@ function updateSectorCheckboxes(sectorSet) {
 function actualizarResumenYCapas() {
   if (!map || !proyectos.length) return;
 
-  const bboxInfo = document.getElementById("bboxInfo");
+  const bboxInfo = document.getElementById("bboxInfo"); // 👀 puede no existir
   const bounds = map.getBounds();
 
   const selectedSectors = getSelectedSectors();
@@ -342,16 +341,27 @@ function actualizarResumenYCapas() {
     if (todosCb && todosCb.checked) detalleSectores = "Todos los sectores";
   }
 
-  bboxInfo.textContent =
+  const texto =
     `Proyectos en pantalla (total BBOX): ${totalEnPantalla} ` +
     `| Dibujados (filtro): ${filtradosEnPantalla} ` +
     `(${detalleSectores})`;
+
+  if (bboxInfo) {
+    bboxInfo.textContent = texto;
+  } else {
+    console.warn("bboxInfo no encontrado en el DOM"); // 👀 ayuda debug
+  }
 
   renderSummaryTable(resumen);
 }
 
 function renderSummaryTable(resumen) {
   const container = document.getElementById("summaryTableContainer");
+  if (!container) {                           // 👀 protección
+    console.warn("summaryTableContainer no encontrado en el DOM");
+    return;
+  }
+
   const regiones = Object.keys(resumen);
 
   if (!regiones.length) {
@@ -395,10 +405,12 @@ function renderSummaryTable(resumen) {
 
 function onMapClick(e) {
   const { lat, lng } = e.latlng;
-  const coordsDisplay = document.getElementById("coordsDisplay");
-  coordsDisplay.textContent = `Coordenadas clic: ${lat.toFixed(
-    5
-  )}, ${lng.toFixed(5)}`;
+  const coordsDisplay = document.getElementById("coordsDisplay"); // 👀 puede no existir
+  if (coordsDisplay) {
+    coordsDisplay.textContent = `Coordenadas clic: ${lat.toFixed(
+      5
+    )}, ${lng.toFixed(5)}`;
+  }
 
   const modo = getModoSeleccion(); // "radio" o "proximidad"
   const radioKm = getRadioAnalisisKm();
@@ -471,12 +483,10 @@ function initControls() {
     todosCb.addEventListener("change", () => {
       const dynamic = document.getElementById("sectorDynamic");
       if (todosCb.checked && dynamic) {
-        // marcar todos los sectores dinámicos
         dynamic
           .querySelectorAll('input[name="sector"]')
           .forEach((cb) => (cb.checked = true));
       }
-      // al cambiar "Todos" se recalcula todo (por si el BBOX cambió)
       actualizarResumenYCapas();
     });
   }
@@ -514,12 +524,9 @@ function initControls() {
 }
 
 // ===============================
-// Panel plegable (nuevo sistema)
-// ===============================
-
-// ===============================
 // Panel plegable (desktop + móvil)
 // ===============================
+
 function initPanelResponsive() {
   const panel = document.getElementById("configPanel");          // panel lateral
   const sideHandle = document.getElementById("panelToggle");     // tirador lateral
@@ -571,9 +578,8 @@ function initPanelResponsive() {
     headerBtn.addEventListener("click", togglePanel);
   }
 
-  // (Opcional) si quieres que al rotar la pantalla o cambiar el ancho
-  // se readecúe solo, puedes descomentar esto:
   /*
+  // Si quieres que se reajuste solo al cambiar el ancho
   window.addEventListener("resize", () => {
     const shouldBeOpen = window.innerWidth > 768;
     if (shouldBeOpen !== isOpen) {
@@ -583,7 +589,6 @@ function initPanelResponsive() {
   });
   */
 }
-
 
 // ===============================
 // Main
