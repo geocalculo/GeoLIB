@@ -8,6 +8,7 @@
  *      • Por Radio (slider R 5–20 km)
  *      • Por Proximidad (slider N 5–20 aprobados)
  *  - Click → abre mapainfo.html con lat, lng, modo, R, N y sectores
+ *  - Panel lateral plegable (desktop abierto / móvil cerrado)
  ************************************************************/
 
 const DATA_XLSX_URL = "capas/nacional.xlsx";
@@ -167,11 +168,11 @@ function initMaps() {
     }
   ).addTo(map);
 
-  // 🛰️ Capa Satelital ESRI (arriba, 90% transparente)
+  // 🛰️ Capa Satelital ESRI (arriba, 80% transparente)
   const capaSatelite = L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     {
-      opacity: 0.20, // 90% transparencia
+      opacity: 0.20,
       maxZoom: 19,
     }
   ).addTo(map);
@@ -423,7 +424,7 @@ function onMapClick(e) {
 }
 
 // ===============================
-// Panel plegable + controles
+// Controles (filtros, sliders, modo)
 // ===============================
 
 function updateModeUI() {
@@ -438,16 +439,6 @@ function updateModeUI() {
     if (radioSlider) radioSlider.disabled = true;
     if (nSlider) nSlider.disabled = false;
   }
-}
-
-function initPanelToggle() {
-  const btn = document.getElementById("togglePanelBtn");
-  const panel = document.getElementById("configPanel");
-  if (!btn || !panel) return;
-
-  btn.addEventListener("click", () => {
-    panel.classList.toggle("is-open");
-  });
 }
 
 function initControls() {
@@ -523,13 +514,85 @@ function initControls() {
 }
 
 // ===============================
+// Panel plegable (nuevo sistema)
+// ===============================
+
+// ===============================
+// Panel plegable (desktop + móvil)
+// ===============================
+function initPanelResponsive() {
+  const panel = document.getElementById("configPanel");          // panel lateral
+  const sideHandle = document.getElementById("panelToggle");     // tirador lateral
+  const headerBtn = document.getElementById("togglePanelBtn");   // botón en el header (móvil)
+  if (!panel) return;
+
+  // Estado inicial: desktop abierto, móvil cerrado
+  let isOpen = window.innerWidth > 768;
+
+  function updateUI() {
+    panel.classList.toggle("hidden", !isOpen);
+
+    // Tirador lateral: « cuando está abierto, » cuando está cerrado
+    if (sideHandle) {
+      sideHandle.innerHTML = isOpen ? "«" : "»";
+    }
+
+    // Botón del header: cambia texto según estado
+    if (headerBtn) {
+      headerBtn.textContent = isOpen ? "Ocultar configuración" : "☰ Configuración";
+    }
+
+    // Avisar a Leaflet que cambió el tamaño disponible
+    if (map) {
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 200);
+    }
+  }
+
+  function togglePanel() {
+    isOpen = !isOpen;
+    updateUI();
+  }
+
+  // Estado inicial según ancho de pantalla
+  if (!isOpen) {
+    panel.classList.add("hidden");
+  }
+  updateUI();
+
+  // Eventos: tirador lateral
+  if (sideHandle) {
+    sideHandle.addEventListener("click", togglePanel);
+  }
+
+  // Eventos: botón del header (móvil)
+  if (headerBtn) {
+    headerBtn.addEventListener("click", togglePanel);
+  }
+
+  // (Opcional) si quieres que al rotar la pantalla o cambiar el ancho
+  // se readecúe solo, puedes descomentar esto:
+  /*
+  window.addEventListener("resize", () => {
+    const shouldBeOpen = window.innerWidth > 768;
+    if (shouldBeOpen !== isOpen) {
+      isOpen = shouldBeOpen;
+      updateUI();
+    }
+  });
+  */
+}
+
+
+// ===============================
 // Main
 // ===============================
 
 document.addEventListener("DOMContentLoaded", async () => {
   initMaps();
-  initPanelToggle();
   initControls();
+  initPanelResponsive();
 
   try {
     proyectos = await loadExcelData();
