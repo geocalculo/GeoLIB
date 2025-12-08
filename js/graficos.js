@@ -68,7 +68,7 @@ const CHARTS_CONFIG = [
     title: "Inversión por año",
     dimension: "anio",      // usa el año corregido desde columna R
     chartType: "bar",
-    orientation: "h",       // barras verticales
+    orientation: "v",       // barras verticales
   },
 ];
 

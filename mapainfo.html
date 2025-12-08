@@ -331,6 +331,21 @@
       return data;
     }
 
+function ajustarZoomCirculo(map, circle) {
+  // tamaño actual del contenedor del mapa
+  const size = map.getSize();
+  const minSide = Math.min(size.x, size.y);   // px
+
+  // Queremos que el círculo ocupe ~60% del lado menor.
+  // Eso deja ~20% de margen por lado → padding = 0.2 * minSide
+  const paddingPx = minSide * 0.20;
+
+  map.fitBounds(circle.getBounds(), {
+    padding: [paddingPx, paddingPx]
+  });
+}
+
+
     document.addEventListener("DOMContentLoaded", async () => {
       const params = new URLSearchParams(window.location.search);
       globalParams = params;
@@ -479,7 +494,14 @@
         interactive: false,
       }).addTo(map);
 
-      map.fitBounds(circle.getBounds(), { padding: [20, 20] });
+      // Ajuste de zoom para que el círculo use ~60% del lado menor
+      ajustarZoomCirculo(map, circle);
+
+      // Opcional: si cambia el tamaño (rotar celular, cambiar ventana), volver a ajustar
+      map.on("resize", () => {
+        ajustarZoomCirculo(map, circle);
+      });
+
 
       // Proyectos dentro del radio
       const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
