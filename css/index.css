@@ -1,7 +1,6 @@
 /* ===========================
    Reset básico / layout
    =========================== */
-
 *,
 *::before,
 *::after {
@@ -25,7 +24,6 @@ body {
 /* ===========================
    Header
    =========================== */
-
 .app-header {
   background: #020617;
   color: #e5e7eb;
@@ -47,7 +45,7 @@ body {
   color: #9ca3af;
 }
 
-/* Botón para abrir/cerrar panel en móvil */
+/* Botón móvil (header) */
 .panel-toggle-btn {
   border: none;
   background: #111827;
@@ -66,9 +64,8 @@ body {
 /* ===========================
    Layout principal
    =========================== */
-
 main {
-  height: calc(100% - 64px); /* altura total menos header aprox. */
+  height: calc(100% - 64px); /* body height - header */
 }
 
 .layout {
@@ -76,14 +73,12 @@ main {
   height: 100%;
   padding: 0.75rem 1.5rem 1.5rem;
   gap: 1rem;
-  position: relative; /* ancla panel absoluto */
+  position: relative; /* necesario para panel absoluto */
 }
 
 /* ===========================
    PANEL LATERAL (DESLIZABLE)
    =========================== */
-
-/* Apariencia del panel (tarjeta) */
 .panel {
   width: 320px;
   background: #f9fafb;
@@ -93,17 +88,17 @@ main {
   display: flex;
   flex-direction: column;
 
-  /* comportamiento deslizante */
   position: absolute;
   top: 0;
   left: 0;
   height: 100%;
   z-index: 1000;
-  transform: translateX(0);           /* abierto por defecto en desktop */
+
+  transform: translateX(0); /* abierto por defecto en desktop */
   transition: transform 0.3s ease;
 }
 
-/* Estado oculto: se desplaza fuera de pantalla hacia la izquierda */
+/* Oculto hacia la izquierda */
 .panel.hidden {
   transform: translateX(-105%);
 }
@@ -114,11 +109,11 @@ main {
   padding-right: 0.25rem;
 }
 
-/* Botón flotante (tirador) para abrir/cerrar */
+/* Tirador flotante */
 .panel-toggle {
   position: absolute;
   top: 10px;
-  left: 330px; /* cuando panel está abierto */
+  left: 330px;
   width: 36px;
   height: 36px;
   background: #0f172a;
@@ -133,15 +128,13 @@ main {
   transition: left 0.3s ease;
 }
 
-/* Cuando el panel está oculto → el botón se pega al borde izquierdo */
 .panel.hidden + .panel-toggle {
   left: 10px;
 }
 
 /* ===========================
-   Tipografía / elementos dentro del panel
+   Contenido interno del panel
    =========================== */
-
 .badge {
   display: inline-block;
   background: #e5e7eb;
@@ -163,8 +156,7 @@ main {
   font-size: 0.9rem;
 }
 
-/* Campos del panel */
-
+/* Campos */
 .field-block {
   margin-bottom: 0.9rem;
 }
@@ -177,7 +169,6 @@ main {
 }
 
 /* Checkboxes de sector */
-
 .sector-multiselect {
   background: #f3f4f6;
   border-radius: 12px;
@@ -214,8 +205,7 @@ main {
   text-decoration: underline;
 }
 
-/* Chips de radio / modo */
-
+/* Chips de modo */
 .radio-group {
   display: flex;
   flex-wrap: wrap;
@@ -233,18 +223,12 @@ main {
   cursor: pointer;
 }
 
-.chip input {
-  margin: 0;
-}
-
-/* Slider de radio */
-
+/* Slider */
 .range-input {
   width: 100%;
 }
 
-/* Ayudas / debug */
-
+/* Ayudas */
 .hint {
   display: block;
   font-size: 0.78rem;
@@ -261,8 +245,7 @@ main {
   color: #111827;
 }
 
-/* Bbox info */
-
+/* BBOX Info */
 .bbox-info {
   margin-top: 0.7rem;
   padding: 0.5rem 0.6rem;
@@ -273,8 +256,7 @@ main {
   font-weight: 500;
 }
 
-/* Tabla resumen */
-
+/* Resumen tabla */
 .summary-table-container {
   margin-top: 0.8rem;
   background: #ffffff;
@@ -312,7 +294,6 @@ main {
 /* ===========================
    Mapa principal
    =========================== */
-
 .map-section {
   flex: 1;
   position: relative;
@@ -330,7 +311,6 @@ main {
 /* ===========================
    Leaflet overrides
    =========================== */
-
 .leaflet-container {
   font-family: inherit;
 }
@@ -339,7 +319,7 @@ main {
    Responsive
    =========================== */
 
-/* MÓVIL / TABLET */
+/* → Móvil / Tablet */
 @media (max-width: 900px) {
   main {
     height: calc(100% - 56px);
@@ -354,7 +334,7 @@ main {
   }
 
   .panel-toggle-btn {
-    display: inline-flex; /* botón del header visible en móvil */
+    display: inline-flex;
   }
 
   .panel {
@@ -369,15 +349,17 @@ main {
   .panel.hidden + .panel-toggle {
     left: 10px;
   }
-
-  .map-section {
-    flex: 1;
-  }
 }
 
-/* DESKTOP: mapa más alto mínimo */
+/* → Desktop: altura mínima del mapa */
 @media (min-width: 901px) {
   .map-main {
     min-height: 540px;
   }
+}
+
+/* Wrapper general index → SIN límite de ancho */
+.app-wrapper {
+  width: 100%;
+  margin: 0;
 }

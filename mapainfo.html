@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>SEA Mining - Mapa detalle</title>
+  <title>SEA Mining - Detalle de proximidad</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
@@ -24,18 +24,31 @@
       background-color: #f3f4f6;
       color: #111827;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+    }
+
+    /* Contenedor general: 70% de ancho, centrado */
+    .page-wrapper {
+      width: 70%;
+      max-width: 1400px;
+      margin: 0 auto 2rem auto;
+    }
+
+    @media (max-width: 900px) {
+      .page-wrapper {
+        width: 95%;
+      }
     }
 
     header {
       background: #020617;
       color: #e5e7eb;
       padding: 0.75rem 1.25rem;
+      border-radius: 14px;
+      margin-top: 1rem;
     }
 
     header h1 {
-      font-size: 1.1rem;
+      font-size: 1.2rem;
       margin-bottom: 0.2rem;
     }
 
@@ -46,13 +59,14 @@
 
     /* Cinta superior */
     .info-bar {
-      padding: 0.4rem 1.25rem;
+      margin-top: 1rem;
+      padding: 0.6rem 1.25rem;
       font-size: 0.85rem;
       background: #e5e7eb;
-      border-bottom: 1px solid #d1d5db;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
+      gap: 0.35rem;
     }
 
     .info-row {
@@ -61,21 +75,30 @@
       gap: 1rem;
     }
 
-    .info-row span {
-      margin-right: 0.5rem;
-    }
-
-    #map {
-      flex: 1;
+    /* Mapa cuadrado 1:1 */
+    .map-square {
       width: 100%;
+      aspect-ratio: 1 / 1;
+      position: relative;
+      margin-top: 1rem;
     }
 
-    @media (min-width: 900px) {
-      #map {
-        height: calc(100vh - 80px);
-      }
+    .map-square > #map {
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
     }
 
+    /* Fallback por si algún navegador ignora aspect-ratio */
+    #map {
+      min-height: 350px;
+    }
+
+    /* Leyenda */
     .legend {
       position: absolute;
       bottom: 14px;
@@ -91,7 +114,7 @@
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       margin-bottom: 2px;
     }
 
@@ -100,28 +123,90 @@
       height: 10px;
       border-radius: 999px;
     }
+
+    /* ==============================
+       Sección de gráficos parametrizados
+       ============================== */
+
+    .charts-wrapper {
+      margin-top: 2rem;
+      padding-bottom: 3rem;
+    }
+
+    .charts-title {
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      color: #0f172a;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .chart-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    }
+
+    .chart-card h3 {
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .plotly-chart {
+      width: 100%;
+      height: 260px;
+    }
+
+    @media (max-width: 900px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
-<body>
-  <header>
-    <h1>SEA Mining – Detalle de proximidad</h1>
-    <p>Proyectos dentro del radio definido desde el punto consultado.</p>
-  </header>
 
-  <!-- CINTA ORDENADA EN DOS FILAS -->
-  <div class="info-bar">
-    <div class="info-row">
-      <span id="coordsLabel">Punto: —</span>
-      <span id="modoLabel">Modo: —</span>
-      <span id="radioLabel">Radio: —</span>
+<body>
+  <div class="page-wrapper">
+    <!-- HEADER -->
+    <header>
+      <h1>SEA Mining – Detalle de proximidad</h1>
+      <p>Proyectos dentro del radio definido desde el punto consultado.</p>
+    </header>
+
+    <!-- CINTA SUPERIOR -->
+    <div class="info-bar">
+      <div class="info-row">
+        <span id="coordsLabel">Punto: —</span>
+        <span id="modoLabel">Modo: —</span>
+        <span id="radioLabel">Radio: —</span>
+      </div>
+      <div class="info-row">
+        <span id="countLabel">Resumen: —</span>
+        <span id="invLabel">Inversión: —</span>
+      </div>
     </div>
-    <div class="info-row">
-      <span id="countLabel">Resumen: —</span>
-      <span id="invLabel">Inversión: —</span>
+
+    <!-- MAPA CUADRADO -->
+    <div class="map-square">
+      <div id="map"></div>
+    </div>
+
+    <!-- ============================= -->
+    <!-- SECCIÓN DE GRÁFICOS PARAMETRIZADOS -->
+    <!-- ============================= -->
+    <div id="chartsSection" class="charts-wrapper">
+      <h2 class="charts-title">Análisis gráfico de la inversión</h2>
+
+      <!-- Aquí se inyectan automáticamente las tarjetas de gráficos 
+           según la configuración en js/graficos.js (CHARTS_CONFIG) -->
+      <div id="chartsGrid" class="charts-grid"></div>
     </div>
   </div>
-
-  <div id="map"></div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -129,9 +214,15 @@
   <!-- SheetJS para leer el Excel nacional -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
+  <!-- Plotly.js -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <!-- Lógica de gráficos parametrizados -->
+  <script src="js/graficos.js"></script>
+
   <script>
     const DATA_XLSX_URL = "capas/nacional.xlsx";
-    let globalParams = null; // para reconsulta
+    let globalParams = null; // para reconsulta (si se quiere mantener)
 
     function parseCoord(value) {
       if (value === null || value === undefined) return null;
@@ -160,16 +251,13 @@
       const dLat = (lat2 - lat1) * rad;
       const dLon = (lon2 - lon1) * rad;
       const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.sin(dLat / 2) ** 2 +
         Math.cos(lat1 * rad) *
           Math.cos(lat2 * rad) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+          Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    // Formato de inversión en MMU$
     function formatMMU(value) {
       if (!Number.isFinite(value) || value <= 0) return "—";
       return (
@@ -180,7 +268,7 @@
       );
     }
 
-    // Carga de nacional.xlsx (por letras de columna)
+    // Lectura de nacional.xlsx por columnas
     async function loadExcelData() {
       const resp = await fetch(DATA_XLSX_URL);
       const buf = await resp.arrayBuffer();
@@ -192,19 +280,19 @@
       const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
       if (!json.length) return [];
 
-      // Fila 0 = encabezados, la saltamos
       const rows = json.slice(1);
 
-      // Índices FIJOS por letra de columna
+      // Índices por letra de columna
       const COL_NOMBRE = 0;   // A
-      const COL_WEB = 1;      // B
-      const COL_TIPO = 2;     // C
+      const COL_WEB    = 1;   // B
+      const COL_TIPO   = 2;   // C (DIA / EIA / ...)
       const COL_REGION = 3;   // D
-      const COL_INV = 9;      // J
+      const COL_INV    = 9;   // J
+      const COL_FECHA  = 10;  // K (no la usamos ahora, pero queda disponible)
       const COL_ESTADO = 11;  // L
       const COL_SECTOR = 13;  // N
-      const COL_LAT = 14;     // O
-      const COL_LON = 15;     // P
+      const COL_LAT    = 14;  // O
+      const COL_LON    = 15;  // P
       const COL_ANEXOS = 16;  // Q
 
       const data = [];
@@ -216,7 +304,7 @@
         const lon = parseCoord(row[COL_LON]);
         if (lat === null || lon === null) continue;
 
-        const invNum = parseCoord(row[COL_INV]); // inversión como número
+        const invNum = parseCoord(row[COL_INV]);
 
         data.push({
           lat,
@@ -225,9 +313,10 @@
           web: row[COL_WEB] || "",
           tipo: row[COL_TIPO] || "",
           region: row[COL_REGION] || "",
+          inversion: invNum,
+          fechaIngreso: row[COL_FECHA] || null,
           estado: row[COL_ESTADO] || "",
           sector: row[COL_SECTOR] || "",
-          inversion: invNum,
           anexos: row[COL_ANEXOS] || ""
         });
       }
@@ -237,7 +326,7 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       const params = new URLSearchParams(window.location.search);
-      globalParams = params; // para usar en abrirReconsulta
+      globalParams = params;
 
       const lat = parseFloat(params.get("lat"));
       const lng = parseFloat(params.get("lng"));
@@ -250,10 +339,10 @@
         : [];
 
       const coordsLabel = document.getElementById("coordsLabel");
-      const modoLabel = document.getElementById("modoLabel");
-      const radioLabel = document.getElementById("radioLabel");
-      const countLabel = document.getElementById("countLabel");
-      const invLabel = document.getElementById("invLabel");
+      const modoLabel   = document.getElementById("modoLabel");
+      const radioLabel  = document.getElementById("radioLabel");
+      const countLabel  = document.getElementById("countLabel");
+      const invLabel    = document.getElementById("invLabel");
 
       coordsLabel.textContent = `Punto: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
       modoLabel.textContent =
@@ -261,15 +350,15 @@
           ? `Modo: Proximidad (N=${nParam} aprobados)`
           : `Modo: Radio (R=${radioParam} km)`;
 
-      // Inicializar mapa
+      // MAPA
       const map = L.map("map", {
         center: [lat, lng],
         zoom: 10,
         minZoom: 4,
       });
 
-      // 🌎 OSM abajo
-      const capaOSM = L.tileLayer(
+      // OSM base
+      L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
           opacity: 1.0,
@@ -278,12 +367,12 @@
         }
       ).addTo(map);
 
-      // 🛰️ Satélite arriba (90% transparente)
-      const capaSatelite = L.tileLayer(
+      // Satélite suave
+      L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         {
           opacity: 0.10,
-          maxZoom: 19
+          maxZoom: 19,
         }
       ).addTo(map);
 
@@ -306,7 +395,7 @@
         const div = L.DomUtil.create("div", "legend");
         div.innerHTML = `
           <div class="legend-item">
-            <span class="legend-color" style="background:#16a34a;"></span> Aprobado (N más cercanos)
+            <span class="legend-color" style="background:#16a34a;"></span> Aprobado
           </div>
           <div class="legend-item">
             <span class="legend-color" style="background:#ea580c;"></span> En calificación / evaluación
@@ -322,186 +411,182 @@
       };
       legend.addTo(map);
 
+      let proyectos;
       try {
-        let proyectos = await loadExcelData();
-
-        // Filtro por sectores (mismos que en index.html)
-        if (sectoresFiltro.length) {
-          proyectos = proyectos.filter((p) => {
-            const sectorLower = (p.sector || "").toLowerCase();
-            return sectoresFiltro.some(
-              (s) => sectorLower === s.trim().toLowerCase()
-            );
-          });
-        }
-
-        const todosConDist = proyectos.map((p) => ({
-          ...p,
-          distKm: distanceKm(lat, lng, p.lat, p.lon),
-        }));
-
-        let radioKm = radioParam;
-        let aprobTopN = [];
-
-        if (modo === "proximidad") {
-          // Sólo aprobados, ordenados por distancia
-          const aprobados = todosConDist.filter((p) =>
-            (p.estado || "").toLowerCase().includes("aprob")
-          );
-          aprobados.sort((a, b) => a.distKm - b.distKm);
-
-          aprobTopN = aprobados.slice(0, nParam);
-
-          if (aprobTopN.length) {
-            radioKm = aprobTopN[aprobTopN.length - 1].distKm;
-          } else {
-            radioKm = radioParam; // fallback
-          }
-        }
-
-        // Círculo (sólo perímetro)
-        const circle = L.circle([lat, lng], {
-          radius: radioKm * 1000,
-          color: "#1d4ed8",
-          weight: 3,
-          fill: false,
-          fillOpacity: 0,
-          interactive: false,
-        }).addTo(map);
-
-        // Ajustar vista
-        map.fitBounds(circle.getBounds(), { padding: [20, 20] });
-
-        // Proyectos dentro del radio
-        const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
-
-        // Conjunto de aprobados top N (para marcarlos en verde en modo proximidad)
-        const topNSet =
-          modo === "proximidad"
-            ? new Set(
-                aprobTopN.map(
-                  (p) => `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`
-                )
-              )
-            : new Set();
-
-        // Contadores y sumas de inversión
-        let resumenAprob = 0;
-        let resumenCalif = 0;
-        let resumenRech = 0;
-        let resumenOtros = 0;
-
-        let invAprob = 0;
-        let invCalif = 0;
-        let invRech = 0;
-        let invOtros = 0;
-
-        dentro.forEach((p) => {
-          const estadoL = (p.estado || "").toLowerCase();
-          const key = `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`;
-
-          let color = "#6b7280"; // otros
-          let bucket = "Otros";
-
-          if (modo === "proximidad" && topNSet.has(key)) {
-            color = "#16a34a"; // Aprobados N más cercanos
-            bucket = "Aprob";
-          } else if (estadoL.includes("rech")) {
-            color = "#dc2626";
-            bucket = "Rech";
-          } else if (estadoL.includes("calif") || estadoL.includes("eval")) {
-            color = "#ea580c";
-            bucket = "Calif";
-          } else if (estadoL.includes("aprob")) {
-            color = "#16a34a";
-            bucket = "Aprob";
-          }
-
-          // Contadores
-          if (bucket === "Aprob") resumenAprob++;
-          else if (bucket === "Calif") resumenCalif++;
-          else if (bucket === "Rech") resumenRech++;
-          else resumenOtros++;
-
-          // Inversión
-          if (Number.isFinite(p.inversion)) {
-            if (bucket === "Aprob") invAprob += p.inversion;
-            else if (bucket === "Calif") invCalif += p.inversion;
-            else if (bucket === "Rech") invRech += p.inversion;
-            else invOtros += p.inversion;
-          }
-
-          const m = L.circleMarker([p.lat, p.lon], {
-            radius: 4,
-            color,
-            weight: 1,
-            fillColor: color,
-            fillOpacity: 0.8,
-          });
-
-          m.bindPopup(`
-            <strong>${p.nombre || "Proyecto sin nombre"}</strong><br/>
-            <b>Tipo:</b> ${p.tipo || "—"}<br/>
-            <b>Sector:</b> ${p.sector || "—"}<br/>
-            <b>Inversión:</b> ${formatMMU(p.inversion)}<br/>
-            <b>Estado:</b> ${p.estado || "—"}<br/>
-            <b>Distancia:</b> ${p.distKm.toFixed(2)} km<br/><br/>
-            <b>Expediente:</b> ${
-              p.web
-                ? `<a href="${p.web}" target="_blank">Abrir expediente</a>`
-                : "—"
-            }<br/>
-            <b>Anexos:</b> ${
-              p.anexos
-                ? `<a href="${p.anexos}" target="_blank">Abrir anexos</a>`
-                : "—"
-            }<br/><br/>
-            <button onclick="abrirReconsulta(${p.lat}, ${p.lon})"
-                    style="padding:6px 10px; cursor:pointer;">
-              🔎 Reconsultar desde este proyecto
-            </button>
-          `);
-
-          m.addTo(markersLayer);
-        });
-
-        // Actualizar cinta
-        radioLabel.textContent = `Radio: ${radioKm.toFixed(1)} km`;
-        countLabel.textContent =
-          `Resumen – Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
-          `Rech: ${resumenRech} | Otros: ${resumenOtros}`;
-        invLabel.textContent =
-          `Inversión – Aprob: ${formatMMU(invAprob)} | ` +
-          `Calif: ${formatMMU(invCalif)} | ` +
-          `Rech: ${formatMMU(invRech)} | ` +
-          `Otros: ${formatMMU(invOtros)}`;
+        proyectos = await loadExcelData();
       } catch (err) {
         console.error("Error cargando nacional.xlsx en mapainfo.html:", err);
         radioLabel.textContent = "Radio: —";
         countLabel.textContent =
           "Error al cargar datos de proyectos para este detalle.";
         invLabel.textContent = "Inversión: —";
+        return;
+      }
+
+      // Filtro por sectores (mismos que index.html)
+      if (sectoresFiltro.length) {
+        proyectos = proyectos.filter((p) => {
+          const sectorLower = (p.sector || "").toLowerCase();
+          return sectoresFiltro.some(
+            (s) => sectorLower === s.trim().toLowerCase()
+          );
+        });
+      }
+
+      // Añadir distancia al punto consultado
+      const todosConDist = proyectos.map((p) => ({
+        ...p,
+        distKm: distanceKm(lat, lng, p.lat, p.lon),
+      }));
+
+      let radioKm = radioParam;
+      let topNSet = new Set();
+
+      if (modo === "proximidad") {
+        const aprobados = todosConDist.filter((p) =>
+          (p.estado || "").toLowerCase().includes("aprob")
+        );
+        aprobados.sort((a, b) => a.distKm - b.distKm);
+
+        const aprobTopN = aprobados.slice(0, nParam);
+
+        if (aprobTopN.length) {
+          radioKm = aprobTopN[aprobTopN.length - 1].distKm;
+          topNSet = new Set(
+            aprobTopN.map(
+              (p) => `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`
+            )
+          );
+        } else {
+          radioKm = radioParam;
+        }
+      }
+
+      // Círculo de análisis
+      const circle = L.circle([lat, lng], {
+        radius: radioKm * 1000,
+        color: "#1d4ed8",
+        weight: 3,
+        fill: false,
+        fillOpacity: 0,
+        interactive: false,
+      }).addTo(map);
+
+      map.fitBounds(circle.getBounds(), { padding: [20, 20] });
+
+      // Proyectos dentro del radio
+      const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
+
+      let resumenAprob = 0;
+      let resumenCalif = 0;
+      let resumenRech  = 0;
+      let resumenOtros = 0;
+
+      let invAprob = 0;
+      let invCalif = 0;
+      let invRech  = 0;
+      let invOtros = 0;
+
+      dentro.forEach((p) => {
+        const estadoL = (p.estado || "").toLowerCase();
+        const key = `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`;
+
+        let color = "#6b7280";
+        let bucket = "Otros";
+
+        if (modo === "proximidad" && topNSet.has(key)) {
+          color = "#16a34a";
+          bucket = "Aprob";
+        } else if (estadoL.includes("rech")) {
+          color = "#dc2626";
+          bucket = "Rech";
+        } else if (estadoL.includes("calif") || estadoL.includes("eval")) {
+          color = "#ea580c";
+          bucket = "Calif";
+        } else if (estadoL.includes("aprob")) {
+          color = "#16a34a";
+          bucket = "Aprob";
+        }
+
+        if (bucket === "Aprob") resumenAprob++;
+        else if (bucket === "Calif") resumenCalif++;
+        else if (bucket === "Rech") resumenRech++;
+        else resumenOtros++;
+
+        if (Number.isFinite(p.inversion)) {
+          if (bucket === "Aprob") invAprob += p.inversion;
+          else if (bucket === "Calif") invCalif += p.inversion;
+          else if (bucket === "Rech") invRech += p.inversion;
+          else invOtros += p.inversion;
+        }
+
+        const m = L.circleMarker([p.lat, p.lon], {
+          radius: 4,
+          color,
+          weight: 1,
+          fillColor: color,
+          fillOpacity: 0.8,
+        });
+
+        m.bindPopup(`
+          <strong>${p.nombre || "Proyecto sin nombre"}</strong><br/>
+          <b>Tipo:</b> ${p.tipo || "—"}<br/>
+          <b>Sector:</b> ${p.sector || "—"}<br/>
+          <b>Inversión:</b> ${formatMMU(p.inversion)}<br/>
+          <b>Estado:</b> ${p.estado || "—"}<br/>
+          <b>Distancia:</b> ${p.distKm.toFixed(2)} km<br/><br/>
+          <b>Expediente:</b> ${
+            p.web
+              ? `<a href="${p.web}" target="_blank">Abrir expediente</a>`
+              : "—"
+          }<br/>
+          <b>Anexos:</b> ${
+            p.anexos
+              ? `<a href="${p.anexos}" target="_blank">Abrir anexos</a>`
+              : "—"
+          }
+        `);
+
+        m.addTo(markersLayer);
+      });
+
+      // Actualizar cinta
+      radioLabel.textContent = `Radio: ${radioKm.toFixed(1)} km`;
+      countLabel.textContent =
+        `Resumen – Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
+        `Rech: ${resumenRech} | Otros: ${resumenOtros}`;
+      invLabel.textContent =
+        `Inversión – Aprob: ${formatMMU(invAprob)} | ` +
+        `Calif: ${formatMMU(invCalif)} | ` +
+        `Rech: ${formatMMU(invRech)} | ` +
+        `Otros: ${formatMMU(invOtros)}`;
+
+      // ==============================
+      // Datos para los gráficos parametrizados
+      // ==============================
+      const chartData = dentro.map((p) => {
+        const tipoRaw = (p.tipo || "").toUpperCase();
+        let tipoNorm = "Otros";
+        if (tipoRaw.includes("EIA")) tipoNorm = "EIA";
+        else if (tipoRaw.includes("DIA")) tipoNorm = "DIA";
+
+        return {
+          tipo: tipoNorm,
+          estado: p.estado || "Otros",
+          sector: p.sector || "Sin sector",
+          region: p.region || "Sin región",
+          inversion: p.inversion || 0,
+          distKm: p.distKm
+        };
+      });
+
+      // Llamar a los gráficos (definidos en js/graficos.js)
+      if (typeof window.initCharts === "function") {
+        window.initCharts(chartData);
+      } else {
+        console.warn("initCharts(chartData) no está definido. Revisa js/graficos.js");
       }
     });
-
-    // Reconsulta desde popup
-    function abrirReconsulta(lat, lon) {
-      const params = globalParams || new URLSearchParams(window.location.search);
-      const modo = params.get("modo") || "radio";
-      const radio = params.get("radio") || 10;
-      const n = params.get("n") || 10;
-      const sectores = params.get("sectores") || "";
-
-      const url = new URL("mapainfo.html", window.location.href);
-      url.searchParams.set("lat", lat);
-      url.searchParams.set("lng", lon);
-      url.searchParams.set("modo", modo);
-      url.searchParams.set("radio", radio);
-      url.searchParams.set("n", n);
-      if (sectores) url.searchParams.set("sectores", sectores);
-
-      window.open(url.toString(), "_blank");
-    }
   </script>
 </body>
 </html>

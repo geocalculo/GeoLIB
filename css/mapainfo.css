@@ -1,0 +1,6 @@
+/* El mapa define el ancho máximo del contenido */
+.app-wrapper {
+  width: 100%;
+  max-width: min(100vh, 900px); /* El mapa manda */
+  margin: 0 auto;               /* Centrado */
+}
