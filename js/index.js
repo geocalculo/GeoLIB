@@ -181,7 +181,9 @@ function updateSectorCheckboxes(sectorSet) {
   const dynamic = document.getElementById("sectorDynamic");
   if (!dynamic) return;
 
-  // Guardar selección previa
+  const todosCb = document.getElementById("sectorTodos");
+
+  // Guardar selección previa de sectores dinámicos
   const prevSelected = new Set(
     Array.from(
       document.querySelectorAll('#sectorDynamic input[name="sector"]:checked')
@@ -208,7 +210,10 @@ function updateSectorCheckboxes(sectorSet) {
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9]+/g, "_");
 
-    const checked = prevSelected.size ? prevSelected.has(sec) : true;
+    // Si está activo "Todos", todos los sectores dinámicos quedan chequeados.
+    const checked =
+      (todosCb && todosCb.checked) ||
+      (prevSelected.size ? prevSelected.has(sec) : true);
 
     const label = document.createElement("label");
     label.className = "checkbox-item";
@@ -221,8 +226,7 @@ function updateSectorCheckboxes(sectorSet) {
     dynamic.appendChild(label);
   });
 
-  // Listeners: si se toca algún sector, se apaga "Todos"
-  const todosCb = document.getElementById("sectorTodos");
+  // Listeners: si se toca algún sector, se apaga "Todos" y se refresca el mapa
   dynamic
     .querySelectorAll('input[name="sector"]')
     .forEach((cb) =>
@@ -233,6 +237,7 @@ function updateSectorCheckboxes(sectorSet) {
         if (todosCb && anyChecked) {
           todosCb.checked = false;
         } else if (todosCb && !anyChecked) {
+          // si desmarcan todos, volvemos a "Todos"
           todosCb.checked = true;
         }
         actualizarResumenYCapas();
@@ -407,6 +412,20 @@ function onMapClick(e) {
 // Panel plegable + controles
 // ===============================
 
+function updateModeUI() {
+  const modo = getModoSeleccion();
+  const radioSlider = document.getElementById("radioSlider");
+  const nSlider = document.getElementById("nSlider");
+
+  if (modo === "radio") {
+    if (radioSlider) radioSlider.disabled = false;
+    if (nSlider) nSlider.disabled = true;
+  } else {
+    if (radioSlider) radioSlider.disabled = true;
+    if (nSlider) nSlider.disabled = false;
+  }
+}
+
 function initPanelToggle() {
   const btn = document.getElementById("togglePanelBtn");
   const panel = document.getElementById("configPanel");
@@ -418,7 +437,7 @@ function initPanelToggle() {
 }
 
 function initControls() {
-  // Botón seleccionar todos
+  // Botón seleccionar todos / limpiar
   const selectAllBtn = document.getElementById("sectorSelectAllBtn");
   const clearBtn = document.getElementById("sectorClearBtn");
   const todosCb = document.getElementById("sectorTodos");
@@ -445,6 +464,14 @@ function initControls() {
 
   if (todosCb) {
     todosCb.addEventListener("change", () => {
+      const dynamic = document.getElementById("sectorDynamic");
+      if (todosCb.checked && dynamic) {
+        // marcar todos los sectores dinámicos
+        dynamic
+          .querySelectorAll('input[name="sector"]')
+          .forEach((cb) => (cb.checked = true));
+      }
+      // al cambiar "Todos" se recalcula todo (por si el BBOX cambió)
       actualizarResumenYCapas();
     });
   }
@@ -467,6 +494,18 @@ function initControls() {
       nValueSpan.textContent = nSlider.value;
     });
   }
+
+  // Radios de modo de selección → habilitar/deshabilitar sliders
+  document
+    .querySelectorAll('input[name="modoSeleccion"]')
+    .forEach((rb) =>
+      rb.addEventListener("change", () => {
+        updateModeUI();
+      })
+    );
+
+  // Estado inicial de sliders según modo por defecto
+  updateModeUI();
 }
 
 // ===============================
