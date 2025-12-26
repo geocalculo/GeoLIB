@@ -4,3 +4,15 @@
   max-width: min(100vh, 900px); /* El mapa manda */
   margin: 0 auto;               /* Centrado */
 }
+/* Contenedor del mapa con relación 1:1 */
+.map-square {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  position: relative;
+}
+
+.map-square > .leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 18px;
+}

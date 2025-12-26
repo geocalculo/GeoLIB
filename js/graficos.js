@@ -1,5 +1,6 @@
 // =======================================
 // graficos.js – Sistema genérico de gráficos Plotly
+// VERSIÓN MEJORADA con filtros múltiples e indicadores visuales
 // =======================================
 //
 // Espera que mapainfo.html llame a:
@@ -85,6 +86,16 @@ window.initCharts = function initCharts(data) {
   activeFilters = {};
   buildChartCards();
   renderAllCharts();
+  updateFilterIndicators();
+};
+
+// ========================================
+// NUEVA FUNCIONALIDAD: Limpiar todos los filtros
+// ========================================
+window.clearAllFilters = function clearAllFilters() {
+  activeFilters = {};
+  renderAllCharts();
+  updateFilterIndicators();
 };
 
 // ---------- Construcción dinámica de tarjetas ----------
@@ -95,12 +106,65 @@ function buildChartCards() {
 
   grid.innerHTML = "";
 
-  CHARTS_CONFIG.forEach((cfg) => {
+  // ✨ NUEVO: Botón para limpiar todos los filtros
+  const clearButton = document.createElement("button");
+  clearButton.id = "clearAllFiltersBtn";
+  clearButton.className = "clear-filters-btn";
+  clearButton.textContent = "🔄 Limpiar todos los filtros";
+  clearButton.onclick = window.clearAllFilters;
+  clearButton.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.7rem 1.5rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  `;
+  
+  // Hover effect con JavaScript
+  clearButton.onmouseenter = function() {
+    this.style.transform = 'translateY(-2px)';
+    this.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
+  };
+  clearButton.onmouseleave = function() {
+    this.style.transform = 'translateY(0)';
+    this.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+  };
+
+  grid.appendChild(clearButton);
+
+  CHARTS_CONFIG.forEach((cfg, index) => {
     const card = document.createElement("div");
     card.className = "chart-card";
+    card.id = `card_${cfg.id}`;
+    
+    // ✨ NUEVO: Animación de entrada escalonada
+    card.style.cssText = `
+      position: relative;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      animation: fadeInUp 0.4s ease forwards;
+      animation-delay: ${0.05 * (index + 1)}s;
+      opacity: 0;
+    `;
 
     const h3 = document.createElement("h3");
     h3.textContent = cfg.title;
+    h3.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    `;
 
     const div = document.createElement("div");
     div.id = `chart_${cfg.id}`;
@@ -112,7 +176,136 @@ function buildChartCards() {
 
     // guardar id real en la config
     cfg.containerId = div.id;
+    cfg.cardId = card.id;
   });
+
+  // ✨ NUEVO: Agregar estilos de animación al head si no existen
+  if (!document.getElementById('chart-animations-style')) {
+    const style = document.createElement('style');
+    style.id = 'chart-animations-style';
+    style.textContent = `
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .chart-card:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+        transform: translateY(-2px);
+      }
+
+      .chart-card.filtered {
+        border: 2px solid #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      .filter-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.5rem;
+        background: #3b82f6;
+        color: white;
+        font-size: 0.7rem;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .filter-badge:hover {
+        background: #2563eb;
+        transform: scale(1.05);
+      }
+
+      .filter-badge::after {
+        content: '×';
+        font-size: 0.9rem;
+        font-weight: bold;
+        margin-left: 0.2rem;
+      }
+
+      .chart-card::before {
+        content: '👆 Clic para filtrar';
+        position: absolute;
+        top: -8px;
+        right: 10px;
+        background: #fbbf24;
+        color: #78350f;
+        padding: 0.2rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .chart-card:hover::before {
+        opacity: 1;
+      }
+
+      .chart-card.filtered::before {
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        .chart-card::before {
+          display: none;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// ========================================
+// NUEVA FUNCIONALIDAD: Indicadores visuales de filtros
+// ========================================
+
+function updateFilterIndicators() {
+  CHARTS_CONFIG.forEach(cfg => {
+    const card = document.getElementById(cfg.cardId);
+    if (!card) return;
+
+    const hasFilter = activeFilters[cfg.dimension];
+    
+    if (hasFilter) {
+      card.classList.add('filtered');
+      
+      // Agregar badge si no existe
+      const h3 = card.querySelector('h3');
+      let badge = h3.querySelector('.filter-badge');
+      
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'filter-badge';
+        badge.textContent = 'Filtrado';
+        badge.onclick = (e) => {
+          e.stopPropagation();
+          clearChartFilter(cfg.dimension);
+        };
+        h3.appendChild(badge);
+      }
+    } else {
+      card.classList.remove('filtered');
+      const badge = card.querySelector('.filter-badge');
+      if (badge) badge.remove();
+    }
+  });
+}
+
+function clearChartFilter(dimension) {
+  delete activeFilters[dimension];
+  renderAllCharts();
+  updateFilterIndicators();
 }
 
 // ---------- Render y filtros ----------
@@ -139,25 +332,41 @@ function renderChart(cfg) {
             return String(anioNum);
           }
 
-          if (keyRaw === undefined || keyRaw === null || keyRaw === "") {
+          // ✨ MEJORADO: Normalizar valores vacíos
+          if (keyRaw === undefined || keyRaw === null || 
+              String(keyRaw).trim() === "") {
             return "Sin dato";
           }
-          return keyRaw.toString();
+          return keyRaw.toString().trim();
         })
         .filter((v) => v !== null)
     )
   );
 
-  // 1) Aplicar filtros activos (sobre fullData)
+  // 1) ✨ MEJORADO: Aplicar TODOS los filtros activos (múltiples dimensiones)
   const filtered = fullData.filter((row) => {
     for (const dim in activeFilters) {
       const val = activeFilters[dim];
-      if (!val) continue;
-      const rowVal = (row[dim] || "Sin dato").toString();
+      if (!val) continue; // Skip si el filtro es null
+      
+      let rowVal = row[dim];
+      
+      // Normalizar el valor de la fila
+      if (rowVal === undefined || rowVal === null || 
+          String(rowVal).trim() === "") {
+        rowVal = "Sin dato";
+      } else {
+        rowVal = rowVal.toString().trim();
+      }
+      
+      // Si no coincide con el filtro, excluir esta fila
       if (rowVal !== val) return false;
     }
     return true;
   });
+
+  // ✨ NUEVO: Verificar si hay datos después de filtrar
+  const hasData = filtered.length > 0;
 
   // 2) Agrupar por dimensión (sector, estado, año, etc.) usando SOLO datos filtrados
   const groups = new Map();
@@ -174,9 +383,9 @@ function renderChart(cfg) {
     }
 
     let key =
-      keyRaw === undefined || keyRaw === null || keyRaw === ""
+      keyRaw === undefined || keyRaw === null || String(keyRaw).trim() === ""
         ? "Sin dato"
-        : keyRaw.toString();
+        : keyRaw.toString().trim();
 
     // valor de inversión: prioriza inversionMm
     const inv = Number(
@@ -206,6 +415,24 @@ function renderChart(cfg) {
     margin: { t: 20, b: 60, l: 60, r: 20 }
   };
 
+  // ✨ NUEVO: Mensaje cuando no hay datos
+  if (!hasData) {
+    layout.annotations = [{
+      text: 'Sin datos para<br>los filtros seleccionados',
+      xref: 'paper',
+      yref: 'paper',
+      x: 0.5,
+      y: 0.5,
+      xanchor: 'center',
+      yanchor: 'middle',
+      showarrow: false,
+      font: {
+        size: 14,
+        color: '#9ca3af'
+      }
+    }];
+  }
+
   if (cfg.chartType === "pie") {
     // En la torta SÍ dejamos solo las categorías filtradas (nueva forma)
     const pieLabels = Array.from(groups.keys());
@@ -216,51 +443,70 @@ function renderChart(cfg) {
         ? pieLabels.map((cat) => getEstadoColor(cat))
         : undefined;
 
-    dataTraces = [
-      {
+    // ✨ MEJORADO: Manejar torta vacía
+    if (pieLabels.length === 0) {
+      dataTraces = [{
         type: "pie",
-        labels: pieLabels,
-        values: pieValues,
-        textinfo: "percent",
-        hovertemplate:
-          "%{label}<br>%{value:.1f} MMU$ (%{percent})<extra></extra>",
-        sort: false,
+        labels: ["Sin datos"],
+        values: [1],
+        textinfo: "none",
+        hoverinfo: "none",
         marker: {
-          colors: pieColors,
+          colors: ['#f3f4f6'],
           line: { color: "#ffffff", width: 1 }
         }
-      }
-    ];
+      }];
+    } else {
+      dataTraces = [
+        {
+          type: "pie",
+          labels: pieLabels,
+          values: pieValues,
+          textinfo: "percent",
+          hovertemplate:
+            "%{label}<br>%{value:.1f} MMU$ (%{percent})<extra></extra>",
+          sort: false,
+          marker: {
+            colors: pieColors,
+            line: { color: "#ffffff", width: 1 }
+          }
+        }
+      ];
+    }
+    
     layout = {
       ...layout,
       showlegend: true
     };
   } else {
     // ---------- BARRAS ----------
-    // Colores con atenuación para categorías NO seleccionadas en ESTE gráfico
+    // ✨ MEJORADO: Colores con atenuación SOLO para categorías no seleccionadas en ESTA dimensión
     let colors;
 
     if (cfg.dimension === "estado") {
       colors = labels.map((cat) => {
-        const selectedDimValue = activeFilters.estado || null;
+        const selectedDimValue = activeFilters[cfg.dimension] || null;
         const base = getEstadoColor(cat);
-        if (!selectedDimValue || selectedDimValue === cat) {
-          // sin filtro en esta dimensión o categoría seleccionada
-          return base;
+        
+        // Si HAY filtro en esta dimensión y NO es esta categoría → atenuar
+        if (selectedDimValue && selectedDimValue !== cat) {
+          return base.replace("0.9", "0.2");
         }
-        // atenuar
-        return base.replace("0.9", "0.2");
+        // Sin filtro o es la categoría seleccionada → color completo
+        return base;
       });
     } else {
       colors = labels.map((cat) => {
-        const dim = cfg.dimension;
-        const selectedDimValue = activeFilters[dim] || null;
-        const strong = "rgba(191,219,254,1)";
-        const soft = "rgba(191,219,254,0.2)";
-        if (!selectedDimValue || selectedDimValue === cat) {
-          return strong;
+        const selectedDimValue = activeFilters[cfg.dimension] || null;
+        const strong = "rgba(59,130,246,0.9)"; // blue-500
+        const soft = "rgba(59,130,246,0.2)";
+        
+        // Si HAY filtro en esta dimensión y NO es esta categoría → atenuar
+        if (selectedDimValue && selectedDimValue !== cat) {
+          return soft;
         }
-        return soft;
+        // Sin filtro o es la categoría seleccionada → color completo
+        return strong;
       });
     }
 
@@ -326,7 +572,7 @@ function renderChart(cfg) {
     displaylogo: false
   });
 
-  // 5) Click → toggle de filtro en esta dimensión
+  // 5) ✨ MEJORADO: Click → toggle de filtro en esta dimensión
   container.on("plotly_click", (ev) => {
     if (!ev.points || !ev.points.length) return;
     const pt = ev.points[0];
@@ -334,6 +580,8 @@ function renderChart(cfg) {
     let category;
     if (cfg.chartType === "pie") {
       category = pt.label.toString();
+      // No permitir clic en "Sin datos"
+      if (category === "Sin datos") return;
     } else if (cfg.orientation === "h") {
       category = pt.y.toString();
     } else {
@@ -343,11 +591,14 @@ function renderChart(cfg) {
     const current = activeFilters[cfg.dimension] || null;
 
     if (current === category) {
-      activeFilters[cfg.dimension] = null; // quitar filtro
+      // Si ya está filtrado por esta categoría → quitar filtro
+      delete activeFilters[cfg.dimension];
     } else {
-      activeFilters[cfg.dimension] = category; // aplicar filtro
+      // Aplicar/cambiar filtro a esta categoría
+      activeFilters[cfg.dimension] = category;
     }
 
     renderAllCharts();
+    updateFilterIndicators(); // ✨ NUEVO: Actualizar indicadores visuales
   });
 }

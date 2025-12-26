@@ -13,6 +13,12 @@
 
   <!-- CSS externo -->
   <link rel="stylesheet" href="css/index.css" />
+  
+  <!-- ✨ CSS selector de regiones -->
+  <link rel="stylesheet" href="css/region-selector.css" />
+  
+  <!-- ✨ CSS integración del panel lateral -->
+  <link rel="stylesheet" href="css/panel-integration-fix.css" />
 </head>
 
 <body>
@@ -24,6 +30,16 @@
       <div class="app-header-inner">
         <h1>SEA Mining - Explorador de proyectos</h1>
         <p>Haz clic en el mapa para consultar en detalle (mapainfo.html).</p>
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- SELECTOR DE REGIÓN -->
+      <!-- ========================================================= -->
+      <div class="region-selector-container">
+        <label for="region-select" class="region-label">📍 Región:</label>
+        <select id="region-select" class="region-select">
+          <option value="">Cargando regiones...</option>
+        </select>
       </div>
 
       <!-- Botón (icono home) - hoy solo decorativo -->

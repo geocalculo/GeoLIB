@@ -9,13 +9,16 @@
  *      • Por Proximidad (slider N 5–20 aprobados)
  *  - Click → abre mapainfo.html con lat, lng, modo, R, N y sectores
  *  - Panel lateral plegable (desktop abierto / móvil cerrado)
+ *  - ✨ NUEVO: Selector de regiones con zoom automático
  ************************************************************/
 
 const DATA_XLSX_URL = "capas/nacional.xlsx";
+const REGIONES_JSON_URL = "capas/regiones.json";  // ✨ NUEVO
 
 let proyectos = [];
 let map;
 let markersLayer;
+let regionesData = [];  // ✨ NUEVO
 
 // ===============================
 // Helpers generales
@@ -97,6 +100,87 @@ function getNProximos() {
   if (!slider) return 10;
   const val = parseInt(slider.value, 10);
   return Number.isFinite(val) && val > 0 ? val : 10;
+}
+
+// ===============================
+// Carga del Excel (por letras de columna)
+// ===============================
+
+// ✨ NUEVO: Cargar regiones desde JSON
+async function loadRegionesData() {
+  try {
+    const resp = await fetch(REGIONES_JSON_URL);
+    
+    // Verificar si la respuesta es exitosa
+    if (!resp.ok) {
+      throw new Error(`HTTP error! status: ${resp.status}`);
+    }
+    
+    // Verificar que sea JSON
+    const contentType = resp.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      console.error("⚠️ El archivo no es JSON. Content-Type:", contentType);
+      throw new Error("El archivo regiones.json no se encuentra o no es válido");
+    }
+    
+    regionesData = await resp.json();
+    console.log("✔ Regiones cargadas:", regionesData.length);
+    populateRegionSelect();
+  } catch (err) {
+    console.error("❌ Error cargando regiones.json:", err);
+    console.error("📁 Verifica que el archivo esté en:", REGIONES_JSON_URL);
+    regionesData = [];
+    
+    // Mostrar mensaje en el selector
+    const select = document.getElementById("region-select");
+    if (select) {
+      select.innerHTML = '<option value="">❌ Error cargando regiones</option>';
+    }
+  }
+}
+
+// ✨ NUEVO: Poblar el selector de regiones
+function populateRegionSelect() {
+  const select = document.getElementById("region-select");
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Selecciona una región</option>';
+
+  regionesData.forEach((region) => {
+    const option = document.createElement("option");
+    option.value = region.id;
+    option.textContent = region.nombre;
+    select.appendChild(option);
+  });
+
+  // Event listener para cambio de región
+  select.addEventListener("change", onRegionChange);
+}
+
+// ✨ NUEVO: Manejar cambio de región
+function onRegionChange(e) {
+  const regionId = e.target.value;
+  if (!regionId || !map) return;
+
+  const region = regionesData.find((r) => r.id === regionId);
+  if (!region) return;
+
+  console.log(`📍 Navegando a región: ${region.nombre}`);
+
+  // Opción 1: Zoom con centro y nivel
+  if (region.centro && region.zoom) {
+    map.setView(region.centro, region.zoom);
+  }
+
+  // Opción 2: Fit bounds (si prefieres usar bbox)
+  // if (region.bbox) {
+  //   map.fitBounds(region.bbox);
+  // }
+
+  // Actualizar resumen después del zoom
+  setTimeout(() => {
+    actualizarResumenYCapas();
+  }, 300);
 }
 
 // ===============================
@@ -553,7 +637,24 @@ function initPanelResponsive() {
     if (map) {
       setTimeout(() => {
         map.invalidateSize();
+        // ✨ NUEVO: Reposicionar controles de zoom después del resize
+        repositionZoomControls();
       }, 200);
+    }
+  }
+
+  // ✨ NUEVO: Función para reposicionar controles de zoom
+  function repositionZoomControls() {
+    const zoomControl = document.querySelector('.leaflet-control-zoom');
+    if (!zoomControl) return;
+
+    // Calcular el offset según el estado del panel
+    if (isOpen && window.innerWidth > 768) {
+      // Panel abierto en desktop: mover controles a la derecha
+      zoomControl.style.left = '340px'; // Ancho del panel + margen
+    } else {
+      // Panel cerrado o móvil: posición original
+      zoomControl.style.left = '10px';
     }
   }
 
@@ -598,6 +699,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initMaps();
   initControls();
   initPanelResponsive();
+
+  // ✨ NUEVO: Cargar regiones
+  await loadRegionesData();
 
   try {
     proyectos = await loadExcelData();
