@@ -9,6 +9,11 @@
  * - Sin tirador lateral (solo botón en header para móvil)
  ************************************************************/
 
+
+/************************************************************
+ * SEA Mining - index-fullheight.js
+ ************************************************************/
+
 const DATA_XLSX_URL = "capas/nacional.xlsx";
 const REGIONES_JSON_URL = "capas/regiones.json";
 
@@ -16,6 +21,9 @@ let proyectos = [];
 let map;
 let markersLayer;
 let regionesData = [];
+
+// ✨ AGREGAR ESTA LÍNEA SI NO ESTÁ:
+let estadoSectores = {};
 
 // ===============================
 // Helpers generales
@@ -270,19 +278,19 @@ function cargarSectoresDinamicos(proyectosEnBBox) {
   });
 
   const sectoresArray = Array.from(sectoresUnicos).sort();
-
   const dynamicContainer = document.getElementById("sectorDynamic");
   if (!dynamicContainer) return;
 
-  const existentes = new Set(
-    Array.from(
-      dynamicContainer.querySelectorAll('input[name="sector"]')
-    ).map((inp) => inp.value)
-  );
+  // ✨ GUARDAR el estado actual ANTES de limpiar
+  dynamicContainer.querySelectorAll('input[name="sector"]').forEach((cb) => {
+    estadoSectores[cb.value] = cb.checked;
+  });
 
+  // Limpiar contenedor
+  dynamicContainer.innerHTML = "";
+
+  // Recrear SOLO los sectores visibles en pantalla
   sectoresArray.forEach((sec) => {
-    if (existentes.has(sec)) return;
-
     const label = document.createElement("label");
     label.className = "checkbox-item";
 
@@ -290,9 +298,17 @@ function cargarSectoresDinamicos(proyectosEnBBox) {
     checkbox.type = "checkbox";
     checkbox.name = "sector";
     checkbox.value = sec;
-    checkbox.checked = true;
+    
+    // ✨ LÓGICA DE ESTADO:
+    // - Si ya existía antes → usa su estado guardado
+    // - Si es nuevo → empieza en checked (true)
+    checkbox.checked = estadoSectores.hasOwnProperty(sec) 
+      ? estadoSectores[sec]
+      : true;
 
     checkbox.addEventListener("change", () => {
+      // ✨ ACTUALIZAR estado en memoria cuando cambie
+      estadoSectores[sec] = checkbox.checked;
       actualizarResumenYCapas();
     });
 
@@ -301,11 +317,9 @@ function cargarSectoresDinamicos(proyectosEnBBox) {
 
     label.appendChild(checkbox);
     label.appendChild(span);
-
     dynamicContainer.appendChild(label);
   });
 }
-
 // ===============================
 // Dibujar marcadores
 // ===============================

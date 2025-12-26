@@ -782,3 +782,126 @@ button:focus {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ===========================
+   Secciones del Panel
+   =========================== */
+
+.panel-section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  animation: fadeInSection 0.4s ease-out;
+}
+
+.panel-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 1rem;
+}
+
+/* Animación de entrada */
+@keyframes fadeInSection {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Badge específico de sección */
+.panel-section .badge {
+  margin-bottom: 1.25rem;
+  display: inline-flex;
+}
+
+/* Badges con colores diferentes */
+.badge-resumen {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+.badge-filtros {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+}
+
+.badge-debug {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3) !important;
+}
+
+/* Ajustar spacing del resumen en la sección */
+.panel-section #bboxInfo {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+}
+
+.panel-section #summaryTableContainer {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Ajustar el primer field-block de cada sección */
+.panel-section .field-block:first-of-type {
+  margin-top: 0;
+}
+
+/* Sección DEBUG - Oculta por defecto en producción */
+.panel-section-debug {
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.panel-section-debug:hover {
+  opacity: 1;
+}
+
+/* Opcional: Hacer debug colapsable */
+.panel-section-debug.collapsed {
+  padding-bottom: 0;
+}
+
+.panel-section-debug.collapsed #coordsDisplay {
+  display: none;
+}
+
+/* Mejoras visuales adicionales */
+.panel-section:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.panel-section:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.panel-section:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Hover effect en badges */
+.badge {
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+
+.badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* Responsive: En móvil, reducir spacing */
+@media (max-width: 767px) {
+  .panel-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+  
+  .panel-section .badge {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.75rem;
+  }
+}

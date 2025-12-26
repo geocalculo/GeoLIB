@@ -167,6 +167,54 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* ===========================
+       Labels con Polylines
+       =========================== */
+
+    .project-label-icon {
+      border: none !important;
+      background: transparent !important;
+    }
+
+    .project-label {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 0.4rem 0.7rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+      border: 1px solid #e5e7eb;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #111827;
+    }
+
+    /* Borde de color según estado */
+    .project-label-aprobado {
+      border-left: 3px solid #16a34a;
+    }
+
+    .project-label-calificacion {
+      border-left: 3px solid #ea580c;
+    }
+
+    .project-label-rechazado {
+      border-left: 3px solid #dc2626;
+    }
+
+    /* Responsive: labels más pequeños en móvil */
+    @media (max-width: 768px) {
+      .project-label {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+        max-width: 140px;
+      }
+    }
   </style>
 </head>
 
@@ -222,7 +270,7 @@
 
   <script>
     const DATA_XLSX_URL = "capas/nacional.xlsx";
-    let globalParams = null; // para reconsulta (si se quiere mantener)
+    let globalParams = null;
 
     function parseCoord(value) {
       if (value === null || value === undefined) return null;
@@ -282,19 +330,18 @@
 
       const rows = json.slice(1);
 
-      // Índices por letra de columna
-      const COL_NOMBRE = 0;   // A
-      const COL_WEB    = 1;   // B
-      const COL_TIPO   = 2;   // C (DIA / EIA / ...)
-      const COL_REGION = 3;   // D
-      const COL_INV    = 9;   // J
-      const COL_FECHA  = 10;  // K (no la usamos ahora, pero queda disponible)
-      const COL_ESTADO = 11;  // L
-      const COL_SECTOR = 13;  // N
-      const COL_LAT    = 14;  // O
-      const COL_LON    = 15;  // P
-      const COL_ANEXOS = 16;  // Q
-      const COL_ANIO   = 17;  // R - Año corregido
+      const COL_NOMBRE = 0;
+      const COL_WEB    = 1;
+      const COL_TIPO   = 2;
+      const COL_REGION = 3;
+      const COL_INV    = 9;
+      const COL_FECHA  = 10;
+      const COL_ESTADO = 11;
+      const COL_SECTOR = 13;
+      const COL_LAT    = 14;
+      const COL_LON    = 15;
+      const COL_ANEXOS = 16;
+      const COL_ANIO   = 17;
 
       const data = [];
 
@@ -331,20 +378,15 @@
       return data;
     }
 
-function ajustarZoomCirculo(map, circle) {
-  // tamaño actual del contenedor del mapa
-  const size = map.getSize();
-  const minSide = Math.min(size.x, size.y);   // px
+    function ajustarZoomCirculo(map, circle) {
+      const size = map.getSize();
+      const minSide = Math.min(size.x, size.y);
+      const paddingPx = minSide * 0.20;
 
-  // Queremos que el círculo ocupe ~60% del lado menor.
-  // Eso deja ~20% de margen por lado → padding = 0.2 * minSide
-  const paddingPx = minSide * 0.20;
-
-  map.fitBounds(circle.getBounds(), {
-    padding: [paddingPx, paddingPx]
-  });
-}
-
+      map.fitBounds(circle.getBounds(), {
+        padding: [paddingPx, paddingPx]
+      });
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
       const params = new URLSearchParams(window.location.search);
@@ -352,7 +394,7 @@ function ajustarZoomCirculo(map, circle) {
 
       const lat = parseFloat(params.get("lat"));
       const lng = parseFloat(params.get("lng"));
-      const modo = params.get("modo") || "radio";  // "radio" | "proximidad"
+      const modo = params.get("modo") || "radio";
       const radioParam = parseFloat(params.get("radio")) || 10;
       const nParam = parseInt(params.get("n") || "10", 10);
       const sectoresParam = params.get("sectores") || "";
@@ -379,7 +421,6 @@ function ajustarZoomCirculo(map, circle) {
         minZoom: 4,
       });
 
-      // OSM base
       L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
@@ -389,7 +430,6 @@ function ajustarZoomCirculo(map, circle) {
         }
       ).addTo(map);
 
-      // Satélite suave
       L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         {
@@ -439,13 +479,12 @@ function ajustarZoomCirculo(map, circle) {
       } catch (err) {
         console.error("Error cargando nacional.xlsx en mapainfo.html:", err);
         radioLabel.textContent = "Radio: —";
-        countLabel.textContent =
-          "Error al cargar datos de proyectos para este detalle.";
+        countLabel.textContent = "Error al cargar datos de proyectos para este detalle.";
         invLabel.textContent = "Inversión: —";
         return;
       }
 
-      // Filtro por sectores (mismos que index.html)
+      // Filtro por sectores
       if (sectoresFiltro.length) {
         proyectos = proyectos.filter((p) => {
           const sectorLower = (p.sector || "").toLowerCase();
@@ -494,14 +533,11 @@ function ajustarZoomCirculo(map, circle) {
         interactive: false,
       }).addTo(map);
 
-      // Ajuste de zoom para que el círculo use ~60% del lado menor
       ajustarZoomCirculo(map, circle);
 
-      // Opcional: si cambia el tamaño (rotar celular, cambiar ventana), volver a ajustar
       map.on("resize", () => {
         ajustarZoomCirculo(map, circle);
       });
-
 
       // Proyectos dentro del radio
       const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
@@ -516,7 +552,10 @@ function ajustarZoomCirculo(map, circle) {
       let invRech  = 0;
       let invOtros = 0;
 
-      dentro.forEach((p) => {
+      // ✨ Almacenar info de labels para reorganización
+      const labelsInfo = [];
+
+      dentro.forEach((p, index) => {
         const estadoL = (p.estado || "").toLowerCase();
         const key = `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`;
 
@@ -549,6 +588,7 @@ function ajustarZoomCirculo(map, circle) {
           else invOtros += p.inversion;
         }
 
+        // Marcador del proyecto
         const m = L.circleMarker([p.lat, p.lon], {
           radius: 4,
           color,
@@ -577,6 +617,92 @@ function ajustarZoomCirculo(map, circle) {
         `);
 
         m.addTo(markersLayer);
+
+        // ✨ AGREGAR LABEL CON POLYLINE solo para proyectos importantes
+        const esImportante = bucket === 'Aprob' || (modo === 'proximidad' && topNSet.has(key));
+
+        if (esImportante) {
+          labelsInfo.push({
+            proyecto: p,
+            marker: m,
+            color: color,
+            bucket: bucket,
+            index: index
+          });
+        }
+      });
+
+      // ✨ FUNCIÓN PARA CREAR/ACTUALIZAR LABELS CON POLYLINES
+      function actualizarLabelsConPolylines() {
+        // Limpiar labels anteriores
+        markersLayer.eachLayer((layer) => {
+          if (layer.options && layer.options.esLabel) {
+            markersLayer.removeLayer(layer);
+          }
+        });
+
+        const zoom = map.getZoom();
+        
+        // Ajustar distancia del label según zoom
+        let offsetDist = 0.008;
+        if (zoom < 10) offsetDist = 0.015;
+        else if (zoom < 12) offsetDist = 0.010;
+        else if (zoom >= 13) offsetDist = 0.005;
+
+        labelsInfo.forEach((info, idx) => {
+          const p = info.proyecto;
+          
+          // Calcular posición del label (distribución radial)
+          const angulo = (idx * (360 / labelsInfo.length)) * (Math.PI / 180);
+          const labelLat = p.lat + (offsetDist * Math.cos(angulo));
+          const labelLng = p.lon + (offsetDist * Math.sin(angulo));
+
+          // Línea conectora (polyline)
+          const polyline = L.polyline(
+            [[p.lat, p.lon], [labelLat, labelLng]],
+            {
+              color: info.color,
+              weight: 1.5,
+              opacity: 0.7,
+              dashArray: '3, 6',
+              esLabel: true
+            }
+          ).addTo(markersLayer);
+
+          // Clase CSS según bucket
+          let labelClass = 'project-label';
+          if (info.bucket === 'Aprob') labelClass += ' project-label-aprobado';
+          else if (info.bucket === 'Calif') labelClass += ' project-label-calificacion';
+          else if (info.bucket === 'Rech') labelClass += ' project-label-rechazado';
+
+          // Acortar nombre si es muy largo
+          const nombreMostrar = (p.nombre || "Sin nombre").length > 30
+            ? (p.nombre || "Sin nombre").substring(0, 27) + '...'
+            : (p.nombre || "Sin nombre");
+
+          // Label como DivIcon
+          const labelIcon = L.divIcon({
+            className: 'project-label-icon',
+            html: `<div class="${labelClass}">${nombreMostrar}</div>`,
+            iconSize: null,
+            iconAnchor: [0, 10]
+          });
+
+          // Marcador del label
+          const labelMarker = L.marker([labelLat, labelLng], { 
+            icon: labelIcon,
+            interactive: false,
+            esLabel: true
+          }).addTo(markersLayer);
+        });
+      }
+
+      // ✨ CREAR LABELS INICIALES
+      actualizarLabelsConPolylines();
+
+      // ✨ ACTUALIZAR LABELS AL CAMBIAR ZOOM
+      map.on('zoomend', () => {
+        actualizarLabelsConPolylines();
       });
 
       // Actualizar cinta
@@ -604,7 +730,7 @@ function ajustarZoomCirculo(map, circle) {
           estado: p.estado || "Otros",
           sector: p.sector || "Sin sector",
           region: p.region || "Sin región",
-          inversionMm: p.inversion || 0,      // usado por graficos.js
+          inversionMm: p.inversion || 0,
           anio:
             p.anio !== null && p.anio !== undefined && p.anio !== ""
               ? parseInt(p.anio, 10)
@@ -613,7 +739,7 @@ function ajustarZoomCirculo(map, circle) {
         };
       });
 
-      // Llamar a los gráficos (definidos en js/graficos.js)
+      // Llamar a los gráficos
       if (typeof window.initCharts === "function") {
         window.initCharts(chartData);
       } else {
