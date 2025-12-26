@@ -157,7 +157,7 @@ function onRegionChange(e) {
   console.log(`📍 Navegando a región: ${region.nombre}`);
 
   if (region.centro && region.zoom) {
-    map.setView(region.centro, region.zoom);
+    map.setView(region.centro, region.zoom+2);
   }
 
   setTimeout(() => {

@@ -26,7 +26,6 @@
       min-height: 100vh;
     }
 
-    /* Contenedor general: 70% de ancho, centrado */
     .page-wrapper {
       width: 70%;
       max-width: 1400px;
@@ -57,7 +56,6 @@
       color: #9ca3af;
     }
 
-    /* Cinta superior */
     .info-bar {
       margin-top: 1rem;
       padding: 0.6rem 1.25rem;
@@ -75,7 +73,6 @@
       gap: 1rem;
     }
 
-    /* Mapa cuadrado 1:1 */
     .map-square {
       width: 100%;
       aspect-ratio: 1 / 1;
@@ -93,12 +90,10 @@
       box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
     }
 
-    /* Fallback por si algún navegador ignora aspect-ratio */
     #map {
       min-height: 350px;
     }
 
-    /* Leyenda */
     .legend {
       position: absolute;
       bottom: 14px;
@@ -123,10 +118,6 @@
       height: 10px;
       border-radius: 999px;
     }
-
-    /* ==============================
-       Sección de gráficos parametrizados
-       ============================== */
 
     .charts-wrapper {
       margin-top: 2rem;
@@ -169,7 +160,7 @@
     }
 
     /* ===========================
-       Labels con Polylines
+       Labels con Polylines OPTIMIZADOS
        =========================== */
 
     .project-label-icon {
@@ -178,41 +169,175 @@
     }
 
     .project-label {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      padding: 0.4rem 0.7rem;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+      font-size: 0.7rem;
+      font-weight: 700;
       white-space: nowrap;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
-      border: 1px solid #e5e7eb;
-      max-width: 180px;
+      max-width: 150px;
       overflow: hidden;
       text-overflow: ellipsis;
       color: #111827;
+      transition: all 0.3s ease;
+      cursor: help;
+      /* Sombra de texto fuerte para legibilidad */
+      text-shadow: 
+        -1px -1px 0 #fff,
+         1px -1px 0 #fff,
+        -1px  1px 0 #fff,
+         1px  1px 0 #fff,
+        -2px -2px 3px rgba(255, 255, 255, 0.9),
+         2px -2px 3px rgba(255, 255, 255, 0.9),
+        -2px  2px 3px rgba(255, 255, 255, 0.9),
+         2px  2px 3px rgba(255, 255, 255, 0.9);
     }
 
-    /* Borde de color según estado */
     .project-label-aprobado {
-      border-left: 3px solid #16a34a;
+      color: #16a34a;
     }
 
     .project-label-calificacion {
-      border-left: 3px solid #ea580c;
+      color: #ea580c;
     }
 
     .project-label-rechazado {
-      border-left: 3px solid #dc2626;
+      color: #dc2626;
     }
 
-    /* Responsive: labels más pequeños en móvil */
+    .project-label:hover {
+      max-width: none;
+      white-space: normal;
+      z-index: 10000;
+      transform: scale(1.1);
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+
     @media (max-width: 768px) {
       .project-label {
-        font-size: 0.7rem;
-        padding: 0.3rem 0.5rem;
-        max-width: 140px;
+        font-size: 0.65rem;
+        max-width: 120px;
+      }
+    }
+
+    /* ===========================
+       Sistema de Highlighting A++
+       =========================== */
+
+    .project-label-highlighted {
+      color: #667eea !important;
+      font-weight: 800 !important;
+      font-size: 0.8rem !important;
+      transform: scale(1.15);
+      z-index: 1000 !important;
+      animation: pulse-label 2s ease-in-out infinite;
+      /* Sombra más fuerte para destacar */
+      text-shadow: 
+        -1px -1px 0 #fff,
+         1px -1px 0 #fff,
+        -1px  1px 0 #fff,
+         1px  1px 0 #fff,
+        -2px -2px 4px rgba(255, 255, 255, 1),
+         2px -2px 4px rgba(255, 255, 255, 1),
+        -2px  2px 4px rgba(255, 255, 255, 1),
+         2px  2px 4px rgba(255, 255, 255, 1),
+         0 0 8px rgba(102, 126, 234, 0.6) !important;
+    }
+
+    @keyframes pulse-label {
+      0%, 100% { 
+        transform: scale(1.15);
+        filter: drop-shadow(0 0 6px rgba(102, 126, 234, 0.6));
+      }
+      50% { 
+        transform: scale(1.2);
+        filter: drop-shadow(0 0 10px rgba(102, 126, 234, 0.9));
+      }
+    }
+
+    .project-label-dimmed {
+      opacity: 0.3 !important;
+      filter: grayscale(70%);
+      transition: all 0.3s ease;
+    }
+
+    .filter-counter {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(102, 126, 234, 0.95);
+      backdrop-filter: blur(10px);
+      color: white;
+      padding: 0.6rem 1.2rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      display: none;
+      line-height: 1.4;
+    }
+
+    .filter-counter.active {
+      display: block;
+      animation: slideInDown 0.3s ease;
+    }
+
+    .filter-counter small {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 500;
+      opacity: 0.9;
+      margin-top: 0.2rem;
+    }
+
+    @keyframes slideInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .filter-reset-btn {
+      position: absolute;
+      top: 80px;
+      right: 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      z-index: 1000;
+      display: none;
+      transition: all 0.3s ease;
+    }
+
+    .filter-reset-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+    }
+
+    .filter-reset-btn.active {
+      display: block;
+      animation: slideInRight 0.3s ease;
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
       }
     }
   </style>
@@ -220,13 +345,11 @@
 
 <body>
   <div class="page-wrapper">
-    <!-- HEADER -->
     <header>
       <h1>SEA Mining – Detalle de proximidad</h1>
       <p>Proyectos dentro del radio definido desde el punto consultado.</p>
     </header>
 
-    <!-- CINTA SUPERIOR -->
     <div class="info-bar">
       <div class="info-row">
         <span id="coordsLabel">Punto: —</span>
@@ -239,34 +362,20 @@
       </div>
     </div>
 
-    <!-- MAPA CUADRADO -->
     <div class="map-square">
       <div id="map"></div>
     </div>
 
-    <!-- ============================= -->
-    <!-- SECCIÓN DE GRÁFICOS PARAMETRIZADOS -->
-    <!-- ============================= -->
     <div id="chartsSection" class="charts-wrapper">
       <h2 class="charts-title">Análisis gráfico de la inversión</h2>
-
-      <!-- Aquí se inyectan automáticamente las tarjetas de gráficos 
-           según la configuración en js/graficos.js (CHARTS_CONFIG) -->
       <div id="chartsGrid" class="charts-grid"></div>
     </div>
   </div>
 
-  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- SheetJS para leer el Excel nacional -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- Plotly.js -->
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-
-  <!-- Lógica de gráficos parametrizados -->
-  <script src="js/graficos.js"></script>
+  <script src="js/graficos-enhanced.js"></script>
 
   <script>
     const DATA_XLSX_URL = "capas/nacional.xlsx";
@@ -276,9 +385,7 @@
       if (value === null || value === undefined) return null;
       let s = String(value).trim();
       if (!s) return null;
-
       s = s.replace(/\s/g, "");
-
       if (s.indexOf(",") >= 0 && s.indexOf(".") >= 0) {
         if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
           s = s.replace(/\./g, "").replace(",", ".");
@@ -288,7 +395,6 @@
       } else if (s.indexOf(",") >= 0) {
         s = s.replace(",", ".");
       }
-
       const num = Number(s);
       return Number.isFinite(num) ? num : null;
     }
@@ -316,7 +422,6 @@
       );
     }
 
-    // Lectura de nacional.xlsx por columnas
     async function loadExcelData() {
       const resp = await fetch(DATA_XLSX_URL);
       const buf = await resp.arrayBuffer();
@@ -414,7 +519,6 @@
           ? `Modo: Proximidad (N=${nParam} aprobados)`
           : `Modo: Radio (R=${radioParam} km)`;
 
-      // MAPA
       const map = L.map("map", {
         center: [lat, lng],
         zoom: 10,
@@ -440,7 +544,6 @@
 
       L.control.scale().addTo(map);
 
-      // Punto exacto del clic
       L.circleMarker([lat, lng], {
         radius: 6,
         color: "#1d4ed8",
@@ -451,7 +554,6 @@
 
       const markersLayer = L.layerGroup().addTo(map);
 
-      // Leyenda
       const legend = L.control({ position: "bottomleft" });
       legend.onAdd = function () {
         const div = L.DomUtil.create("div", "legend");
@@ -484,7 +586,6 @@
         return;
       }
 
-      // Filtro por sectores
       if (sectoresFiltro.length) {
         proyectos = proyectos.filter((p) => {
           const sectorLower = (p.sector || "").toLowerCase();
@@ -494,7 +595,6 @@
         });
       }
 
-      // Añadir distancia al punto consultado
       const todosConDist = proyectos.map((p) => ({
         ...p,
         distKm: distanceKm(lat, lng, p.lat, p.lon),
@@ -523,7 +623,6 @@
         }
       }
 
-      // Círculo de análisis
       const circle = L.circle([lat, lng], {
         radius: radioKm * 1000,
         color: "#1d4ed8",
@@ -539,7 +638,6 @@
         ajustarZoomCirculo(map, circle);
       });
 
-      // Proyectos dentro del radio
       const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
 
       let resumenAprob = 0;
@@ -552,7 +650,6 @@
       let invRech  = 0;
       let invOtros = 0;
 
-      // ✨ Almacenar info de labels para reorganización
       const labelsInfo = [];
 
       dentro.forEach((p, index) => {
@@ -588,7 +685,6 @@
           else invOtros += p.inversion;
         }
 
-        // Marcador del proyecto
         const m = L.circleMarker([p.lat, p.lon], {
           radius: 4,
           color,
@@ -596,6 +692,9 @@
           fillColor: color,
           fillOpacity: 0.8,
         });
+
+        m.proyecto = p;
+        m.bucket = bucket;
 
         m.bindPopup(`
           <strong>${p.nombre || "Proyecto sin nombre"}</strong><br/>
@@ -618,7 +717,6 @@
 
         m.addTo(markersLayer);
 
-        // ✨ AGREGAR LABEL CON POLYLINE solo para proyectos importantes
         const esImportante = bucket === 'Aprob' || (modo === 'proximidad' && topNSet.has(key));
 
         if (esImportante) {
@@ -632,9 +730,8 @@
         }
       });
 
-      // ✨ FUNCIÓN PARA CREAR/ACTUALIZAR LABELS CON POLYLINES
+      // ✨ FUNCIÓN CON DETECCIÓN DE COLISIONES INTELIGENTE
       function actualizarLabelsConPolylines() {
-        // Limpiar labels anteriores
         markersLayer.eachLayer((layer) => {
           if (layer.options && layer.options.esLabel) {
             markersLayer.removeLayer(layer);
@@ -643,69 +740,309 @@
 
         const zoom = map.getZoom();
         
-        // Ajustar distancia del label según zoom
-        let offsetDist = 0.008;
-        if (zoom < 10) offsetDist = 0.015;
-        else if (zoom < 12) offsetDist = 0.010;
-        else if (zoom >= 13) offsetDist = 0.005;
+        // Offset según zoom
+        let offsetDist = 0.012;
+        if (zoom < 10) offsetDist = 0.020;
+        else if (zoom < 12) offsetDist = 0.015;
+        else if (zoom >= 13) offsetDist = 0.008;
+
+        // Umbral de colisión dinámico según zoom
+        // REDUCIDO porque texto pelado ocupa menos espacio
+        let umbralColision = 0.0015;  // Más pequeño que antes (era 0.003)
+        if (zoom < 10) umbralColision = 0.003;   // Antes 0.006
+        else if (zoom < 12) umbralColision = 0.002;  // Antes 0.004
+        else if (zoom >= 13) umbralColision = 0.001;  // Antes 0.002
+
+        // ✨ DEFINIR CUADRANTES Y OFFSETS
+        const cuadranteOffsets = {
+          'NE': { lat: +1, lng: +1 },
+          'SE': { lat: -1, lng: +1 },
+          'SW': { lat: -1, lng: -1 },
+          'NW': { lat: +1, lng: -1 }
+        };
+
+        // Orden de prioridad: NE → SE → SW → NW (horario)
+        const cuadrantesOrden = ['NE', 'SE', 'SW', 'NW'];
+
+        // ✨ ALMACENAR POSICIONES OCUPADAS
+        const posicionesOcupadas = [];
+
+        // ✨ FUNCIÓN DE DETECCIÓN DE COLISIÓN
+        function hayColision(nuevaLat, nuevaLng) {
+          return posicionesOcupadas.some(pos => {
+            const distLat = Math.abs(pos.lat - nuevaLat);
+            const distLng = Math.abs(pos.lng - nuevaLng);
+            return distLat < umbralColision && distLng < umbralColision;
+          });
+        }
+
+        // Contador de cuadrantes usados (para debug)
+        const cuadrantesUsados = { NE: 0, SE: 0, SW: 0, NW: 0 };
 
         labelsInfo.forEach((info, idx) => {
           const p = info.proyecto;
           
-          // Calcular posición del label (distribución radial)
-          const angulo = (idx * (360 / labelsInfo.length)) * (Math.PI / 180);
-          const labelLat = p.lat + (offsetDist * Math.cos(angulo));
-          const labelLng = p.lon + (offsetDist * Math.sin(angulo));
+          const distanciaAlPunto = distanceKm(lat, lng, p.lat, p.lon);
+          if (distanciaAlPunto > radioKm) {
+            return;
+          }
+          
+          // ✨ BUSCAR CUADRANTE SIN COLISIÓN
+          let cuadranteSeleccionado = 'NE'; // Default
+          let labelLat, labelLng;
 
-          // Línea conectora (polyline)
+          for (const cuadrante of cuadrantesOrden) {
+            const offset = cuadranteOffsets[cuadrante];
+            const testLat = p.lat + (offsetDist * offset.lat);
+            const testLng = p.lon + (offsetDist * offset.lng);
+
+            if (!hayColision(testLat, testLng)) {
+              // ✅ No hay colisión, usar este cuadrante
+              cuadranteSeleccionado = cuadrante;
+              labelLat = testLat;
+              labelLng = testLng;
+              break;
+            }
+          }
+
+          // Si todos los cuadrantes colisionan, usar NE de todos modos
+          if (!labelLat || !labelLng) {
+            const offset = cuadranteOffsets['NE'];
+            labelLat = p.lat + (offsetDist * offset.lat);
+            labelLng = p.lon + (offsetDist * offset.lng);
+            cuadranteSeleccionado = 'NE';
+          }
+
+          // ✨ REGISTRAR POSICIÓN OCUPADA
+          posicionesOcupadas.push({ lat: labelLat, lng: labelLng });
+          cuadrantesUsados[cuadranteSeleccionado]++;
+
+          // Crear línea conectora
           const polyline = L.polyline(
             [[p.lat, p.lon], [labelLat, labelLng]],
             {
               color: info.color,
-              weight: 1.5,
-              opacity: 0.7,
-              dashArray: '3, 6',
-              esLabel: true
+              weight: 2,
+              opacity: 0.9,
+              dashArray: '',
+              esLabel: true,
+              interactive: false
             }
-          ).addTo(markersLayer);
+          );
+          polyline.proyecto = p;
+          polyline.addTo(markersLayer);
 
-          // Clase CSS según bucket
           let labelClass = 'project-label';
           if (info.bucket === 'Aprob') labelClass += ' project-label-aprobado';
           else if (info.bucket === 'Calif') labelClass += ' project-label-calificacion';
           else if (info.bucket === 'Rech') labelClass += ' project-label-rechazado';
 
-          // Acortar nombre si es muy largo
-          const nombreMostrar = (p.nombre || "Sin nombre").length > 30
-            ? (p.nombre || "Sin nombre").substring(0, 27) + '...'
-            : (p.nombre || "Sin nombre");
+          const nombreOriginal = p.nombre || "Sin nombre";
+          const nombreMostrar = nombreOriginal.length > 20
+            ? nombreOriginal.substring(0, 17) + '...'
+            : nombreOriginal;
 
-          // Label como DivIcon
           const labelIcon = L.divIcon({
             className: 'project-label-icon',
-            html: `<div class="${labelClass}">${nombreMostrar}</div>`,
+            html: `<div class="${labelClass}" title="${nombreOriginal}" data-cuadrante="${cuadranteSeleccionado}">${nombreMostrar}</div>`,
             iconSize: null,
             iconAnchor: [0, 10]
           });
 
-          // Marcador del label
           const labelMarker = L.marker([labelLat, labelLng], { 
             icon: labelIcon,
             interactive: false,
             esLabel: true
-          }).addTo(markersLayer);
+          });
+          labelMarker.proyecto = p;
+          labelMarker.cuadrante = cuadranteSeleccionado;
+          labelMarker.addTo(markersLayer);
         });
+
+        // Log de distribución (para debugging)
+        console.log('📊 Distribución de cuadrantes:', cuadrantesUsados);
+        console.log(`   Total labels: ${Object.values(cuadrantesUsados).reduce((a, b) => a + b, 0)}`);
       }
 
-      // ✨ CREAR LABELS INICIALES
       actualizarLabelsConPolylines();
 
-      // ✨ ACTUALIZAR LABELS AL CAMBIAR ZOOM
       map.on('zoomend', () => {
         actualizarLabelsConPolylines();
       });
 
-      // Actualizar cinta
+      // ==============================
+      // ✨ SISTEMA DE HIGHLIGHTING A++
+      // ==============================
+
+      let currentFilter = null;
+      let highlightedProjectKeys = new Set();
+      let highlightRingsGroup = L.layerGroup().addTo(map);
+
+      window.highlightMapProjects = function(projectKeys, filterInfo) {
+        if (!projectKeys || projectKeys.length === 0) {
+          resetHighlight();
+          return;
+        }
+
+        currentFilter = filterInfo;
+        highlightedProjectKeys = new Set(projectKeys);
+
+        applyHighlight();
+        updateFilterUI();
+      };
+
+      function applyHighlight() {
+        markersLayer.eachLayer((layer) => {
+          if (!layer.proyecto) return;
+
+          const p = layer.proyecto;
+          const key = `${p.nombre}|${p.sector}|${p.region}`;
+          const isHighlighted = highlightedProjectKeys.has(key);
+
+          if (layer instanceof L.CircleMarker && !layer.options.esLabel) {
+            if (isHighlighted) {
+              const el = layer.getElement();
+              if (el) {
+                el.style.opacity = '1';
+                el.style.transform = 'scale(1.5)';
+              }
+            } else {
+              const el = layer.getElement();
+              if (el) el.style.opacity = '0.25';
+            }
+          }
+
+          if (layer instanceof L.Polyline && layer.options.esLabel) {
+            if (layer._path) {
+              layer._path.style.strokeOpacity = isHighlighted ? '1' : '0.2';
+              layer._path.style.strokeWidth = isHighlighted ? '3px' : '2px';
+            }
+          }
+
+          if (layer instanceof L.Marker && layer.options.esLabel) {
+            const el = layer.getElement();
+            if (el) {
+              const labelDiv = el.querySelector('.project-label');
+              if (labelDiv) {
+                if (isHighlighted) {
+                  labelDiv.classList.add('project-label-highlighted');
+                  labelDiv.classList.remove('project-label-dimmed');
+                } else {
+                  labelDiv.classList.add('project-label-dimmed');
+                  labelDiv.classList.remove('project-label-highlighted');
+                }
+              }
+            }
+          }
+        });
+
+        addHighlightRings();
+      }
+
+      function resetHighlight() {
+        currentFilter = null;
+        highlightedProjectKeys.clear();
+
+        markersLayer.eachLayer((layer) => {
+          if (!layer.proyecto) return;
+
+          if (layer instanceof L.CircleMarker && !layer.options.esLabel) {
+            const el = layer.getElement();
+            if (el) {
+              el.style.opacity = '';
+              el.style.transform = '';
+            }
+          }
+
+          if (layer instanceof L.Polyline && layer.options.esLabel) {
+            if (layer._path) {
+              layer._path.style.strokeOpacity = '';
+              layer._path.style.strokeWidth = '';
+            }
+          }
+
+          if (layer instanceof L.Marker && layer.options.esLabel) {
+            const el = layer.getElement();
+            if (el) {
+              const labelDiv = el.querySelector('.project-label');
+              if (labelDiv) {
+                labelDiv.classList.remove('project-label-highlighted', 'project-label-dimmed');
+              }
+            }
+          }
+        });
+
+        removeHighlightRings();
+        updateFilterUI();
+      }
+
+      function addHighlightRings() {
+        removeHighlightRings();
+
+        dentro.forEach((p) => {
+          const key = `${p.nombre}|${p.sector}|${p.region}`;
+          
+          if (highlightedProjectKeys.has(key)) {
+            const estadoL = (p.estado || "").toLowerCase();
+            let ringColor = "#667eea";
+            
+            if (estadoL.includes("aprob")) ringColor = "#16a34a";
+            else if (estadoL.includes("calif") || estadoL.includes("eval")) ringColor = "#ea580c";
+            else if (estadoL.includes("rech")) ringColor = "#dc2626";
+
+            const ring = L.circle([p.lat, p.lon], {
+              radius: 150,
+              color: ringColor,
+              weight: 3,
+              fill: false,
+              interactive: false
+            });
+
+            const svg = ring.getElement();
+            if (svg) {
+              svg.style.animation = 'pulse-ring 2s ease-out infinite';
+            }
+
+            highlightRingsGroup.addLayer(ring);
+          }
+        });
+      }
+
+      function removeHighlightRings() {
+        highlightRingsGroup.clearLayers();
+      }
+
+      function updateFilterUI() {
+        let counterDiv = document.querySelector('.filter-counter');
+        let resetBtn = document.querySelector('.filter-reset-btn');
+
+        if (!counterDiv) {
+          counterDiv = document.createElement('div');
+          counterDiv.className = 'filter-counter';
+          document.querySelector('.map-square').appendChild(counterDiv);
+        }
+
+        if (!resetBtn) {
+          resetBtn = document.createElement('button');
+          resetBtn.className = 'filter-reset-btn';
+          resetBtn.textContent = '✕ Limpiar filtro';
+          resetBtn.onclick = resetHighlight;
+          document.querySelector('.map-square').appendChild(resetBtn);
+        }
+
+        if (highlightedProjectKeys.size > 0) {
+          counterDiv.innerHTML = `
+            📊 <strong>${highlightedProjectKeys.size}</strong> proyecto(s) filtrado(s)
+            ${currentFilter ? `<br><small>${currentFilter}</small>` : ''}
+          `;
+          counterDiv.classList.add('active');
+          resetBtn.classList.add('active');
+        } else {
+          counterDiv.classList.remove('active');
+          resetBtn.classList.remove('active');
+        }
+      }
+
       radioLabel.textContent = `Radio: ${radioKm.toFixed(1)} km`;
       countLabel.textContent =
         `Resumen – Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
@@ -716,9 +1053,6 @@
         `Rech: ${formatMMU(invRech)} | ` +
         `Otros: ${formatMMU(invOtros)}`;
 
-      // ==============================
-      // Datos para los gráficos parametrizados
-      // ==============================
       const chartData = dentro.map((p) => {
         const tipoRaw = (p.tipo || "").toUpperCase();
         let tipoNorm = "Otros";
@@ -730,6 +1064,7 @@
           estado: p.estado || "Otros",
           sector: p.sector || "Sin sector",
           region: p.region || "Sin región",
+          nombre: p.nombre || "Sin nombre",
           inversionMm: p.inversion || 0,
           anio:
             p.anio !== null && p.anio !== undefined && p.anio !== ""
@@ -739,13 +1074,29 @@
         };
       });
 
-      // Llamar a los gráficos
+      window.chartDataGlobal = chartData;
+
       if (typeof window.initCharts === "function") {
         window.initCharts(chartData);
       } else {
         console.warn("initCharts(chartData) no está definido. Revisa js/graficos.js");
       }
     });
+
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes pulse-ring {
+        0% {
+          stroke-opacity: 1;
+          r: 150;
+        }
+        100% {
+          stroke-opacity: 0;
+          r: 350;
+        }
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>
