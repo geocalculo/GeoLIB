@@ -44,34 +44,110 @@ function getEstadoColor(label) {
 // orientation (sólo para "bar"): "h" | "v"
 // xTickAngle (opcional): ángulo del texto eje X en barras verticales
 
+// ---------- CONFIGURACIÓN DE GRÁFICOS ----------
+// chartType: "bar" | "pie"
+// orientation (sólo para "bar"): "h" | "v"
+// metric: "sum" (inversión) | "count" (#proyectos)
+
 const CHARTS_CONFIG = [
+  // =========================
+  // FILA 1: Sector (barra horizontal)
+  // =========================
   {
-    id: "sector",
-    title: "Inversión por sector productivo",
+    id: "inv_sector_bar",
+    title: "Inversión vs sector productivo",
     dimension: "sector",
     chartType: "bar",
-    orientation: "h"
+    orientation: "h",
+    metric: "sum"
   },
   {
-    id: "estado_bar",
-    title: "Inversión por estado",
+    id: "count_sector_bar",
+    title: "# Proyectos vs sector productivo",
+    dimension: "sector",
+    chartType: "bar",
+    orientation: "h",
+    metric: "count"
+  },
+
+  // =========================
+  // FILA 2: Estado (barra horizontal)
+  // =========================
+  {
+    id: "inv_estado_bar",
+    title: "Inversión vs estado",
     dimension: "estado",
     chartType: "bar",
-    orientation: "h"
+    orientation: "h",
+    metric: "sum"
   },
   {
-    id: "estado_pie",
-    title: "Participación porcentual por estado",
+    id: "count_estado_bar",
+    title: "# Proyectos vs estado",
     dimension: "estado",
-    chartType: "pie"
+    chartType: "bar",
+    orientation: "h",
+    metric: "count"
+  },
+
+  // =========================
+  // FILA 3: Tipo DIA/EIA (barra horizontal)
+  // =========================
+  {
+    id: "inv_tipo_bar",
+    title: "Inversión vs tipo (DIA/EIA)",
+    dimension: "tipo",
+    chartType: "bar",
+    orientation: "h",
+    metric: "sum"
   },
   {
-    id: "inv_por_anio",
-    title: "Inversión por año",
-    dimension: "anio",      // usa el año corregido desde columna R
+    id: "count_tipo_bar",
+    title: "# Proyectos vs tipo (DIA/EIA)",
+    dimension: "tipo",
     chartType: "bar",
-    orientation: "v",       // barras verticales
-    xTickAngle: 0           // cambiar a 45 si quieres texto inclinado
+    orientation: "h",
+    metric: "count"
+  },
+
+  // =========================
+  // FILA 4: Año (barra vertical)
+  // =========================
+  {
+    id: "inv_anio_bar",
+    title: "Inversión vs año",
+    dimension: "anio",
+    chartType: "bar",
+    orientation: "v",
+    metric: "sum",
+    xTickAngle: 0
+  },
+  {
+    id: "count_anio_bar",
+    title: "# Proyectos vs año",
+    dimension: "anio",
+    chartType: "bar",
+    orientation: "v",
+    metric: "count",
+    xTickAngle: 0
+  },
+
+  // =========================
+  // FILA 5: Estado (torta)
+  // =========================
+  {
+    id: "inv_estado_pie",
+    title: "Inversión vs estado (torta)",
+    dimension: "estado",
+    chartType: "pie",
+    metric: "sum"
+  },
+  {
+    id: "count_estado_pie",
+    title: "# Proyectos vs estado (torta)",
+    dimension: "estado",
+    chartType: "pie",
+    metric: "count"
   }
 ];
 
@@ -106,40 +182,7 @@ function buildChartCards() {
 
   grid.innerHTML = "";
 
-  // ✨ NUEVO: Botón para limpiar todos los filtros
-  const clearButton = document.createElement("button");
-  clearButton.id = "clearAllFiltersBtn";
-  clearButton.className = "clear-filters-btn";
-  clearButton.textContent = "🔄 Limpiar todos los filtros";
-  clearButton.onclick = window.clearAllFilters;
-  clearButton.style.cssText = `
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    padding: 0.7rem 1.5rem;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    border: none;
-    border-radius: 10px;
-    font-size: 1rem;
-    font-weight: 600;
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  `;
-  
-  // Hover effect con JavaScript
-  clearButton.onmouseenter = function() {
-    this.style.transform = 'translateY(-2px)';
-    this.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
-  };
-  clearButton.onmouseleave = function() {
-    this.style.transform = 'translateY(0)';
-    this.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
-  };
 
-  grid.appendChild(clearButton);
 
   CHARTS_CONFIG.forEach((cfg, index) => {
     const card = document.createElement("div");
@@ -387,13 +430,23 @@ function renderChart(cfg) {
         ? "Sin dato"
         : keyRaw.toString().trim();
 
-    // valor de inversión: prioriza inversionMm
-    const inv = Number(
-      row.inversionMm ?? row.inversion ?? row.inversion_mmus ?? 0
-    );
-    if (!Number.isFinite(inv)) return;
+        // MÉTRICA: suma inversión o conteo
+    let delta = 0;
 
-    groups.set(key, (groups.get(key) || 0) + inv);
+    if ((cfg.metric || "sum") === "count") {
+      delta = 1;
+    } else {
+      // suma inversión
+      const inv = Number(row.inversionMm ?? row.inversion ?? row.inversion_mmus ?? 0);
+      if (!Number.isFinite(inv)) return;
+      delta = inv;
+    }
+
+    groups.set(key, (groups.get(key) || 0) + delta);
+
+    const prev = groups.get(key) || 0;
+
+
   });
 
   // 3) Labels: TODAS las categorías globales (para que no cambien)
@@ -408,6 +461,11 @@ function renderChart(cfg) {
   }
 
   const values = labels.map((cat) => groups.get(cat) || 0);
+
+  const isCount = (cfg.metric || "sum") === "count";
+  const xTitleDefault = isCount ? "# Proyectos" : "Inversión (MMU$)";
+  const yTitleDefault = isCount ? "# Proyectos" : "Inversión (MMU$)";
+
 
   // 4) Construir trace según tipo de gráfico
   let dataTraces;
@@ -463,8 +521,12 @@ function renderChart(cfg) {
           labels: pieLabels,
           values: pieValues,
           textinfo: "percent",
-          hovertemplate:
-            "%{label}<br>%{value:.1f} MMU$ (%{percent})<extra></extra>",
+
+          hovertemplate: isCount
+            ? "%{label}<br>%{value:.0f} proyectos (%{percent})<extra></extra>"
+            : "%{label}<br>%{value:.1f} MMU$ (%{percent})<extra></extra>",
+
+
           sort: false,
           marker: {
             colors: pieColors,
@@ -519,7 +581,10 @@ function renderChart(cfg) {
           x: values,
           y: labels,
           marker: { color: colors },
-          hovertemplate: "%{y}<br>%{x:.1f} MMU$<extra></extra>"
+          hovertemplate: isCount
+          ? "%{y}<br>%{x:.0f} proyectos<extra></extra>"
+          : "%{y}<br>%{x:.1f} MMU$<extra></extra>"
+
         }
       ];
       layout = {
@@ -544,7 +609,10 @@ function renderChart(cfg) {
           x: labels,
           y: values,
           marker: { color: colors },
-          hovertemplate: "%{x}<br>%{y:.1f} MMU$<extra></extra>"
+          hovertemplate: isCount
+          ? "%{x}<br>%{y:.0f} proyectos<extra></extra>"
+          : "%{x}<br>%{y:.1f} MMU$<extra></extra>"
+
         }
       ];
 
@@ -554,13 +622,13 @@ function renderChart(cfg) {
       layout = {
         ...layout,
         xaxis: {
-          title: cfg.id === "inv_por_anio" ? "Año" : undefined,
+          title: xTitleDefault,
           automargin: true,
           tickangle: tickAngle,
           type: cfg.dimension === "anio" ? "category" : undefined
         },
         yaxis: {
-          title: "Inversión (MMU$)",
+          title: yTitleDefault,
           automargin: true
         }
       };

@@ -12,11 +12,7 @@
   />
 
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -34,9 +30,7 @@
     }
 
     @media (max-width: 900px) {
-      .page-wrapper {
-        width: 95%;
-      }
+      .page-wrapper { width: 95%; }
     }
 
     header {
@@ -73,6 +67,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 1rem;
+      align-items: center;
     }
 
     /* ========================================
@@ -103,9 +98,7 @@
     }
 
     /* Fallback por si algún navegador ignora aspect-ratio */
-    #map {
-      min-height: 350px;
-    }
+    #map { min-height: 350px; }
 
     /* ========================================
        PANEL LATERAL DE PROYECTOS
@@ -121,9 +114,7 @@
       overflow: hidden;
     }
 
-    .projects-panel.collapsed {
-      width: 50px;
-    }
+    .projects-panel.collapsed { width: 50px; }
 
     .panel-header {
       background: #020617;
@@ -136,9 +127,7 @@
       user-select: none;
     }
 
-    .panel-header:hover {
-      background: #0f172a;
-    }
+    .panel-header:hover { background: #0f172a; }
 
     .panel-title {
       font-size: 0.95rem;
@@ -168,9 +157,7 @@
       transition: transform 0.3s ease;
     }
 
-    .projects-panel.collapsed .toggle-btn {
-      transform: rotate(180deg);
-    }
+    .projects-panel.collapsed .toggle-btn { transform: rotate(180deg); }
 
     .panel-content {
       flex: 1;
@@ -178,13 +165,8 @@
       padding: 0;
     }
 
-    .projects-panel.collapsed .panel-content {
-      display: none;
-    }
-
-    .projects-panel.collapsed .panel-title {
-      display: none;
-    }
+    .projects-panel.collapsed .panel-content { display: none; }
+    .projects-panel.collapsed .panel-title { display: none; }
 
     /* Lista de proyectos */
     .project-item {
@@ -197,9 +179,7 @@
       gap: 0.75rem;
     }
 
-    .project-item:hover {
-      background: #f9fafb;
-    }
+    .project-item:hover { background: #f9fafb; }
 
     .project-item.highlighted {
       background: #dbeafe;
@@ -234,22 +214,10 @@
     }
 
     /* Scrollbar personalizada */
-    .panel-content::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .panel-content::-webkit-scrollbar-track {
-      background: #f1f1f1;
-    }
-
-    .panel-content::-webkit-scrollbar-thumb {
-      background: #888;
-      border-radius: 3px;
-    }
-
-    .panel-content::-webkit-scrollbar-thumb:hover {
-      background: #555;
-    }
+    .panel-content::-webkit-scrollbar { width: 6px; }
+    .panel-content::-webkit-scrollbar-track { background: #f1f1f1; }
+    .panel-content::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+    .panel-content::-webkit-scrollbar-thumb:hover { background: #555; }
 
     /* Leyenda */
     .legend {
@@ -265,27 +233,13 @@
       z-index: 1000;
     }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 2px;
-    }
-
-    .legend-color {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-    }
+    .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+    .legend-color { width: 10px; height: 10px; border-radius: 999px; }
 
     /* ==============================
        Sección de gráficos parametrizados
        ============================== */
-
-    .charts-wrapper {
-      margin-top: 2rem;
-      padding-bottom: 3rem;
-    }
+    .charts-wrapper { margin-top: 2rem; padding-bottom: 3rem; }
 
     .charts-title {
       font-size: 1.3rem;
@@ -306,33 +260,15 @@
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
     }
 
-    .chart-card h3 {
-      margin-bottom: 0.5rem;
-      font-size: 1rem;
-    }
+    .chart-card h3 { margin-bottom: 0.5rem; font-size: 1rem; }
 
-    .plotly-chart {
-      width: 100%;
-      height: 260px;
-    }
+    .plotly-chart { width: 100%; height: 260px; }
 
     @media (max-width: 900px) {
-      .charts-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .map-container {
-        flex-direction: column;
-      }
-      
-      .projects-panel {
-        width: 100%;
-        max-height: 300px;
-      }
-      
-      .map-square {
-        width: 100%;
-      }
+      .charts-grid { grid-template-columns: 1fr; }
+      .map-container { flex-direction: column; }
+      .projects-panel { width: 100%; max-height: 300px; }
+      .map-square { width: 100%; }
     }
 
     /* Estilos para resaltado de puntos en el mapa */
@@ -345,33 +281,25 @@
     /* ========================================
        ESTILOS PARA ETIQUETAS DE ID EN EL MAPA
        ======================================== */
-
-       .project-id-label {
-        background: rgba(29, 78, 216, 0.9) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 4px !important;
-        padding: 2px 6px !important;
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
-        white-space: nowrap !important;
-        pointer-events: none !important;
-        user-select: none !important;     /* ✅ AGREGAR */
-        z-index: 400 !important;          /* ✅ AGREGAR - Debajo de popups (600) */
-      }
-
-      /* ✅ AGREGAR: Forzar pointer-events en contenedor del tooltip */
-      .leaflet-tooltip.project-id-label {
-        pointer-events: none !important;
-      }
-
-    /* Quitar la flechita del tooltip */
-    .project-id-label::before {
+    .project-id-label {
+      background: rgba(29, 78, 216, 0.9) !important;
+      color: white !important;
       border: none !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+      white-space: nowrap !important;
+      pointer-events: none !important;
+      user-select: none !important;
+      z-index: 400 !important; /* debajo de popups */
     }
 
-    /* Responsive: Ajustar tamaño en móviles */
+    .leaflet-tooltip.project-id-label { pointer-events: none !important; }
+
+    .project-id-label::before { border: none !important; }
+
     @media (max-width: 900px) {
       .leaflet-tooltip.project-id-label {
         font-size: 9px !important;
@@ -396,9 +324,36 @@
         <span id="modoLabel">Modo: —</span>
         <span id="radioLabel">Radio: —</span>
       </div>
+
       <div class="info-row">
         <span id="countLabel">Resumen: —</span>
         <span id="invLabel">Inversión: —</span>
+      </div>
+
+      <!-- ✅ BOTÓN DESCARGA KML (no afecta el layout del panel) -->
+      <div class="info-row" style="justify-content:flex-end;">
+        <button
+          type="button"
+          onclick="downloadProximityKML()"
+          style="
+            display:inline-flex;
+            align-items:center;
+            gap:0.5rem;
+            padding:0.55rem 1rem;
+            border-radius:10px;
+            border:none;
+            background:#059669;
+            color:#ffffff;
+            font-weight:800;
+            cursor:pointer;
+            box-shadow:0 4px 12px rgba(5,150,105,0.25);
+            transition:transform 0.15s ease, box-shadow 0.15s ease;
+          "
+          onmouseenter="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(5,150,105,0.32)';"
+          onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(5,150,105,0.25)';"
+        >
+          ⬇ Descargar proyectos en KML
+        </button>
       </div>
     </div>
 
@@ -430,7 +385,7 @@
     <div id="chartsSection" class="charts-wrapper">
       <h2 class="charts-title">Análisis gráfico de la inversión</h2>
 
-      <!-- Aquí se inyectan automáticamente las tarjetas de gráficos 
+      <!-- Aquí se inyectan automáticamente las tarjetas de gráficos
            según la configuración en js/graficos.js (CHARTS_CONFIG) -->
       <div id="chartsGrid" class="charts-grid"></div>
     </div>
