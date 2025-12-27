@@ -341,6 +341,43 @@
       filter: drop-shadow(0 0 8px rgba(29, 78, 216, 0.8));
       z-index: 1000 !important;
     }
+
+    /* ========================================
+       ESTILOS PARA ETIQUETAS DE ID EN EL MAPA
+       ======================================== */
+
+       .project-id-label {
+        background: rgba(29, 78, 216, 0.9) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        padding: 2px 6px !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+        user-select: none !important;     /* ✅ AGREGAR */
+        z-index: 400 !important;          /* ✅ AGREGAR - Debajo de popups (600) */
+      }
+
+      /* ✅ AGREGAR: Forzar pointer-events en contenedor del tooltip */
+      .leaflet-tooltip.project-id-label {
+        pointer-events: none !important;
+      }
+
+    /* Quitar la flechita del tooltip */
+    .project-id-label::before {
+      border: none !important;
+    }
+
+    /* Responsive: Ajustar tamaño en móviles */
+    @media (max-width: 900px) {
+      .leaflet-tooltip.project-id-label {
+        font-size: 9px !important;
+        padding: 1px 4px !important;
+      }
+    }
   </style>
 </head>
 
