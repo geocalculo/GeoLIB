@@ -62,166 +62,113 @@
         <!-- Móvil: Overlay colapsable -->
         <!-- ========================================================= -->
         <section class="panel" id="configPanel">
-          
-          <!-- Header del panel -->
-          <div class="panel-header">
-            <div class="badge">✨ PASO 1</div>
-            <h2>Configura la consulta</h2>
-            <p>
-              Selecciona los sectores productivos y mueve el mapa.
-              El cuadro resumen se actualiza automáticamente.
-            </p>
-          </div>
 
           <!-- Contenido scrollable -->
-<!-- Contenido scrollable -->
-<div class="panel-scroll">
+          <div class="panel-scroll">
 
-  <!-- ========================================================= -->
-  <!-- SECCIÓN: RESUMEN -->
-  <!-- ========================================================= -->
-  <div class="panel-section">
-    <div class="badge badge-resumen">📊 RESUMEN</div>
-    
-    <div id="bboxInfo" class="bbox-info">
-      Proyectos en pantalla: —
-    </div>
+            <!-- ========================================================= -->
+            <!-- SECCIÓN: RESUMEN -->
+            <!-- ========================================================= -->
+            <div class="panel-section">
+              <div class="badge badge-resumen">📊 RESUMEN</div>
+              
+              <div id="bboxInfo" class="bbox-info">
+                Proyectos en pantalla: —
+              </div>
 
-    <div id="summaryTableContainer" class="summary-table-container">
-      <p>El resumen por región y estado se mostrará aquí.</p>
-    </div>
-  </div>
+              <div id="summaryTableContainer" class="summary-table-container">
+                <p>El resumen por región y estado se mostrará aquí.</p>
+              </div>
+            </div>
 
-  <!-- ========================================================= -->
-  <!-- SECCIÓN: FILTROS -->
-  <!-- ========================================================= -->
-  <div class="panel-section">
-    <div class="badge badge-filtros">🔍 FILTROS</div>
+            <!-- ========================================================= -->
+            <!-- SECCIÓN: FILTROS -->
+            <!-- ========================================================= -->
+            <div class="panel-section">
+              <div class="badge badge-filtros">🔍 FILTROS</div>
 
-    <!-- SECTOR PRODUCTIVO (DINÁMICO) -->
-    <div class="field-block">
-      <label class="field-label">Sectores productivos (vista actual)</label>
+              <!-- SECTOR PRODUCTIVO (DINÁMICO) -->
+              <div class="field-block">
+                <label class="field-label">Sectores productivos (vista actual)</label>
 
-      <div class="sector-multiselect">
-        <div id="sectorCheckboxContainer">
+                <div class="sector-multiselect">
+                  <div id="sectorCheckboxContainer">
 
-          <!-- Checkbox fijo: TODOS -->
-          <label class="checkbox-item">
-            <input type="checkbox" id="sectorTodos" checked />
-            <span>Todos</span>
-          </label>
+                    <!-- Checkbox fijo: TODOS -->
+                    <label class="checkbox-item">
+                      <input type="checkbox" id="sectorTodos" checked />
+                      <span>Todos</span>
+                    </label>
 
-          <!-- Aquí se cargan dinámicamente los sectores -->
-          <div id="sectorDynamic"></div>
+                    <!-- Aquí se cargan dinámicamente los sectores -->
+                    <div id="sectorDynamic"></div>
 
-          <p class="hint">
-            Los sectores se cargan automáticamente según la vista actual del mapa.
-            Con <strong>Todos</strong> marcado, no se aplica filtro por sector.
-          </p>
-        </div>
+                    <p class="hint">
+                      Los sectores se cargan automáticamente según la vista actual del mapa.
+                      Con <strong>Todos</strong> marcado, no se aplica filtro por sector.
+                    </p>
+                  </div>
 
-        <button id="sectorSelectAllBtn" type="button" class="link-btn">
-          Seleccionar todos
-        </button>
+                  <button id="sectorSelectAllBtn" type="button" class="link-btn">
+                    Seleccionar todos
+                  </button>
 
-        <button id="sectorClearBtn" type="button" class="link-btn">
-          Limpiar selección
-        </button>
-      </div>
-    </div>
+                  <button id="sectorClearBtn" type="button" class="link-btn">
+                    Limpiar selección
+                  </button>
+                </div>
+              </div>
 
-    <!-- MODO DE SELECCIÓN -->
-    <div class="field-block">
-      <label class="field-label">Modo de selección</label>
+              <!-- MODO DE SELECCIÓN -->
+              <div class="field-block">
+                <label class="field-label">Modo de selección</label>
 
-      <div class="radio-group">
-        <label class="chip">
-          <input
-            type="radio"
-            name="modoSeleccion"
-            value="radio"
-          />
-          <span>Por Radio</span>
-        </label>
+                <div class="radio-group">
+                  <label class="chip">
+                    <input
+                      type="radio"
+                      name="modoSeleccion"
+                      value="proximidad"
+                      checked
+                    />
+                    <span>Por Proximidad</span>
+                  </label>
+                </div>
 
-        <label class="chip">
-          <input
-            type="radio"
-            name="modoSeleccion"
-            value="proximidad"
-            checked
-          />
-          <span>Por Proximidad</span>
-        </label>
-      </div>
+                <span class="hint">
+                  Selecciona los <strong>N proyectos aprobados más cercanos</strong>.
+                  El último determina el radio automático.
+                </span>
+              </div>
 
-      <span class="hint">
-        <strong>Por Radio:</strong> considera todos los proyectos con distancia ≤ R.<br />
-        <strong>Por Proximidad:</strong> selecciona los <strong>N proyectos aprobados más cercanos</strong>.
-        El último determina el radio automático.
-      </span>
-    </div>
+              <!-- SLIDER POR PROXIMIDAD (N APROBADOS MÁS CERCANOS) -->
+              <div class="field-block">
+                <label class="field-label">Selección por Proximidad</label>
 
-    <!-- SLIDER RADIO (Distancia ≤ R) -->
-    <div class="field-block">
-      <label class="field-label">
-        Selección por Radio
-      </label>
+                <input
+                  type="range"
+                  id="nSlider"
+                  min="5"
+                  max="20"
+                  step="1"
+                  value="10"
+                  class="range-input"
+                />
 
-      <input
-        type="range"
-        id="radioSlider"
-        min="5"
-        max="20"
-        step="1"
-        value="10"
-        class="range-input"
-      />
+                <div class="hint">
+                  N proyectos <strong>aprobados</strong> más cercanos:
+                  <strong><span id="nValue">10</span></strong>
+                </div>
+              </div>
 
-      <div class="hint">
-        Distancia máxima:
-        <strong><span id="radioValue">10</span> km</strong>
-      </div>
-    </div>
+              <!-- Mensaje -->
+              <span class="hint">
+                El análisis detallado se mostrará en
+                <strong>mapainfo.html</strong>, que se abre al hacer clic sobre el mapa.
+              </span>
+            </div>
 
-    <!-- SLIDER POR PROXIMIDAD (N APROBADOS MÁS CERCANOS) -->
-    <div class="field-block">
-      <label class="field-label">Selección por Proximidad</label>
-
-      <input
-        type="range"
-        id="nSlider"
-        min="5"
-        max="20"
-        step="1"
-        value="10"
-        class="range-input"
-      />
-
-      <div class="hint">
-        N proyectos <strong>aprobados</strong> más cercanos:
-        <strong><span id="nValue">10</span></strong>
-      </div>
-    </div>
-
-    <!-- Mensaje -->
-    <span class="hint">
-      El análisis detallado se mostrará en
-      <strong>mapainfo.html</strong>, que se abre al hacer clic sobre el mapa.
-    </span>
-  </div>
-
-  <!-- ========================================================= -->
-  <!-- SECCIÓN: DEBUG -->
-  <!-- ========================================================= -->
-  <div class="panel-section panel-section-debug">
-    <div class="badge badge-debug">🐛 DEBUG</div>
-    <div id="coordsDisplay" class="debug-pill">
-      Coordenadas clic: —
-    </div>
-  </div>
-
-</div>
+          </div>
         </section>
 
         <!-- Backdrop para móvil (overlay) -->
