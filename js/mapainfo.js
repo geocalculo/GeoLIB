@@ -1,6 +1,9 @@
 // ===========================
 // GeoEVA - mapainfo.js
-// Detalle de proximidad + panel + gráficos + Export PNG-KMZ (con punto consulta + círculo + puntos + estilos + popups tipo tabla + 2 links)
+// Detalle de proximidad + panel + gráficos + Export PNG-KMZ
+// (con punto consulta + círculo + puntos + estilos + popups tipo tabla + 2 links)
+// + Balloon del círculo: 2 gráficos (PNG) + resumen % Aprobados + sector dominante
+// + Sanitización XML/KML (evita "not well-formed (invalid token)" en Google Earth)
 // ===========================
 //
 // Requisitos en mapainfo.html (orden recomendado):
@@ -67,7 +70,9 @@ function distanceKm(lat1, lon1, lat2, lon2) {
   const dLon = (lon2 - lon1) * rad;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+    Math.cos(lat1 * rad) *
+      Math.cos(lat2 * rad) *
+      Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -81,8 +86,19 @@ function formatMMU(value) {
   );
 }
 
+// ---- XML/KML hardening: evita "invalid token" por caracteres de control ----
+function stripInvalidXmlChars(s) {
+  // Remueve controles inválidos en XML 1.0 (frecuentes al venir desde XLSX)
+  // Permitidos: \t \n \r
+  return String(s ?? "").replace(
+    /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,
+    ""
+  );
+}
+
 function xmlEscape(s) {
-  return String(s ?? "")
+  const clean = stripInvalidXmlChars(s);
+  return clean
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -91,8 +107,8 @@ function xmlEscape(s) {
 }
 
 function safeCdata(html) {
-  // evita romper CDATA
-  return String(html ?? "").replaceAll("]]>", "]]&gt;");
+  // evita romper CDATA y limpia chars inválidos
+  return stripInvalidXmlChars(html).replaceAll("]]>", "]]&gt;");
 }
 
 async function loadExcelData() {
@@ -104,7 +120,8 @@ async function loadExcelData() {
 
   try {
     const resp = await fetch(DATA_XLSX_URL);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status} al cargar ${DATA_XLSX_URL}`);
+    if (!resp.ok)
+      throw new Error(`HTTP ${resp.status} al cargar ${DATA_XLSX_URL}`);
     const buf = await resp.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array" });
     const sheetName = wb.SheetNames[0];
@@ -148,15 +165,15 @@ async function loadExcelData() {
       data.push({
         lat,
         lon,
-        nombre: row[COL_NOMBRE] || "",
-        web: row[COL_WEB] || "",
-        tipo: row[COL_TIPO] || "",
-        region: row[COL_REGION] || "",
+        nombre: stripInvalidXmlChars(row[COL_NOMBRE] || ""),
+        web: stripInvalidXmlChars(row[COL_WEB] || ""),
+        tipo: stripInvalidXmlChars(row[COL_TIPO] || ""),
+        region: stripInvalidXmlChars(row[COL_REGION] || ""),
         inversion: invNum,
-        fechaIngreso: row[COL_FECHA] || null,
-        estado: row[COL_ESTADO] || "",
-        sector: row[COL_SECTOR] || "",
-        anexos: row[COL_ANEXOS] || "",
+        fechaIngreso: stripInvalidXmlChars(row[COL_FECHA] || ""),
+        estado: stripInvalidXmlChars(row[COL_ESTADO] || ""),
+        sector: stripInvalidXmlChars(row[COL_SECTOR] || ""),
+        anexos: stripInvalidXmlChars(row[COL_ANEXOS] || ""),
         anio: anioNum,
       });
     }
@@ -170,7 +187,7 @@ async function loadExcelData() {
 function ajustarZoomCirculo(map, circle) {
   const size = map.getSize();
   const minSide = Math.min(size.x, size.y);
-  const paddingPx = minSide * 0.20;
+  const paddingPx = minSide * 0.2;
   map.fitBounds(circle.getBounds(), { padding: [paddingPx, paddingPx] });
 }
 
@@ -184,7 +201,9 @@ function togglePanel() {
 
 function renderProjectsList(proyectos) {
   if (proyectos.length > 500) {
-    console.warn(`⚠️ ${proyectos.length} proyectos en el panel. El rendimiento puede degradarse.`);
+    console.warn(
+      `⚠️ ${proyectos.length} proyectos en el panel. El rendimiento puede degradarse.`
+    );
   }
 
   const panelContent = document.getElementById("panelContent");
@@ -205,11 +224,14 @@ function renderProjectsList(proyectos) {
     else if (proyecto.bucket === "Rech") dotColor = "#dc2626";
 
     const nombre = proyecto.nombre || "";
-    const nombreDisplay = nombre.length > 60 ? nombre.substring(0, 57) + "..." : nombre;
+    const nombreDisplay =
+      nombre.length > 60 ? nombre.substring(0, 57) + "..." : nombre;
 
     item.innerHTML = `
       <div class="project-id">#${proyecto.id}</div>
-      <div class="project-name" title="${xmlEscape(nombre)}">${xmlEscape(nombreDisplay)}</div>
+      <div class="project-name" title="${xmlEscape(nombre)}">${xmlEscape(
+      nombreDisplay
+    )}</div>
       <div class="project-status-dot" style="background:${dotColor}"></div>
     `;
 
@@ -248,7 +270,9 @@ function highlightProject(projectId) {
     clearHighlight();
 
     // Resaltar item lista
-    const listItem = document.querySelector(`[data-project-id="${projectId}"]`);
+    const listItem = document.querySelector(
+      `[data-project-id="${projectId}"]`
+    );
     if (listItem) {
       listItem.classList.add("highlighted");
       listItem.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -276,23 +300,44 @@ function getPopupTableHTML(p) {
   const lonDisplay = Number.isFinite(p.lon) ? p.lon.toFixed(6) : "—";
   const distDisplay = Number.isFinite(p.distKm) ? p.distKm.toFixed(2) : "—";
 
-  // Nota: este HTML se usa tanto en Leaflet (popup) como en KML description (CDATA)
   return `
     <table border="1" cellpadding="4" cellspacing="0"
            style="border-collapse:collapse; font-family:Arial; font-size:13px; width:100%;">
-      <tr><th align="left">Proyecto</th><td>#${xmlEscape(p.id)} - ${xmlEscape(p.nombre || "—")}</td></tr>
+      <tr><th align="left">Proyecto</th><td>#${xmlEscape(p.id)} - ${xmlEscape(
+    p.nombre || "—"
+  )}</td></tr>
       <tr><th align="left">Tipo</th><td>${xmlEscape(p.tipo || "—")}</td></tr>
-      <tr><th align="left">Sector</th><td>${xmlEscape(p.sector || "—")}</td></tr>
-      <tr><th align="left">Estado</th><td>${xmlEscape(p.estado || "—")}</td></tr>
+      <tr><th align="left">Sector</th><td>${xmlEscape(
+        p.sector || "—"
+      )}</td></tr>
+      <tr><th align="left">Estado</th><td>${xmlEscape(
+        p.estado || "—"
+      )}</td></tr>
       <tr><th align="left">Año</th><td>${xmlEscape(p.anio ?? "—")}</td></tr>
-      <tr><th align="left">Inversión</th><td>${xmlEscape(formatMMU(p.inversion))}</td></tr>
-      <tr><th align="left">Latitud</th><td>${xmlEscape(latDisplay)}</td></tr>
-      <tr><th align="left">Longitud</th><td>${xmlEscape(lonDisplay)}</td></tr>
-      <tr><th align="left">Distancia (km)</th><td>${xmlEscape(distDisplay)}</td></tr>
+      <tr><th align="left">Inversión</th><td>${xmlEscape(
+        formatMMU(p.inversion)
+      )}</td></tr>
+      <tr><th align="left">Latitud</th><td>${xmlEscape(
+        latDisplay
+      )}</td></tr>
+      <tr><th align="left">Longitud</th><td>${xmlEscape(
+        lonDisplay
+      )}</td></tr>
+      <tr><th align="left">Distancia (km)</th><td>${xmlEscape(
+        distDisplay
+      )}</td></tr>
       <tr><th align="left">Expediente</th>
-          <td>${p.web ? `<a href="${xmlEscape(p.web)}" target="_blank">Abrir expediente</a>` : "—"}</td></tr>
+          <td>${
+            p.web
+              ? `<a href="${xmlEscape(p.web)}" target="_blank">Abrir expediente</a>`
+              : "—"
+          }</td></tr>
       <tr><th align="left">Anexos</th>
-          <td>${p.anexos ? `<a href="${xmlEscape(p.anexos)}" target="_blank">Abrir anexos</a>` : "—"}</td></tr>
+          <td>${
+            p.anexos
+              ? `<a href="${xmlEscape(p.anexos)}" target="_blank">Abrir anexos</a>`
+              : "—"
+          }</td></tr>
     </table>
   `;
 }
@@ -300,10 +345,8 @@ function getPopupTableHTML(p) {
 // ---------------------------
 // KMZ (PNG-KMZ)
 // ---------------------------
-
 function kmlColorFromHex(hex, alphaFF = "ff") {
   // KML usa aabbggrr
-  // hex: "#RRGGBB"
   const h = (hex || "#000000").replace("#", "");
   const rr = h.substring(0, 2);
   const gg = h.substring(2, 4);
@@ -312,7 +355,7 @@ function kmlColorFromHex(hex, alphaFF = "ff") {
 }
 
 function circlePolygonCoords(lng, lat, radiusKm, steps = 96) {
-  // Aproximación: genera polígono en WGS84 alrededor del punto
+  // Aproximación: polígono WGS84 alrededor del punto
   const R = 6371; // km
   const rad = Math.PI / 180;
   const latRad = lat * rad;
@@ -341,12 +384,11 @@ function circlePolygonCoords(lng, lat, radiusKm, steps = 96) {
 }
 
 async function plotlyDivToPngBytes(divId, width = 900, height = 320) {
-  // Devuelve {name, base64} (sin prefix) o null
+  // Devuelve base64 (sin prefix) o null
   try {
     const div = document.getElementById(divId);
     if (!div || !window.Plotly) return null;
 
-    // Plotly.toImage: devuelve dataURL
     const dataUrl = await Plotly.toImage(div, {
       format: "png",
       width,
@@ -364,101 +406,41 @@ async function plotlyDivToPngBytes(divId, width = 900, height = 320) {
   }
 }
 
-function buildChartsHtmlForKml(chartImgs) {
-  // chartImgs: [{title, path}]
-  const blocks = chartImgs
-    .map(
-      (c) => `
-        <div style="margin-bottom:10px;">
-          <div style="font-family:Arial; font-size:14px; font-weight:bold; margin:6px 0;">
-            ${xmlEscape(c.title)}
-          </div>
-          <img src="${xmlEscape(c.path)}" style="width:100%; max-width:900px; border:1px solid #ddd; border-radius:8px;" />
-        </div>
-      `
-    )
-    .join("");
+function buildConsultaHtmlForKml() {
+  const lat = queryPoint?.lat;
+  const lng = queryPoint?.lng;
+  const radioKm = exportCircleKm ?? null;
+
+  const modo = exportModo || "radio";
+  const n = exportNParam ?? null;
+  const sectores = Array.isArray(exportSectoresFiltro) ? exportSectoresFiltro : [];
+
+  const snap = new Date().toLocaleString("es-CL");
 
   return `
-    <div style="font-family:Arial; font-size:13px;">
-      <div style="font-size:14px; font-weight:bold; margin-bottom:8px;">
-        GeoEVA – Dashboard (captura al exportar)
-      </div>
-      <div style="color:#555; margin-bottom:10px;">
-        Nota: Google Earth muestra el contenido en un panel con scroll automático cuando es largo.
-      </div>
-      ${blocks || "<div>No se pudieron capturar los gráficos.</div>"}
+    <div style="line-height:1.35;">
+      <div><b>Punto:</b> ${
+        Number.isFinite(lat) ? lat.toFixed(5) : "—"
+      }, ${Number.isFinite(lng) ? lng.toFixed(5) : "—"}</div>
+      <div><b>Modo:</b> ${xmlEscape(modo)} ${
+        modo === "proximidad" ? `(N=${xmlEscape(n)})` : ""
+      }</div>
+      <div><b>Radio:</b> ${
+        Number.isFinite(radioKm) ? radioKm.toFixed(1) : "—"
+      } km</div>
+      ${
+        sectores.length
+          ? `<div><b>Sectores filtro:</b> ${xmlEscape(sectores.join(", "))}</div>`
+          : ""
+      }
+      <div style="color:#555; font-size:12px; margin-top:6px;">Snapshot: ${xmlEscape(
+        snap
+      )}</div>
     </div>
   `;
 }
-
-function buildCharts2ColHTML(chartsPng) {
-  // chartsPng: [{ title, imgHref }]
-  const esc = (s) =>
-    String(s ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;");
-
-  // Wrapper con ancho "forzado" para que GE no colapse a 1 columna
-  // (GE respeta mejor width/min-width inline que CSS moderno)
-  let html = `
-    <div style="font-family:Arial; font-size:13px;">
-      <div style="font-weight:800; margin:10px 0 8px 0;">
-        GeoEVA – Dashboard (captura al exportar)
-      </div>
-      <div style="font-size:12px; color:#444; margin-bottom:10px;">
-        Nota: Google Earth usa un panel con scroll. Si el panel es muy angosto,
-        algunos visores intentan colapsar el layout.
-      </div>
-
-      <div style="width:640px; min-width:640px;">
-        <table cellpadding="8" cellspacing="0" border="0"
-               style="width:640px; min-width:640px; table-layout:fixed; border-collapse:separate; border-spacing:10px;">
-  `;
-
-  for (let i = 0; i < chartsPng.length; i += 2) {
-    const a = chartsPng[i];
-    const b = chartsPng[i + 1];
-
-    html += `
-      <tr>
-        ${chartCellHTML(a)}
-        ${b ? chartCellHTML(b) : `<td style="width:320px;"></td>`}
-      </tr>
-    `;
-  }
-
-  html += `
-        </table>
-      </div>
-    </div>
-  `;
-
-  return html;
-
-  function chartCellHTML(item) {
-    const title = esc(item?.title || "");
-    const href = esc(item?.imgHref || "");
-    return `
-      <td style="vertical-align:top; width:320px; min-width:320px; background:#fff; border:1px solid #e5e7eb; border-radius:10px;">
-        <div style="font-weight:700; font-size:13px; margin:4px 0 8px 0;">
-          ${title}
-        </div>
-        <div style="width:100%;">
-          <img src="${href}"
-               style="width:100%; height:auto; border:1px solid #ddd; border-radius:8px; display:block;"
-               alt="${title}" />
-        </div>
-      </td>
-    `;
-  }
-}
-
 
 function chooseBucketFromProyecto(p) {
-  // bucket ya viene seteado, pero por seguridad:
   const b = (p.bucket || "").toLowerCase();
   if (b.includes("aprob")) return "Aprob";
   if (b.includes("calif")) return "Calif";
@@ -466,17 +448,117 @@ function chooseBucketFromProyecto(p) {
   return "Otros";
 }
 
+// ✅ Balloon del círculo: KPIs + 2 PNG + resumen final (% aprobados + sector dominante)
+function buildCircleBalloonHTML(consultaHtml, exportResumen, chartImgs, proyectos) {
+  const proyEstado = chartImgs.find((c) =>
+    (c.filename || "").includes("proyectos_estado.png")
+  );
+  const invSector = chartImgs.find((c) =>
+    (c.filename || "").includes("inversion_sector.png")
+  );
+
+  const totalProy =
+    (exportResumen?.resumenAprob || 0) +
+    (exportResumen?.resumenCalif || 0) +
+    (exportResumen?.resumenRech || 0) +
+    (exportResumen?.resumenOtros || 0);
+
+  const invTotal =
+    (exportResumen?.invAprob || 0) +
+    (exportResumen?.invCalif || 0) +
+    (exportResumen?.invRech || 0) +
+    (exportResumen?.invOtros || 0);
+
+  // % Aprobados
+  const pctAprob =
+    totalProy > 0 ? ((exportResumen?.resumenAprob || 0) / totalProy) * 100 : 0;
+
+  // Sector con mayor inversión (y su % del total)
+  const invPorSector = new Map();
+  for (const p of proyectos || []) {
+    const sec = (p.sector || "Sin sector").trim() || "Sin sector";
+    const inv = Number.isFinite(p.inversion) ? p.inversion : 0;
+    invPorSector.set(sec, (invPorSector.get(sec) || 0) + inv);
+  }
+
+  let topSector = "—";
+  let topInv = 0;
+  for (const [sec, inv] of invPorSector.entries()) {
+    if (inv > topInv) {
+      topInv = inv;
+      topSector = sec;
+    }
+  }
+  const pctTopSector = invTotal > 0 ? (topInv / invTotal) * 100 : 0;
+
+  const snap = new Date().toLocaleString("es-CL");
+
+  return `
+    <div style="font-family:Arial; font-size:13px; max-width:780px;">
+      <div style="font-weight:800; font-size:14px; margin:0 0 8px 0;">
+        GeoEVA – Resumen de proximidad
+      </div>
+
+      <div style="margin:0 0 10px 0;">
+        ${safeCdata(consultaHtml)}
+      </div>
+
+      <div style="padding:8px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; margin-bottom:10px;">
+        <div><b>Proyectos:</b> ${xmlEscape(totalProy)}</div>
+        <div><b>Inversión total:</b> ${xmlEscape(formatMMU(invTotal))}</div>
+        <div style="color:#555; font-size:12px; margin-top:6px;">
+          Snapshot: ${xmlEscape(snap)}
+        </div>
+      </div>
+
+      <div style="margin:10px 0;">
+        <div style="font-weight:700; margin:0 0 6px 0;"># Proyectos vs Estado</div>
+        ${
+          proyEstado
+            ? `<img src="${xmlEscape(proyEstado.filename)}"
+                   style="width:100%; max-width:780px; border:1px solid #ddd; border-radius:8px; display:block;" />`
+            : `<div style="color:#b91c1c;">(No disponible)</div>`
+        }
+      </div>
+
+      <div style="margin:12px 0 0 0;">
+        <div style="font-weight:700; margin:0 0 6px 0;">Inversión vs Sector</div>
+        ${
+          invSector
+            ? `<img src="${xmlEscape(invSector.filename)}"
+                   style="width:100%; max-width:780px; border:1px solid #ddd; border-radius:8px; display:block;" />`
+            : `<div style="color:#b91c1c;">(No disponible)</div>`
+        }
+      </div>
+
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid #e5e7eb;">
+        <div><b>% Aprobados:</b> ${pctAprob.toFixed(1)}%</div>
+        <div><b>Sector dominante:</b> ${xmlEscape(topSector)} (${pctTopSector.toFixed(
+    1
+  )}% inversión)</div>
+      </div>
+    </div>
+  `;
+}
+
 // ---------------------------
 // ✅ Export principal: PNG + KMZ
 // ---------------------------
 window.downloadProximityKMZ = async function downloadProximityKMZ() {
   try {
-    if (!queryPoint || !Number.isFinite(queryPoint.lat) || !Number.isFinite(queryPoint.lng)) {
+    if (
+      !queryPoint ||
+      !Number.isFinite(queryPoint.lat) ||
+      !Number.isFinite(queryPoint.lng)
+    ) {
       alert("❌ No se pudo determinar el punto de consulta para exportar.");
       return;
     }
 
-    if (!Array.isArray(proyectosDentroDelRadio) || proyectosDentroDelRadio.length === 0) {
+    if (
+      !Array.isArray(proyectosDentroDelRadio) ||
+      proyectosDentroDelRadio.length === 0
+    ) {
       alert("No hay proyectos dentro del radio para exportar.");
       return;
     }
@@ -486,34 +568,66 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       return;
     }
 
-    // 1) Capturar gráficos a PNG (Plotly)
-    // graficos.js crea contenedores "chart_<id>" según CHARTS_CONFIG
+    // 1) Capturar SOLO 2 gráficos (Plotly) por título del card (H3)
     const chartImgs = [];
     const chartsGrid = document.getElementById("chartsGrid");
-    const plotDivs = chartsGrid ? Array.from(chartsGrid.querySelectorAll(".plotly-chart")) : [];
+    const plotDivs = chartsGrid
+      ? Array.from(chartsGrid.querySelectorAll(".plotly-chart"))
+      : [];
 
-    // Solo capturamos los que existan y tengan id
+    const TARGET_CHARTS = [
+      {
+        key: "proy_estado",
+        titleRegex: /(proyectos).*?(estado)|(\#).*?(estado)/i,
+        filename: "files/proyectos_estado.png",
+        width: 780,
+        height: 320,
+      },
+      {
+        key: "inv_sector",
+        titleRegex: /(inversi).*(sector)|(mmu).*(sector)/i,
+        filename: "files/inversion_sector.png",
+        width: 780,
+        height: 320,
+      },
+    ];
+
+    function getCardTitle(div) {
+      const card = div.closest(".chart-card");
+      const h3 = card ? card.querySelector("h3") : null;
+      return h3 ? (h3.textContent || "").trim() : div.id || "";
+    }
+
+    const foundKeys = new Set();
+
     for (const div of plotDivs) {
       const id = div.id;
       if (!id) continue;
 
-      // título: desde el h3 del card
-      let title = id;
-      const card = div.closest(".chart-card");
-      const h3 = card ? card.querySelector("h3") : null;
-      if (h3) title = (h3.textContent || "").trim();
+      const title = getCardTitle(div);
+      const target = TARGET_CHARTS.find((t) => t.titleRegex.test(title));
+      if (!target) continue;
+      if (foundKeys.has(target.key)) continue;
 
-      // Export PNG
-      const base64 = await plotlyDivToPngBytes(id, 900, 320);
+      const base64 = await plotlyDivToPngBytes(id, target.width, target.height);
       if (!base64) continue;
 
-      const safeName = id.replace(/[^a-z0-9_-]/gi, "_");
       chartImgs.push({
         id,
         title,
-        filename: `files/${safeName}.png`,
+        filename: target.filename,
         base64,
       });
+
+      foundKeys.add(target.key);
+      if (foundKeys.size === TARGET_CHARTS.length) break;
+    }
+
+    if (foundKeys.size !== TARGET_CHARTS.length) {
+      console.warn(
+        "⚠️ No se capturaron los 2 charts objetivo. Capturados:",
+        [...foundKeys]
+      );
     }
 
     // 2) Construir KML
@@ -531,8 +645,6 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       Circulo: "#1d4ed8",
     };
 
-    // KML styles (sin iconos externos, solo color del icono estándar)
-    // Google Earth suele respetar IconStyle color en pushpins estándar.
     const stylesKml = `
       <Style id="stConsulta">
         <IconStyle>
@@ -583,10 +695,13 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       </Style>
     `;
 
-    // Consulta (placemark con resumen + dashboard PNG)
+    // Consulta HTML + Balloon círculo
     const consultaHtml = buildConsultaHtmlForKml();
-    const chartsHtml = buildChartsHtmlForKml(
-      chartImgs.map((c) => ({ title: c.title, path: c.filename }))
+    const circleBalloonHtml = buildCircleBalloonHTML(
+      consultaHtml,
+      exportResumen,
+      chartImgs,
+      proyectosDentroDelRadio
     );
 
     const consultaPlacemark = `
@@ -602,27 +717,15 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       </Placemark>
     `;
 
-
     // Círculo (polígono aproximado)
-    const circlePoly = (radioKm > 0)
-      ? `
+    const circlePoly =
+      radioKm > 0
+        ? `
         <Placemark>
           <name>Área de análisis (radio)</name>
           <styleUrl>#stCircle</styleUrl>
           <description><![CDATA[
-            <div style="font-family:Arial; font-size:13px;">
-              
-              <!-- RESUMEN -->
-              <div style="margin-bottom:10px;">
-                ${safeCdata(consultaHtml)}
-              </div>
-
-              <!-- DASHBOARD 2 COLUMNAS -->
-              <div style="margin-top:12px;">
-                ${safeCdata(chartsHtml)}
-              </div>
-
-            </div>
+            ${safeCdata(circleBalloonHtml)}
           ]]></description>
 
           <Polygon>
@@ -634,8 +737,7 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
           </Polygon>
         </Placemark>
       `
-      : "";
-
+        : "";
 
     // Proyectos
     const proyectosValidos = proyectosDentroDelRadio.filter(
@@ -646,9 +748,13 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       .map((p) => {
         const bucket = chooseBucketFromProyecto(p);
         const styleUrl =
-          bucket === "Aprob" ? "#stAprob" :
-          bucket === "Calif" ? "#stCalif" :
-          bucket === "Rech" ? "#stRech" : "#stOtros";
+          bucket === "Aprob"
+            ? "#stAprob"
+            : bucket === "Calif"
+            ? "#stCalif"
+            : bucket === "Rech"
+            ? "#stRech"
+            : "#stOtros";
 
         const html = getPopupTableHTML(p);
 
@@ -670,7 +776,7 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
   <description><![CDATA[
     <div style="font-family:Arial; font-size:13px;">
       Exportación generada desde GeoEVA.<br/>
-      Proyectos: ${proyectosValidos.length}
+      Proyectos: ${xmlEscape(proyectosValidos.length)}
     </div>
   ]]></description>
 
@@ -694,13 +800,16 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
     const zip = new JSZip();
     zip.file("doc.kml", kml);
 
-    // Agregar PNG de charts
+    // Agregar PNG de charts (solo 2)
     for (const c of chartImgs) {
       zip.file(c.filename, c.base64, { base64: true });
     }
 
     // 4) Descargar KMZ
-    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+    const blob = await zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -709,7 +818,6 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
   } catch (err) {
     console.error("❌ Error exportando KMZ:", err);
     alert("❌ Error exportando KMZ. Revisa consola.");
@@ -732,7 +840,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const lng = parseFloat(params.get("lng"));
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    alert("❌ Error: Coordenadas inválidas en la URL.\n\nVerifica parámetros 'lat' y 'lng'.");
+    alert(
+      "❌ Error: Coordenadas inválidas en la URL.\n\nVerifica parámetros 'lat' y 'lng'."
+    );
     console.error("Parámetros inválidos:", { lat, lng });
     return;
   }
@@ -743,7 +853,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const radioParam = parseFloat(params.get("radio")) || 10;
   const nParam = parseInt(params.get("n") || "10", 10);
   const sectoresParam = params.get("sectores") || "";
-  const sectoresFiltro = sectoresParam ? sectoresParam.split("|").filter(Boolean) : [];
+  const sectoresFiltro = sectoresParam
+    ? sectoresParam.split("|").filter(Boolean)
+    : [];
 
   exportModo = modo;
   exportNParam = nParam;
@@ -755,7 +867,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const countLabel = document.getElementById("countLabel");
   const invLabel = document.getElementById("invLabel");
 
-  if (coordsLabel) coordsLabel.textContent = `Punto: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  if (coordsLabel)
+    coordsLabel.textContent = `Punto: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   if (modoLabel) {
     modoLabel.textContent =
       modo === "proximidad"
@@ -777,7 +890,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { opacity: 0.10, maxZoom: 19 }
+    { opacity: 0.1, maxZoom: 19 }
   ).addTo(map);
 
   L.control.scale().addTo(map);
@@ -811,11 +924,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   let proyectos;
   try {
     proyectos = await loadExcelData();
-    if (!proyectos || proyectos.length === 0) throw new Error("No se pudieron cargar proyectos (Excel vacío o error).");
+    if (!proyectos || proyectos.length === 0)
+      throw new Error(
+        "No se pudieron cargar proyectos (Excel vacío o error)."
+      );
   } catch (err) {
     console.error("Error cargando nacional.xlsx:", err);
     if (radioLabel) radioLabel.textContent = "Radio: —";
-    if (countLabel) countLabel.textContent = "Error al cargar datos de proyectos.";
+    if (countLabel)
+      countLabel.textContent = "Error al cargar datos de proyectos.";
     if (invLabel) invLabel.textContent = "Inversión: —";
     return;
   }
@@ -824,23 +941,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (sectoresFiltro.length) {
     proyectos = proyectos.filter((p) => {
       const sectorLower = (p.sector || "").toLowerCase();
-      return sectoresFiltro.some((s) => sectorLower === s.trim().toLowerCase());
+      return sectoresFiltro.some(
+        (s) => sectorLower === s.trim().toLowerCase()
+      );
     });
   }
 
-  const todosConDist = proyectos.map((p) => ({ ...p, distKm: distanceKm(lat, lng, p.lat, p.lon) }));
+  const todosConDist = proyectos.map((p) => ({
+    ...p,
+    distKm: distanceKm(lat, lng, p.lat, p.lon),
+  }));
 
   let radioKm = radioParam;
   let topNSet = new Set();
 
   if (modo === "proximidad") {
-    const aprobados = todosConDist.filter((p) => (p.estado || "").toLowerCase().includes("aprob"));
+    const aprobados = todosConDist.filter((p) =>
+      (p.estado || "").toLowerCase().includes("aprob")
+    );
     aprobados.sort((a, b) => a.distKm - b.distKm);
     const aprobTopN = aprobados.slice(0, nParam);
 
     if (aprobTopN.length) {
       radioKm = aprobTopN[aprobTopN.length - 1].distKm;
-      topNSet = new Set(aprobTopN.map((p) => `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`));
+      topNSet = new Set(
+        aprobTopN.map((p) => `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`)
+      );
     } else {
       radioKm = radioParam;
     }
@@ -981,7 +1107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     invOtros,
   };
 
-  // Datos para charts
+  // Datos para charts (web)
   const chartData = dentro.map((p) => {
     const tipoRaw = (p.tipo || "").toUpperCase();
     let tipoNorm = "Otros";
@@ -1000,7 +1126,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   });
 
-  const chartDataValid = chartData.filter((d) => Number.isFinite(d.inversionMm) && Number.isFinite(d.distKm));
+  const chartDataValid = chartData.filter(
+    (d) => Number.isFinite(d.inversionMm) && Number.isFinite(d.distKm)
+  );
   window.chartDataGlobal = chartDataValid;
 
   if (typeof window.initCharts === "function") {
