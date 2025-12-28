@@ -1,17 +1,12 @@
 /************************************************************
  * SEA Mining - index-fullheight.js
- * 
- * CAMBIOS EN ESTA VERSIÓN:
- * - Layout full-height (100vh)
- * - Panel fijo en desktop (≥768px)
- * - Panel overlay colapsable en móvil (<768px)
- * - Backdrop con blur en móvil
- * - Sin tirador lateral (solo botón en header para móvil)
- ************************************************************/
-
-
-/************************************************************
- * SEA Mining - index-fullheight.js
+ *
+ * VERSIÓN FINAL (ajustada a requerimiento):
+ * - Sector: ya NO es filtro (se elimina filtrado y checkboxes)
+ * - Sector: se muestra como CUADRO RESUMEN (tipo tabla), dinámico por BBOX
+ * - Resumen Región/Estado: se mantiene y se actualiza por BBOX
+ * - Click mapa abre mapainfo.html (modo proximidad) sin sectores
+ * - Guarda geoeva_basemap en localStorage (para heredar en mapainfo.html)
  ************************************************************/
 
 const DATA_XLSX_URL = "capas/nacional.xlsx";
@@ -21,9 +16,6 @@ let proyectos = [];
 let map;
 let markersLayer;
 let regionesData = [];
-
-// ✨ AGREGAR ESTA LÍNEA SI NO ESTÁ:
-let estadoSectores = {};
 
 // ===============================
 // Helpers generales
@@ -73,26 +65,26 @@ function distanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 // ===============================
 // Lectura de controles
 // ===============================
 
-function getSelectedSectors() {
-  const todosCb = document.getElementById("sectorTodos");
-  const todosOn = todosCb ? todosCb.checked : true;
-  if (todosOn) return [];
-
-  const cbs = document.querySelectorAll(
-    '#sectorDynamic input[name="sector"]:checked'
-  );
-  return Array.from(cbs).map((cb) => cb.value);
-}
-
 function getModoSeleccion() {
   const rb = document.querySelector('input[name="modoSeleccion"]:checked');
-  return rb ? rb.value : "radio";
+  return rb ? rb.value : "proximidad";
 }
 
+// Nota: tu index no tiene radioSlider en el HTML que pegaste (solo proximidad)
+// Mantengo la función por compatibilidad, pero no se usa si no existe.
 function getRadioAnalisisKm() {
   const slider = document.getElementById("radioSlider");
   if (!slider) return 10;
@@ -114,24 +106,24 @@ function getNProximos() {
 async function loadRegionesData() {
   try {
     const resp = await fetch(REGIONES_JSON_URL);
-    
+
     if (!resp.ok) {
       throw new Error(`HTTP error! status: ${resp.status}`);
     }
-    
+
     const contentType = resp.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
       console.error("⚠️ El archivo no es JSON. Content-Type:", contentType);
       throw new Error("El archivo regiones.json no se encuentra o no es válido");
     }
-    
+
     regionesData = await resp.json();
     console.log("✔ Regiones cargadas:", regionesData.length);
     populateRegionSelect();
   } catch (err) {
     console.error("❌ Error cargando regiones.json:", err);
     regionesData = [];
-    
+
     const select = document.getElementById("region-select");
     if (select) {
       select.innerHTML = '<option value="">❌ Error cargando regiones</option>';
@@ -212,11 +204,26 @@ async function loadExcelData() {
       nombre: row[COL_NOMBRE] || "",
       region: row[COL_REGION] || "",
       estado: row[COL_ESTADO] || "",
-      sector: row[COL_SECTOR] || ""
+      sector: row[COL_SECTOR] || "",
     });
   }
 
   return data;
+}
+
+// ===============================
+// Basemap prefs (herencia a mapainfo.html)
+// ===============================
+
+function saveBasemapPrefs({ addOSM = true, osmOpacity = 1.0, addIMG = true, imgOpacity = 0.2 } = {}) {
+  try {
+    localStorage.setItem(
+      "geoeva_basemap",
+      JSON.stringify({ addOSM, osmOpacity, addIMG, imgOpacity })
+    );
+  } catch (e) {
+    console.warn("No se pudo guardar geoeva_basemap:", e);
+  }
 }
 
 // ===============================
@@ -228,7 +235,7 @@ function initMaps() {
     center: [-33.45, -70.65],
     zoom: 10,
     minZoom: 4,
-    zoomControl: true
+    zoomControl: true,
   });
 
   const capaOSM = L.tileLayer(
@@ -248,6 +255,14 @@ function initMaps() {
     }
   ).addTo(map);
 
+  // ✅ Guardar receta actual (para que mapainfo herede igual)
+  saveBasemapPrefs({
+    addOSM: true,
+    osmOpacity: 1.0,
+    addIMG: true,
+    imgOpacity: 0.20,
+  });
+
   L.control.scale().addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
@@ -265,62 +280,6 @@ function initMaps() {
 }
 
 // ===============================
-// Sectores dinámicos
-// ===============================
-
-function cargarSectoresDinamicos(proyectosEnBBox) {
-  const sectoresUnicos = new Set();
-  proyectosEnBBox.forEach((p) => {
-    const sec = String(p.sector || "").trim();
-    if (sec && sec !== "null" && sec !== "undefined") {
-      sectoresUnicos.add(sec);
-    }
-  });
-
-  const sectoresArray = Array.from(sectoresUnicos).sort();
-  const dynamicContainer = document.getElementById("sectorDynamic");
-  if (!dynamicContainer) return;
-
-  // ✨ GUARDAR el estado actual ANTES de limpiar
-  dynamicContainer.querySelectorAll('input[name="sector"]').forEach((cb) => {
-    estadoSectores[cb.value] = cb.checked;
-  });
-
-  // Limpiar contenedor
-  dynamicContainer.innerHTML = "";
-
-  // Recrear SOLO los sectores visibles en pantalla
-  sectoresArray.forEach((sec) => {
-    const label = document.createElement("label");
-    label.className = "checkbox-item";
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.name = "sector";
-    checkbox.value = sec;
-    
-    // ✨ LÓGICA DE ESTADO:
-    // - Si ya existía antes → usa su estado guardado
-    // - Si es nuevo → empieza en checked (true)
-    checkbox.checked = estadoSectores.hasOwnProperty(sec) 
-      ? estadoSectores[sec]
-      : true;
-
-    checkbox.addEventListener("change", () => {
-      // ✨ ACTUALIZAR estado en memoria cuando cambie
-      estadoSectores[sec] = checkbox.checked;
-      actualizarResumenYCapas();
-    });
-
-    const span = document.createElement("span");
-    span.textContent = sec;
-
-    label.appendChild(checkbox);
-    label.appendChild(span);
-    dynamicContainer.appendChild(label);
-  });
-}
-// ===============================
 // Dibujar marcadores
 // ===============================
 
@@ -330,14 +289,17 @@ function dibujarMarcadores(proyectosVisibles) {
   const colores = {
     Aprob: "#10b981",
     Calif: "#f59e0b",
-    Rech: "#ef4444"
+    Rech: "#ef4444",
+    Otros: "#6b7280",
   };
 
   proyectosVisibles.forEach((p) => {
+    const estadoLower = String(p.estado || "").toLowerCase();
     const estadoKey =
-      p.estado.toLowerCase().includes("aprob") ? "Aprob" :
-      p.estado.toLowerCase().includes("calif") ? "Calif" :
-      "Rech";
+      estadoLower.includes("aprob") ? "Aprob" :
+      (estadoLower.includes("calif") || estadoLower.includes("eval")) ? "Calif" :
+      estadoLower.includes("rech") ? "Rech" :
+      "Otros";
 
     const color = colores[estadoKey] || "#6b7280";
 
@@ -347,14 +309,14 @@ function dibujarMarcadores(proyectosVisibles) {
       color: "#fff",
       weight: 1,
       opacity: 1,
-      fillOpacity: 0.8
+      fillOpacity: 0.8,
     });
 
     marker.bindPopup(`
-      <strong>${p.nombre}</strong><br/>
-      Estado: ${p.estado}<br/>
-      Sector: ${p.sector}<br/>
-      Región: ${p.region}
+      <strong>${escapeHtml(p.nombre)}</strong><br/>
+      Estado: ${escapeHtml(p.estado)}<br/>
+      Sector: ${escapeHtml(p.sector)}<br/>
+      Región: ${escapeHtml(p.region)}
     `);
 
     markersLayer.addLayer(marker);
@@ -362,51 +324,22 @@ function dibujarMarcadores(proyectosVisibles) {
 }
 
 // ===============================
-// Actualizar resumen y capas
+// Resúmenes dinámicos (por BBOX)
 // ===============================
 
-function actualizarResumenYCapas() {
-  if (!map || !proyectos.length) return;
-
-  const bounds = map.getBounds();
-  const proyectosEnBBox = proyectos.filter(
-    (p) => bounds.contains([p.lat, p.lon])
-  );
-
-  cargarSectoresDinamicos(proyectosEnBBox);
-
-  const sectoresSel = getSelectedSectors();
-  let proyectosFiltrados = proyectosEnBBox;
-
-  if (sectoresSel.length > 0) {
-    proyectosFiltrados = proyectosEnBBox.filter((p) =>
-      sectoresSel.includes(p.sector)
-    );
-  }
-
-  dibujarMarcadores(proyectosFiltrados);
-
-  const bboxInfo = document.getElementById("bboxInfo");
-  if (bboxInfo) {
-    bboxInfo.textContent = `Proyectos en pantalla: ${proyectosFiltrados.length} proyectos`;
-  }
-
-  const resumen = calcularResumenRegionEstado(proyectosFiltrados);
-  renderSummaryTable(resumen);
-}
-
-function calcularResumenRegionEstado(proyectos) {
+function calcularResumenRegionEstado(proyectosInView) {
   const resumen = {};
 
-  proyectos.forEach((p) => {
+  proyectosInView.forEach((p) => {
     const region = p.region || "Sin región";
     if (!resumen[region]) {
       resumen[region] = { Aprob: 0, Calif: 0, Rech: 0 };
     }
 
+    const estadoLower = String(p.estado || "").toLowerCase();
     const estadoKey =
-      p.estado.toLowerCase().includes("aprob") ? "Aprob" :
-      p.estado.toLowerCase().includes("calif") ? "Calif" :
+      estadoLower.includes("aprob") ? "Aprob" :
+      (estadoLower.includes("calif") || estadoLower.includes("eval")) ? "Calif" :
       "Rech";
 
     resumen[region][estadoKey]++;
@@ -426,7 +359,7 @@ function renderSummaryTable(resumen) {
 
   if (!regiones.length) {
     container.innerHTML =
-      "<p>No hay proyectos visibles para los filtros seleccionados.</p>";
+      "<p>No hay proyectos visibles para la vista actual.</p>";
     return;
   }
 
@@ -447,7 +380,7 @@ function renderSummaryTable(resumen) {
     const r = resumen[region];
     html += `
       <tr>
-        <td>${region}</td>
+        <td>${escapeHtml(region)}</td>
         <td>${r.Aprob}</td>
         <td>${r.Calif}</td>
         <td>${r.Rech}</td>
@@ -459,27 +392,115 @@ function renderSummaryTable(resumen) {
   container.innerHTML = html;
 }
 
+// ✅ NUEVO: Resumen por SECTOR (cuadro igual a tabla)
+function calcularResumenSector(proyectosInView) {
+  const counts = new Map();
+
+  proyectosInView.forEach((p) => {
+    const sector = String(p.sector || "").trim() || "Sin sector";
+    counts.set(sector, (counts.get(sector) || 0) + 1);
+  });
+
+  // Orden descendente por conteo
+  return Array.from(counts.entries())
+    .map(([sector, count]) => ({ sector, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function renderSectorTable(rows) {
+  const container = document.getElementById("sectorTableContainer");
+  if (!container) {
+    // si aún no existe en el HTML, no bloqueamos
+    console.warn("sectorTableContainer no encontrado en el DOM");
+    return;
+  }
+
+  if (!rows.length) {
+    container.innerHTML = "<p>No hay proyectos visibles para la vista actual.</p>";
+    return;
+  }
+
+  const total = rows.reduce((acc, r) => acc + r.count, 0);
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Sector</th>
+          <th style="text-align:right;">#</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const r of rows) {
+    html += `
+      <tr>
+        <td>${escapeHtml(r.sector)}</td>
+        <td style="text-align:right; font-weight:800;">${r.count}</td>
+      </tr>
+    `;
+  }
+
+  html += `
+      </tbody>
+      <tfoot>
+        <tr>
+          <td style="font-weight:900;">TOTAL</td>
+          <td style="text-align:right; font-weight:900;">${total}</td>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+
+  container.innerHTML = html;
+}
+
+// ===============================
+// Actualizar resumen y capas (BBOX)
+// ===============================
+
+function actualizarResumenYCapas() {
+  if (!map || !proyectos.length) return;
+
+  const bounds = map.getBounds();
+
+  // 1) Proyectos en BBOX (vista)
+  const proyectosEnBBox = proyectos.filter((p) =>
+    bounds.contains([p.lat, p.lon])
+  );
+
+  // 2) Ya NO hay filtro por sector: todo lo visible se dibuja
+  dibujarMarcadores(proyectosEnBBox);
+
+  // 3) Info “Proyectos en pantalla”
+  const bboxInfo = document.getElementById("bboxInfo");
+  if (bboxInfo) {
+    bboxInfo.textContent = `Proyectos en pantalla: ${proyectosEnBBox.length} proyectos`;
+  }
+
+  // 4) Resumen Región/Estado (igual que antes)
+  const resumen = calcularResumenRegionEstado(proyectosEnBBox);
+  renderSummaryTable(resumen);
+
+  // 5) ✅ Resumen por Sector (nuevo cuadro dinámico)
+  const sectorRows = calcularResumenSector(proyectosEnBBox);
+  renderSectorTable(sectorRows);
+}
+
 // ===============================
 // Click en el mapa
 // ===============================
 
 function onMapClick(e) {
   const { lat, lng } = e.latlng;
-  const coordsDisplay = document.getElementById("coordsDisplay");
-  if (coordsDisplay) {
-    coordsDisplay.textContent = `Coordenadas clic: ${lat.toFixed(
-      5
-    )}, ${lng.toFixed(5)}`;
-  }
 
-  const modo = getModoSeleccion();
-  const radioKm = getRadioAnalisisKm();
+  const modo = getModoSeleccion();   // debería ser "proximidad" según tu UI
+  const radioKm = getRadioAnalisisKm(); // no se usa si no existe slider, pero lo pasamos igual
   const n = getNProximos();
-  const sectores = getSelectedSectors();
 
   console.log(
-    `Clic en: ${lat}, ${lng} | modo=${modo} | R=${radioKm} km | N=${n} | sectores=`,
-    sectores
+    `Clic en: ${lat}, ${lng} | modo=${modo} | R=${radioKm} km | N=${n}`
   );
 
   const url = new URL("mapainfo.html", window.location.href);
@@ -488,10 +509,8 @@ function onMapClick(e) {
   url.searchParams.set("modo", modo);
   url.searchParams.set("radio", radioKm.toString());
   url.searchParams.set("n", n.toString());
-  if (sectores.length) {
-    url.searchParams.set("sectores", sectores.join("|"));
-  }
 
+  // ✅ Sin sectores: ya no existe filtro por sector
   window.open(url.toString(), "_blank");
 }
 
@@ -514,41 +533,8 @@ function updateModeUI() {
 }
 
 function initControls() {
-  const selectAllBtn = document.getElementById("sectorSelectAllBtn");
-  const clearBtn = document.getElementById("sectorClearBtn");
-  const todosCb = document.getElementById("sectorTodos");
-
-  if (selectAllBtn) {
-    selectAllBtn.addEventListener("click", () => {
-      if (todosCb) todosCb.checked = true;
-      document
-        .querySelectorAll('#sectorDynamic input[name="sector"]')
-        .forEach((cb) => (cb.checked = true));
-      actualizarResumenYCapas();
-    });
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      if (todosCb) todosCb.checked = false;
-      document
-        .querySelectorAll('#sectorDynamic input[name="sector"]')
-        .forEach((cb) => (cb.checked = false));
-      actualizarResumenYCapas();
-    });
-  }
-
-  if (todosCb) {
-    todosCb.addEventListener("change", () => {
-      const dynamic = document.getElementById("sectorDynamic");
-      if (todosCb.checked && dynamic) {
-        dynamic
-          .querySelectorAll('input[name="sector"]')
-          .forEach((cb) => (cb.checked = true));
-      }
-      actualizarResumenYCapas();
-    });
-  }
+  // ✅ Ya no hay UI ni botones de sectores (select all / clear / todos)
+  // Dejo los sliders y modo.
 
   const radioSlider = document.getElementById("radioSlider");
   const radioValueSpan = document.getElementById("radioValue");
@@ -580,53 +566,39 @@ function initControls() {
 }
 
 // ===============================
-// ✨ NUEVO: Panel Responsive Simplificado
-// Desktop (≥768px): Panel siempre visible
-// Móvil (<768px): Panel overlay colapsable
+// Panel Responsive Simplificado
 // ===============================
 
 function initPanelResponsive() {
   const panel = document.getElementById("configPanel");
   const backdrop = document.getElementById("panelBackdrop");
   const headerBtn = document.getElementById("togglePanelBtn");
-  
+
   if (!panel) return;
 
-  // Detectar si es móvil
   const isMobile = () => window.innerWidth < 768;
-
-  // Estado del panel (solo importa en móvil)
   let isOpen = false;
 
   function updateUI() {
     if (isMobile()) {
-      // MÓVIL: Panel colapsable con overlay
       if (isOpen) {
         panel.classList.add("is-open");
         if (backdrop) backdrop.classList.add("active");
         if (headerBtn) headerBtn.textContent = "✕ Cerrar";
-        
-        // Prevenir scroll del body cuando panel está abierto
         document.body.style.overflow = "hidden";
       } else {
         panel.classList.remove("is-open");
         if (backdrop) backdrop.classList.remove("active");
         if (headerBtn) headerBtn.textContent = "☰ Configuración";
-        
-        // Restaurar scroll del body
         document.body.style.overflow = "";
       }
     } else {
-      // DESKTOP: Panel siempre visible
       panel.classList.remove("is-open");
       if (backdrop) backdrop.classList.remove("active");
       document.body.style.overflow = "";
-      
-      // El botón de toggle no es visible en desktop, pero por si acaso
       if (headerBtn) headerBtn.textContent = "☰ Configuración";
     }
 
-    // Invalidar tamaño del mapa después de cambios
     if (map) {
       setTimeout(() => {
         map.invalidateSize();
@@ -639,7 +611,6 @@ function initPanelResponsive() {
       isOpen = !isOpen;
       updateUI();
     }
-    // En desktop no hace nada porque el panel siempre está visible
   }
 
   function closePanel() {
@@ -649,25 +620,20 @@ function initPanelResponsive() {
     }
   }
 
-  // Estado inicial
   updateUI();
 
-  // Eventos: botón del header
   if (headerBtn) {
     headerBtn.addEventListener("click", togglePanel);
   }
 
-  // Eventos: click en backdrop cierra el panel
   if (backdrop) {
     backdrop.addEventListener("click", closePanel);
   }
 
-  // Eventos: resize window - actualizar UI
   let resizeTimeout;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      // Si pasamos de móvil a desktop, cerrar overlay
       if (!isMobile() && isOpen) {
         isOpen = false;
       }
@@ -675,7 +641,6 @@ function initPanelResponsive() {
     }, 150);
   });
 
-  // Prevenir que clicks dentro del panel lo cierren
   panel.addEventListener("click", (e) => {
     e.stopPropagation();
   });
@@ -687,7 +652,7 @@ function initPanelResponsive() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("🚀 Iniciando GeoEVA Full-Height...");
-  
+
   initMaps();
   initControls();
   initPanelResponsive();
@@ -696,10 +661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     proyectos = await loadExcelData();
-    console.log(
-      "✔ Proyectos cargados desde /capas/nacional.xlsx:",
-      proyectos.length
-    );
+    console.log("✔ Proyectos cargados desde /capas/nacional.xlsx:", proyectos.length);
     console.log("Ejemplo primer proyecto:", proyectos[0]);
   } catch (err) {
     console.error("Error cargando Excel:", err);
@@ -707,6 +669,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   actualizarResumenYCapas();
-  
+
   console.log("✅ GeoEVA Full-Height listo!");
 });

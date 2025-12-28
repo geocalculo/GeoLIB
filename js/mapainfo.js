@@ -1,9 +1,11 @@
 // ===========================
-// GeoEVA - mapainfo.js
-// Detalle de proximidad + panel + gráficos + Export PNG-KMZ
+// GeoEVA - mapainfo.js (FINAL)
+// Detalle de proximidad + panel + gráficos + Export KMZ (TEXTO SIMPLE)
 // (con punto consulta + círculo + puntos + estilos + popups tipo tabla + 2 links)
-// + Balloon del círculo: 2 gráficos (PNG) + resumen % Aprobados + sector dominante
+// + Balloon del círculo y punto consulta: SOLO TEXTO (Top 3 + resumen)
 // + Sanitización XML/KML (evita "not well-formed (invalid token)" en Google Earth)
+// + Basemap heredable (localStorage) para mantener combinación del index.html
+// + Sector NO filtra (solo informativo)
 // ===========================
 //
 // Requisitos en mapainfo.html (orden recomendado):
@@ -11,7 +13,7 @@
 // 2) XLSX
 // 3) Plotly
 // 4) JSZip  (para KMZ)
-// 5) graficos.js (initCharts)
+// 5) graficos.js (initCharts + getKmlBalloonSummaryText)
 // 6) mapainfo.js (este)
 //
 // Botón:
@@ -39,7 +41,7 @@ let queryPoint = null; // {lat,lng}
 let exportCircleKm = null; // radioKm
 let exportModo = null; // "radio"|"proximidad"
 let exportNParam = null;
-let exportSectoresFiltro = [];
+let exportSectoresFiltro = []; // informativo (NO filtra)
 let exportResumen = null; // {resumenAprob,... invAprob,...}
 
 // ---------------------------
@@ -106,9 +108,9 @@ function xmlEscape(s) {
     .replaceAll("'", "&apos;");
 }
 
-function safeCdata(html) {
+function safeCdata(text) {
   // evita romper CDATA y limpia chars inválidos
-  return stripInvalidXmlChars(html).replaceAll("]]>", "]]&gt;");
+  return stripInvalidXmlChars(text).replaceAll("]]>", "]]&gt;");
 }
 
 async function loadExcelData() {
@@ -196,7 +198,7 @@ function ajustarZoomCirculo(map, circle) {
 // ---------------------------
 function togglePanel() {
   const panel = document.getElementById("projectsPanel");
-  panel.classList.toggle("collapsed");
+  panel?.classList.toggle("collapsed");
 }
 
 function renderProjectsList(proyectos) {
@@ -343,7 +345,47 @@ function getPopupTableHTML(p) {
 }
 
 // ---------------------------
-// KMZ (PNG-KMZ)
+// Basemap heredable (misma combinación que index.html)
+// ---------------------------
+function getBasemapPrefs() {
+  const raw = localStorage.getItem("geoeva_basemap");
+  if (!raw) return null;
+  try {
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === "object") return obj;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function addBasemapLayers(map) {
+  const bm = getBasemapPrefs();
+
+  // Defaults (igual a tu actual)
+  const osmOpacity = Number.isFinite(bm?.osmOpacity) ? bm.osmOpacity : 1.0;
+  const imgOpacity = Number.isFinite(bm?.imgOpacity) ? bm.imgOpacity : 0.1;
+  const addOSM = bm?.addOSM !== false; // default true
+  const addIMG = bm?.addIMG !== false; // default true
+
+  if (addOSM) {
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      opacity: osmOpacity,
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+  }
+
+  if (addIMG) {
+    L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { opacity: imgOpacity, maxZoom: 19 }
+    ).addTo(map);
+  }
+}
+
+// ---------------------------
+// KMZ helpers
 // ---------------------------
 function kmlColorFromHex(hex, alphaFF = "ff") {
   // KML usa aabbggrr
@@ -383,61 +425,37 @@ function circlePolygonCoords(lng, lat, radiusKm, steps = 96) {
   return coords.join(" ");
 }
 
-async function plotlyDivToPngBytes(divId, width = 900, height = 320) {
-  // Devuelve base64 (sin prefix) o null
-  try {
-    const div = document.getElementById(divId);
-    if (!div || !window.Plotly) return null;
-
-    const dataUrl = await Plotly.toImage(div, {
-      format: "png",
-      width,
-      height,
-      scale: 2,
-    });
-
-    if (!dataUrl || typeof dataUrl !== "string") return null;
-    const base64 = dataUrl.split(",")[1];
-    if (!base64) return null;
-    return base64;
-  } catch (e) {
-    console.warn("⚠️ No se pudo exportar PNG de chart", divId, e);
-    return null;
-  }
-}
-
-function buildConsultaHtmlForKml() {
+// ---------------------------
+// Balloon TEXTO SIMPLE
+// ---------------------------
+function buildConsultaTextForKml() {
   const lat = queryPoint?.lat;
   const lng = queryPoint?.lng;
   const radioKm = exportCircleKm ?? null;
 
   const modo = exportModo || "radio";
   const n = exportNParam ?? null;
-  const sectores = Array.isArray(exportSectoresFiltro) ? exportSectoresFiltro : [];
 
   const snap = new Date().toLocaleString("es-CL");
 
-  return `
-    <div style="line-height:1.35;">
-      <div><b>Punto:</b> ${
-        Number.isFinite(lat) ? lat.toFixed(5) : "—"
-      }, ${Number.isFinite(lng) ? lng.toFixed(5) : "—"}</div>
-      <div><b>Modo:</b> ${xmlEscape(modo)} ${
-        modo === "proximidad" ? `(N=${xmlEscape(n)})` : ""
-      }</div>
-      <div><b>Radio:</b> ${
-        Number.isFinite(radioKm) ? radioKm.toFixed(1) : "—"
-      } km</div>
-      ${
-        sectores.length
-          ? `<div><b>Sectores filtro:</b> ${xmlEscape(sectores.join(", "))}</div>`
-          : ""
-      }
-      <div style="color:#555; font-size:12px; margin-top:6px;">Snapshot: ${xmlEscape(
-        snap
-      )}</div>
-    </div>
-  `;
+  const lines = [];
+  lines.push("CONSULTA");
+  lines.push(
+    `• Punto: ${Number.isFinite(lat) ? lat.toFixed(6) : "—"}, ${
+      Number.isFinite(lng) ? lng.toFixed(6) : "—"
+    }`
+  );
+  lines.push(`• Modo: ${modo}${modo === "proximidad" ? ` (N=${n})` : ""}`);
+  lines.push(
+    `• Radio: ${Number.isFinite(radioKm) ? radioKm.toFixed(2) : "—"} km`
+  );
+
+  // Sectores: informativo, no filtra
+  const sectores = Array.isArray(exportSectoresFiltro) ? exportSectoresFiltro : [];
+  if (sectores.length) lines.push(`• Sectores (info): ${sectores.join(", ")}`);
+
+  lines.push(`• Snapshot: ${snap}`);
+  return lines.join("\n");
 }
 
 function chooseBucketFromProyecto(p) {
@@ -448,101 +466,8 @@ function chooseBucketFromProyecto(p) {
   return "Otros";
 }
 
-// ✅ Balloon del círculo: KPIs + 2 PNG + resumen final (% aprobados + sector dominante)
-function buildCircleBalloonHTML(consultaHtml, exportResumen, chartImgs, proyectos) {
-  const proyEstado = chartImgs.find((c) =>
-    (c.filename || "").includes("proyectos_estado.png")
-  );
-  const invSector = chartImgs.find((c) =>
-    (c.filename || "").includes("inversion_sector.png")
-  );
-
-  const totalProy =
-    (exportResumen?.resumenAprob || 0) +
-    (exportResumen?.resumenCalif || 0) +
-    (exportResumen?.resumenRech || 0) +
-    (exportResumen?.resumenOtros || 0);
-
-  const invTotal =
-    (exportResumen?.invAprob || 0) +
-    (exportResumen?.invCalif || 0) +
-    (exportResumen?.invRech || 0) +
-    (exportResumen?.invOtros || 0);
-
-  // % Aprobados
-  const pctAprob =
-    totalProy > 0 ? ((exportResumen?.resumenAprob || 0) / totalProy) * 100 : 0;
-
-  // Sector con mayor inversión (y su % del total)
-  const invPorSector = new Map();
-  for (const p of proyectos || []) {
-    const sec = (p.sector || "Sin sector").trim() || "Sin sector";
-    const inv = Number.isFinite(p.inversion) ? p.inversion : 0;
-    invPorSector.set(sec, (invPorSector.get(sec) || 0) + inv);
-  }
-
-  let topSector = "—";
-  let topInv = 0;
-  for (const [sec, inv] of invPorSector.entries()) {
-    if (inv > topInv) {
-      topInv = inv;
-      topSector = sec;
-    }
-  }
-  const pctTopSector = invTotal > 0 ? (topInv / invTotal) * 100 : 0;
-
-  const snap = new Date().toLocaleString("es-CL");
-
-  return `
-    <div style="font-family:Arial; font-size:13px; max-width:780px;">
-      <div style="font-weight:800; font-size:14px; margin:0 0 8px 0;">
-        GeoEVA – Resumen de proximidad
-      </div>
-
-      <div style="margin:0 0 10px 0;">
-        ${safeCdata(consultaHtml)}
-      </div>
-
-      <div style="padding:8px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; margin-bottom:10px;">
-        <div><b>Proyectos:</b> ${xmlEscape(totalProy)}</div>
-        <div><b>Inversión total:</b> ${xmlEscape(formatMMU(invTotal))}</div>
-        <div style="color:#555; font-size:12px; margin-top:6px;">
-          Snapshot: ${xmlEscape(snap)}
-        </div>
-      </div>
-
-      <div style="margin:10px 0;">
-        <div style="font-weight:700; margin:0 0 6px 0;"># Proyectos vs Estado</div>
-        ${
-          proyEstado
-            ? `<img src="${xmlEscape(proyEstado.filename)}"
-                   style="width:100%; max-width:780px; border:1px solid #ddd; border-radius:8px; display:block;" />`
-            : `<div style="color:#b91c1c;">(No disponible)</div>`
-        }
-      </div>
-
-      <div style="margin:12px 0 0 0;">
-        <div style="font-weight:700; margin:0 0 6px 0;">Inversión vs Sector</div>
-        ${
-          invSector
-            ? `<img src="${xmlEscape(invSector.filename)}"
-                   style="width:100%; max-width:780px; border:1px solid #ddd; border-radius:8px; display:block;" />`
-            : `<div style="color:#b91c1c;">(No disponible)</div>`
-        }
-      </div>
-
-      <div style="margin-top:12px; padding-top:10px; border-top:1px solid #e5e7eb;">
-        <div><b>% Aprobados:</b> ${pctAprob.toFixed(1)}%</div>
-        <div><b>Sector dominante:</b> ${xmlEscape(topSector)} (${pctTopSector.toFixed(
-    1
-  )}% inversión)</div>
-      </div>
-    </div>
-  `;
-}
-
 // ---------------------------
-// ✅ Export principal: PNG + KMZ
+// ✅ Export principal: KMZ (TEXTO)
 // ---------------------------
 window.downloadProximityKMZ = async function downloadProximityKMZ() {
   try {
@@ -555,10 +480,7 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       return;
     }
 
-    if (
-      !Array.isArray(proyectosDentroDelRadio) ||
-      proyectosDentroDelRadio.length === 0
-    ) {
+    if (!Array.isArray(proyectosDentroDelRadio) || proyectosDentroDelRadio.length === 0) {
       alert("No hay proyectos dentro del radio para exportar.");
       return;
     }
@@ -568,69 +490,6 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       return;
     }
 
-    // 1) Capturar SOLO 2 gráficos (Plotly) por título del card (H3)
-    const chartImgs = [];
-    const chartsGrid = document.getElementById("chartsGrid");
-    const plotDivs = chartsGrid
-      ? Array.from(chartsGrid.querySelectorAll(".plotly-chart"))
-      : [];
-
-    const TARGET_CHARTS = [
-      {
-        key: "proy_estado",
-        titleRegex: /(proyectos).*?(estado)|(\#).*?(estado)/i,
-        filename: "files/proyectos_estado.png",
-        width: 780,
-        height: 320,
-      },
-      {
-        key: "inv_sector",
-        titleRegex: /(inversi).*(sector)|(mmu).*(sector)/i,
-        filename: "files/inversion_sector.png",
-        width: 780,
-        height: 320,
-      },
-    ];
-
-    function getCardTitle(div) {
-      const card = div.closest(".chart-card");
-      const h3 = card ? card.querySelector("h3") : null;
-      return h3 ? (h3.textContent || "").trim() : div.id || "";
-    }
-
-    const foundKeys = new Set();
-
-    for (const div of plotDivs) {
-      const id = div.id;
-      if (!id) continue;
-
-      const title = getCardTitle(div);
-      const target = TARGET_CHARTS.find((t) => t.titleRegex.test(title));
-      if (!target) continue;
-      if (foundKeys.has(target.key)) continue;
-
-      const base64 = await plotlyDivToPngBytes(id, target.width, target.height);
-      if (!base64) continue;
-
-      chartImgs.push({
-        id,
-        title,
-        filename: target.filename,
-        base64,
-      });
-
-      foundKeys.add(target.key);
-      if (foundKeys.size === TARGET_CHARTS.length) break;
-    }
-
-    if (foundKeys.size !== TARGET_CHARTS.length) {
-      console.warn(
-        "⚠️ No se capturaron los 2 charts objetivo. Capturados:",
-        [...foundKeys]
-      );
-    }
-
-    // 2) Construir KML
     const lat = queryPoint.lat;
     const lng = queryPoint.lng;
     const radioKm = exportCircleKm ?? 0;
@@ -695,39 +554,46 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
       </Style>
     `;
 
-    // Consulta HTML + Balloon círculo
-    const consultaHtml = buildConsultaHtmlForKml();
-    const circleBalloonHtml = buildCircleBalloonHTML(
-      consultaHtml,
-      exportResumen,
-      chartImgs,
-      proyectosDentroDelRadio
-    );
+    // --------- Balloon TEXTO (consulta + resumen Top3) ----------
+    const consultaText = buildConsultaTextForKml();
+
+    // Normalizar data para resumen (graficos.js)
+    const dataForSummary = proyectosDentroDelRadio.map((p) => ({
+      sector: (p.sector || "Sin sector").toString(),
+      estado: (p.estado || "Sin estado").toString(),
+      tipo: (p.tipo || "Sin tipo").toString(),
+      anio: Number.isFinite(p.anio) ? p.anio : null,
+      inversionMm: Number.isFinite(p.inversion) ? p.inversion : 0,
+    }));
+
+    const resumenText =
+      typeof window.getKmlBalloonSummaryText === "function"
+        ? window.getKmlBalloonSummaryText({
+            data: dataForSummary,
+            radiusM: Number.isFinite(exportCircleKm) ? exportCircleKm * 1000 : null,
+            center: { lat: queryPoint.lat, lon: queryPoint.lng },
+            links: { geoeva: "", geoipt: "" },
+          })
+        : "RESUMEN\n• (No disponible: falta getKmlBalloonSummaryText en graficos.js)";
+
+    const circleBalloonText = `${consultaText}\n\n${resumenText}`;
 
     const consultaPlacemark = `
       <Placemark>
         <name>Punto de consulta</name>
         <styleUrl>#stConsulta</styleUrl>
-        <description><![CDATA[
-          <div style="font-family:Arial; font-size:13px;">
-            ${safeCdata(consultaHtml)}
-          </div>
-        ]]></description>
+        <description><![CDATA[<pre>${safeCdata(consultaText)}</pre>]]></description>
         <Point><coordinates>${lng},${lat},0</coordinates></Point>
       </Placemark>
     `;
 
-    // Círculo (polígono aproximado)
     const circlePoly =
       radioKm > 0
         ? `
         <Placemark>
           <name>Área de análisis (radio)</name>
           <styleUrl>#stCircle</styleUrl>
-          <description><![CDATA[
-            ${safeCdata(circleBalloonHtml)}
-          ]]></description>
-
+          <description><![CDATA[<pre>${safeCdata(circleBalloonText)}</pre>]]></description>
           <Polygon>
             <outerBoundaryIs>
               <LinearRing>
@@ -773,12 +639,9 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
   <name>GeoEVA – Proximidad</name>
-  <description><![CDATA[
-    <div style="font-family:Arial; font-size:13px;">
-      Exportación generada desde GeoEVA.<br/>
-      Proyectos: ${xmlEscape(proyectosValidos.length)}
-    </div>
-  ]]></description>
+  <description><![CDATA[<pre>${safeCdata(
+    `GeoEVA – Exportación KMZ\n• Proyectos: ${proyectosValidos.length}`
+  )}</pre>]]></description>
 
   ${stylesKml}
 
@@ -796,24 +659,19 @@ window.downloadProximityKMZ = async function downloadProximityKMZ() {
 </Document>
 </kml>`;
 
-    // 3) Armar KMZ
+    // Armar KMZ
     const zip = new JSZip();
     zip.file("doc.kml", kml);
 
-    // Agregar PNG de charts (solo 2)
-    for (const c of chartImgs) {
-      zip.file(c.filename, c.base64, { base64: true });
-    }
-
-    // 4) Descargar KMZ
     const blob = await zip.generateAsync({
       type: "blob",
       compression: "DEFLATE",
     });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "geoeva_proximidad_png.kmz";
+    a.download = "geoeva_proximidad_texto.kmz";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -859,7 +717,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   exportModo = modo;
   exportNParam = nParam;
-  exportSectoresFiltro = sectoresFiltro;
+  exportSectoresFiltro = sectoresFiltro; // ✅ informativo (NO filtra)
 
   const coordsLabel = document.getElementById("coordsLabel");
   const modoLabel = document.getElementById("modoLabel");
@@ -869,6 +727,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (coordsLabel)
     coordsLabel.textContent = `Punto: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
   if (modoLabel) {
     modoLabel.textContent =
       modo === "proximidad"
@@ -882,16 +741,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Mapa
   map = L.map("map", { center: [lat, lng], zoom: 10, minZoom: 4 });
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    opacity: 1.0,
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
-  }).addTo(map);
-
-  L.tileLayer(
-    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { opacity: 0.1, maxZoom: 19 }
-  ).addTo(map);
+  // ✅ Basemap heredable (index.html)
+  addBasemapLayers(map);
 
   L.control.scale().addTo(map);
 
@@ -925,27 +776,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     proyectos = await loadExcelData();
     if (!proyectos || proyectos.length === 0)
-      throw new Error(
-        "No se pudieron cargar proyectos (Excel vacío o error)."
-      );
+      throw new Error("No se pudieron cargar proyectos (Excel vacío o error).");
   } catch (err) {
     console.error("Error cargando nacional.xlsx:", err);
     if (radioLabel) radioLabel.textContent = "Radio: —";
-    if (countLabel)
-      countLabel.textContent = "Error al cargar datos de proyectos.";
+    if (countLabel) countLabel.textContent = "Error al cargar datos de proyectos.";
     if (invLabel) invLabel.textContent = "Inversión: —";
     return;
   }
 
-  // Filtro sectores (si viene)
-  if (sectoresFiltro.length) {
-    proyectos = proyectos.filter((p) => {
-      const sectorLower = (p.sector || "").toLowerCase();
-      return sectoresFiltro.some(
-        (s) => sectorLower === s.trim().toLowerCase()
-      );
-    });
-  }
+  // ✅ Sector NO filtra dataset (solo informativo)
+  // Si quieres mantenerlo visible en UI, podrías mostrarlo en modoLabel o en algún badge.
+  // (No hacemos nada acá.)
 
   const todosConDist = proyectos.map((p) => ({
     ...p,
@@ -1083,11 +925,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Cinta superior
   if (radioLabel) radioLabel.textContent = `Radio: ${radioKm.toFixed(1)} km`;
+
   if (countLabel) {
     countLabel.textContent =
       `Resumen – Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
       `Rech: ${resumenRech} | Otros: ${resumenOtros}`;
   }
+
   if (invLabel) {
     invLabel.textContent =
       `Inversión – Aprob: ${formatMMU(invAprob)} | ` +
@@ -1129,6 +973,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const chartDataValid = chartData.filter(
     (d) => Number.isFinite(d.inversionMm) && Number.isFinite(d.distKm)
   );
+
   window.chartDataGlobal = chartDataValid;
 
   if (typeof window.initCharts === "function") {
@@ -1138,4 +983,4 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-console.log("✅ mapainfo.js cargado: downloadProximityKMZ() disponible");
+console.log("✅ mapainfo.js FINAL cargado: downloadProximityKMZ() disponible");

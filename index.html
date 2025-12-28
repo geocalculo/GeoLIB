@@ -11,10 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
   <!-- CSS Full-Height -->
   <link rel="stylesheet" href="css/index-fullheight.css" />
@@ -22,14 +19,14 @@
 
 <body>
   <div class="app-wrapper">
-    
+
     <!-- ========================================================= -->
     <!-- HEADER COMPACTO -->
     <!-- ========================================================= -->
     <header class="app-header">
       <div class="app-header-inner">
         <h1>SEA Mining - Explorador</h1>
-        
+
         <!-- Selector de Región -->
         <div class="region-selector-container">
           <label for="region-select" class="region-label">📍 Región:</label>
@@ -55,10 +52,10 @@
     <!-- ========================================================= -->
     <main>
       <div class="layout">
-        
+
         <!-- ========================================================= -->
         <!-- PANEL LATERAL -->
-        <!-- Desktop: Siempre visible
+        <!-- Desktop: Siempre visible -->
         <!-- Móvil: Overlay colapsable -->
         <!-- ========================================================= -->
         <section class="panel" id="configPanel">
@@ -71,7 +68,7 @@
             <!-- ========================================================= -->
             <div class="panel-section">
               <div class="badge badge-resumen">📊 RESUMEN</div>
-              
+
               <div id="bboxInfo" class="bbox-info">
                 Proyectos en pantalla: —
               </div>
@@ -79,45 +76,21 @@
               <div id="summaryTableContainer" class="summary-table-container">
                 <p>El resumen por región y estado se mostrará aquí.</p>
               </div>
+
+              <div id="sectorTableContainer" class="summary-table-container">
+                <p>El resumen por sector se mostrará aquí.</p>
+              </div>
+
+
+
+
             </div>
 
             <!-- ========================================================= -->
             <!-- SECCIÓN: FILTROS -->
             <!-- ========================================================= -->
             <div class="panel-section">
-              <div class="badge badge-filtros">🔍 FILTROS</div>
 
-              <!-- SECTOR PRODUCTIVO (DINÁMICO) -->
-              <div class="field-block">
-                <label class="field-label">Sectores productivos (vista actual)</label>
-
-                <div class="sector-multiselect">
-                  <div id="sectorCheckboxContainer">
-
-                    <!-- Checkbox fijo: TODOS -->
-                    <label class="checkbox-item">
-                      <input type="checkbox" id="sectorTodos" checked />
-                      <span>Todos</span>
-                    </label>
-
-                    <!-- Aquí se cargan dinámicamente los sectores -->
-                    <div id="sectorDynamic"></div>
-
-                    <p class="hint">
-                      Los sectores se cargan automáticamente según la vista actual del mapa.
-                      Con <strong>Todos</strong> marcado, no se aplica filtro por sector.
-                    </p>
-                  </div>
-
-                  <button id="sectorSelectAllBtn" type="button" class="link-btn">
-                    Seleccionar todos
-                  </button>
-
-                  <button id="sectorClearBtn" type="button" class="link-btn">
-                    Limpiar selección
-                  </button>
-                </div>
-              </div>
 
               <!-- MODO DE SELECCIÓN -->
               <div class="field-block">
@@ -194,6 +167,31 @@
 
     <!-- JS principal -->
     <script src="js/index-fullheight.js"></script>
+
+    <!-- ========================================================= -->
+    <!-- ✅ Basemap prefs: defaults (para heredar en mapainfo.html) -->
+    <!-- Si index-fullheight.js luego maneja un selector/slider de basemap,
+         que lo actualice y llame a localStorage.setItem("geoeva_basemap", ...) -->
+    <!-- ========================================================= -->
+    <script>
+      (function initBasemapPrefsDefaults(){
+        // Defaults: OSM + Imagery 0.10 (igual a tu mapainfo.js)
+        try {
+          if (!localStorage.getItem("geoeva_basemap")) {
+            localStorage.setItem("geoeva_basemap", JSON.stringify({
+              addOSM: true,
+              osmOpacity: 1.0,
+              addIMG: true,
+              imgOpacity: 0.10
+            }));
+          }
+        } catch(e) {
+          // sin bloquear
+          console.warn("No se pudo inicializar geoeva_basemap:", e);
+        }
+      })();
+    </script>
+
   </div>
 </body>
 </html>
