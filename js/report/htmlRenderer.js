@@ -5,6 +5,35 @@
 import { escapeHtml, xmlEscape, safeCdata, formatMMU, orDash } from "../core/utils.js";
 
 export function renderProjectPopupHtml(p) {
+  const urlExp = String(p.web || "").trim();
+  const urlAnx = String(p.anexos || "").trim();
+
+  const links =
+    urlExp || urlAnx
+      ? `
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+          ${
+            urlExp
+              ? `<a href="${escapeHtml(urlExp)}" target="_blank" rel="noopener"
+                   style="display:inline-block; padding:6px 10px; border-radius:8px;
+                          background:#1d4ed8; color:#fff; text-decoration:none; font-weight:700; font-size:12px;">
+                   Abrir expediente
+                 </a>`
+              : ""
+          }
+          ${
+            urlAnx
+              ? `<a href="${escapeHtml(urlAnx)}" target="_blank" rel="noopener"
+                   style="display:inline-block; padding:6px 10px; border-radius:8px;
+                          background:#0f766e; color:#fff; text-decoration:none; font-weight:700; font-size:12px;">
+                   Abrir anexos
+                 </a>`
+              : ""
+          }
+        </div>
+      `
+      : "";
+
   return `
     <div style="min-width:240px">
       <div style="font-weight:800; margin-bottom:6px;">${escapeHtml(p.nombre)}</div>
@@ -15,9 +44,11 @@ export function renderProjectPopupHtml(p) {
         <div><b>Dist:</b> ${Number.isFinite(p.distKm) ? p.distKm.toFixed(2) : "—"} km</div>
         <div><b>Inversión:</b> ${formatMMU(p.inversion)}</div>
       </div>
+      ${links}
     </div>
   `;
 }
+
 
 export function renderProjectListItemHtml(p) {
   return `
@@ -34,13 +65,17 @@ export function renderProjectListItemHtml(p) {
  * Puedes enriquecerlo después sin tocar el exportador.
  */
 export function renderKmlBalloonHtml({ model, p, extraSummaryText = "" }) {
-  const url = (p.web || "").trim();
+  const urlExp = (p.web || "").trim();
+  const urlAnx = (p.anexos || "").trim();
 
-  const links = url
-    ? `<div style="margin-top:8px;">
-         <a href="${xmlEscape(url)}" target="_blank" rel="noopener">Abrir expediente</a>
-       </div>`
-    : "";
+  const links =
+    urlExp || urlAnx
+      ? `<div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;">
+          ${urlExp ? `<a href="${xmlEscape(urlExp)}" target="_blank" rel="noopener">Abrir expediente</a>` : ""}
+          ${urlAnx ? `<a href="${xmlEscape(urlAnx)}" target="_blank" rel="noopener">Abrir anexos</a>` : ""}
+         </div>`
+      : "";
+
 
   const extra = extraSummaryText ? `<div style="margin-top:10px;">${extraSummaryText}</div>` : "";
 
