@@ -1,16 +1,5 @@
-// js/mapainfo.js  (NUEVO - versión modular, completa, con fitBounds correcto)
-// GeoEVA - Detalle de proximidad + panel + gráficos + Export KMZ
-//
-// ✅ Requisitos en mapainfo.html (orden):
-// 1) Leaflet
-// 2) XLSX
-// 3) Plotly
-// 4) JSZip
-// 5) graficos.js  (define window.initCharts si aplica)
-// 6) mapainfo.js  (ESTE como módulo)
-//
-// ⚠️ mapainfo.html debe cargar este archivo así:
-// <script type="module" src="js/mapainfo.js"></script>
+// js/mapainfo.js (modular, con orquestación más limpia)
+// Requiere: <script type="module" src="js/mapainfo.js"></script>
 
 import { loadProyectosXlsx } from "./core/dataLoader.js";
 import { runProximityEngine } from "./features/proximity/proximityEngine.js";
@@ -19,91 +8,43 @@ import { createMapLayers } from "./ui/mapLayers.js";
 import { createProjectsPanel } from "./ui/panel.js";
 import { updateCharts } from "./ui/chartsController.js";
 import { downloadProximityKMZ } from "./export/kmzExport.js";
-import { formatMMU } from "./core/utils.js";
 
-// ===========================
+import { getMapainfoParamsFromUrl } from "./app/router.js";
+import { renderInfoBar } from "./ui/infoBar.js";
+import { bindKmzButton } from "./ui/actions.js";
+
+// -------------------
 // Config
-// ===========================
+// -------------------
 const DATA_XLSX_URL = "capas/nacional.xlsx";
 
-// ===========================
-// URL params
-// ===========================
-function getUrlParamFloat(name) {
-  const v = new URLSearchParams(window.location.search).get(name);
-  if (v == null) return null;
-  const n = Number(String(v).replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
-
-function getUrlParamInt(name) {
-  const v = new URLSearchParams(window.location.search).get(name);
-  if (v == null) return null;
-  const n = parseInt(v, 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-function getUrlParamStr(name, fallback = "") {
-  const v = new URLSearchParams(window.location.search).get(name);
-  return v == null ? fallback : String(v);
-}
-
-// lat/lng (tu estándar)
-const consultaLat = getUrlParamFloat("lat") ?? -27.5;
-const consultaLng = getUrlParamFloat("lng") ?? -70.25;
-const modoRaw = (getUrlParamStr("modo", "proximidad") || "proximidad").toLowerCase();
-const n = getUrlParamInt("n") ?? 10;
-const radioKm = getUrlParamFloat("radio") ?? 10;
-
-// ===========================
-// DOM refs (mapainfo.html actual)
-// ===========================
-const elCoords = document.getElementById("coordsLabel");
-const elModo = document.getElementById("modoLabel");
-const elRadio = document.getElementById("radioLabel");
-const elCount = document.getElementById("countLabel");
-const elInv = document.getElementById("invLabel");
-const btnKmz = document.getElementById("btnKmz");
-
-// Panel
-const panelToggle = document.getElementById("panelToggle");
-const projectsPanel = document.getElementById("projectsPanel");
-
-// ===========================
-// Estado
-// ===========================
+// -------------------
+// State
+// -------------------
 let map = null;
 let mapLayers = null;
 let panel = null;
-let model = null; // reportModel actual (para KMZ)
+let model = null;
 
-// ===========================
-// Basemap prefs (heredadas de index.html)
-// ===========================
+// -------------------
+// Basemap prefs (desde index.html)
+// -------------------
 function readBasemapPrefs() {
   try {
     const raw = localStorage.getItem("geoeva_basemap");
-    if (!raw) return null;
-    return JSON.parse(raw);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function initMap() {
-  map = L.map("map", {
-    center: [consultaLat, consultaLng],
-    zoom: 11,
-    minZoom: 4,
-    zoomControl: true,
-  });
+// -------------------
+// Map init
+// -------------------
+function initMap({ lat, lng }) {
+  map = L.map("map", { center: [lat, lng], zoom: 11, minZoom: 4, zoomControl: true });
 
-  const prefs = readBasemapPrefs() || {
-    addOSM: true,
-    osmOpacity: 1.0,
-    addIMG: true,
-    imgOpacity: 0.1,
-  };
+  const prefs = readBasemapPrefs() || { addOSM: true, osmOpacity: 1.0, addIMG: true, imgOpacity: 0.1 };
 
   const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -113,10 +54,7 @@ function initMap() {
 
   const img = L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    {
-      maxZoom: 19,
-      opacity: Math.max(0, Math.min(1, Number(prefs.imgOpacity ?? 0.1))),
-    }
+    { maxZoom: 19, opacity: Math.max(0, Math.min(1, Number(prefs.imgOpacity ?? 0.1))) }
   );
 
   if (prefs.addOSM !== false) osm.addTo(map);
@@ -125,42 +63,15 @@ function initMap() {
   L.control.scale().addTo(map);
 
   mapLayers = createMapLayers(map);
-
-  // Invalidate por layout con aspect-ratio
   setTimeout(() => map.invalidateSize(), 150);
 }
 
-// ===========================
-// UI: info-bar
-// ===========================
-function setInfoBarFromModel(m) {
-  const q = m.query;
-  const total = m.stats.totalProjects ?? m.projects.length;
-
-  if (elCoords) elCoords.textContent = `Punto: lat ${q.lat.toFixed(6)}, lng ${q.lng.toFixed(6)}`;
-  if (elModo) {
-    elModo.textContent =
-      `Modo: ${q.modo === "proximidad" ? "Proximidad (Top N aprobados)" : "Radio fijo"}`;
-  }
-  if (elRadio) elRadio.textContent = `Radio: ${Number.isFinite(q.radioKmFinal) ? q.radioKmFinal.toFixed(2) : "—"} km`;
-
-  const invTotal = Number.isFinite(m.stats.invTotal) ? m.stats.invTotal : 0;
-
-  if (elCount) {
-    const a = m.stats?.counts?.Aprob ?? 0;
-    const c = m.stats?.counts?.Calif ?? 0;
-    const r = m.stats?.counts?.Rech ?? 0;
-    const o = m.stats?.counts?.Otros ?? 0;
-    elCount.textContent = `Resumen: ${total} (Aprob ${a} / Calif ${c} / Rech ${r} / Otros ${o})`;
-  }
-
-  if (elInv) elInv.textContent = `Inversión: ${formatMMU(invTotal)}`;
-}
-
-// ===========================
-// UI: panel collapse
-// ===========================
+// -------------------
+// Panel collapse
+// -------------------
 function initPanelCollapse() {
+  const panelToggle = document.getElementById("panelToggle");
+  const projectsPanel = document.getElementById("projectsPanel");
   if (!panelToggle || !projectsPanel) return;
 
   panelToggle.addEventListener("click", (e) => {
@@ -170,12 +81,12 @@ function initPanelCollapse() {
   });
 }
 
-// ===========================
+// -------------------
 // Main
-// ===========================
+// -------------------
 async function main() {
-  // 1) init map + UI hooks
-  initMap();
+  const params = getMapainfoParamsFromUrl();
+  initMap({ lat: params.lat, lng: params.lng });
 
   panel = createProjectsPanel({
     containerId: "panelContent",
@@ -188,51 +99,33 @@ async function main() {
 
   initPanelCollapse();
 
-  // 2) Cargar proyectos (perfil completo)
-  let proyectos = [];
-  try {
-    proyectos = await loadProyectosXlsx(DATA_XLSX_URL, "mapainfo");
-  } catch (err) {
-    console.error("❌ Error cargando XLSX:", err);
-    alert("No se pudo cargar el Excel de proyectos. Revisa la consola.");
-    return;
-  }
+  // 1) data
+  const proyectos = await loadProyectosXlsx(DATA_XLSX_URL, "mapainfo");
 
-  // 3) Engine (punto -> puntos)
-  let engineOutput = null;
-  try {
-    engineOutput = runProximityEngine({
-      projects: proyectos,
-      center: { lat: consultaLat, lng: consultaLng },
-      modo: modoRaw === "radio" ? "radio" : "proximidad",
-      radioKm,
-      n,
-    });
-  } catch (err) {
-    console.error("❌ Error en proximityEngine:", err);
-    alert("Error al calcular proximidad. Revisa la consola.");
-    return;
-  }
+  // 2) engine
+  const engineOutput = runProximityEngine({
+    projects: proyectos,
+    center: { lat: params.lat, lng: params.lng },
+    modo: params.modo,
+    radioKm: params.radio,
+    n: params.n,
+  });
 
-  // 4) Modelo estándar (para UI + export)
+  // 3) model (para UI + export)
   model = buildReportModel({
     engineOutput,
-    meta: {
-      sourceXlsx: DATA_XLSX_URL,
-      generatedAt: new Date().toISOString(),
-    },
+    meta: { sourceXlsx: DATA_XLSX_URL, generatedAt: new Date().toISOString() },
   });
 
   // Debug opcional
   window.__geoeva_model = model;
 
-  // 5) UI: info-bar
-  setInfoBarFromModel(model);
+  // 4) UI: barra superior
+  renderInfoBar(model);
 
-  // 6) Map layers: punto + círculo + markers
-  const radioFinal = Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0
-    ? model.query.radioKmFinal
-    : radioKm;
+  // 5) Map layers
+  const radioFinal =
+    Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0 ? model.query.radioKmFinal : params.radio;
 
   mapLayers.setQueryPoint(model.query.lat, model.query.lng);
   mapLayers.setQueryCircle(model.query.lat, model.query.lng, radioFinal);
@@ -244,50 +137,29 @@ async function main() {
     },
   });
 
-  // ✅ FIT BOUNDS CORRECTO: usar el círculo REAL (no uno temporal)
-  // Requiere que ui/mapLayers.js exponga getQueryCircleBounds()
-  const bounds = typeof mapLayers.getQueryCircleBounds === "function"
-    ? mapLayers.getQueryCircleBounds()
-    : null;
+  // ✅ fit bounds usando el círculo REAL
+  const bounds = typeof mapLayers.getQueryCircleBounds === "function" ? mapLayers.getQueryCircleBounds() : null;
+  if (bounds) map.fitBounds(bounds, { padding: [20, 20] });
+  else map.setView([model.query.lat, model.query.lng], 12);
 
-  if (bounds) {
-    map.fitBounds(bounds, { padding: [20, 20] });
-  } else {
-    map.setView([model.query.lat, model.query.lng], 12);
-  }
-
-  // 7) Panel list
+  // 6) Panel list
   panel.render(model.projects);
 
-  // 8) Charts (si graficos.js expone initCharts)
+  // 7) Charts
   updateCharts(model);
 
-  // 9) Export KMZ (botón + compat global)
-  const doKmz = async () => {
-    if (!model) return;
-    try {
-      await downloadProximityKMZ({ model });
-    } catch (err) {
-      console.error("❌ Error exportando KMZ:", err);
-      alert("No se pudo exportar KMZ. Revisa la consola.");
-    }
-  };
-
-  // Compat: si el HTML aún tiene onclick
-  window.downloadProximityKMZ = doKmz;
-
-  if (btnKmz) {
-    btnKmz.disabled = false;
-    btnKmz.addEventListener("click", (e) => {
-      e.preventDefault();
-      doKmz();
-    });
-  }
+  // 8) KMZ (botón + compat onclick)
+  bindKmzButton({
+    buttonId: "btnKmz",
+    getModel: () => model,
+    exporter: downloadProximityKMZ,
+    attachGlobalName: "downloadProximityKMZ",
+  });
 }
 
-// ===========================
+// -------------------
 // Start
-// ===========================
+// -------------------
 document.addEventListener("DOMContentLoaded", () => {
   main().catch((err) => {
     console.error("❌ Error fatal en mapainfo.js:", err);

@@ -1,4 +1,6 @@
 // js/app/index.js
+// Requiere: <script type="module" src="js/app/index.js"></script>
+
 import { initPanelResponsive } from "../ui/layoutController.js";
 import { initFiltersController } from "../ui/filtersController.js";
 import { renderSummaryTable, summarizeByRegionAndState } from "../ui/summaryTable.js";
@@ -10,14 +12,13 @@ const REGIONES_JSON_URL = "capas/regiones.json";
 let map;
 let markersLayer;
 let proyectos = [];
-let regionesData = [];
-let filters;
+let filtros;
 
+// -------- helpers mínimos
 function parseCoord(value) {
   if (value === null || value === undefined) return null;
   let s = String(value).trim();
   if (!s) return null;
-
   s = s.replace(/\s/g, "");
 
   if (s.includes(",") && s.includes(".")) {
@@ -31,7 +32,7 @@ function parseCoord(value) {
   return Number.isFinite(num) ? num : null;
 }
 
-function pickEstadoBucket(estado) {
+function pickBucket(estado) {
   const e = String(estado || "").toLowerCase();
   if (e.includes("aprob")) return "Aprob";
   if (e.includes("calif")) return "Calif";
@@ -39,15 +40,15 @@ function pickEstadoBucket(estado) {
   return "Otros";
 }
 
+// -------- loaders
 async function loadRegionesData() {
   try {
     const resp = await fetch(REGIONES_JSON_URL);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    regionesData = await resp.json();
-    populateRegionSelect(regionesData);
+    const regiones = await resp.json();
+    populateRegionSelect(regiones);
   } catch (err) {
     console.error("❌ Error cargando regiones.json:", err);
-    regionesData = [];
     const select = document.getElementById("region-select");
     if (select) select.innerHTML = '<option value="">❌ Error cargando regiones</option>';
   }
@@ -69,6 +70,7 @@ function populateRegionSelect(regiones) {
   select.addEventListener("change", (e) => {
     const regionId = e.target.value;
     if (!regionId || !map) return;
+
     const region = regiones.find((r) => r.id === regionId);
     if (!region) return;
 
@@ -105,6 +107,7 @@ async function loadExcelData() {
     if (lat === null || lon === null) continue;
 
     const estado = row[COL_ESTADO] || "";
+
     data.push({
       lat,
       lon,
@@ -112,20 +115,16 @@ async function loadExcelData() {
       region: row[COL_REGION] || "",
       estado,
       sector: row[COL_SECTOR] || "",
-      bucket: pickEstadoBucket(estado),
+      bucket: pickBucket(estado),
     });
   }
 
   return data;
 }
 
+// -------- map
 function initMap() {
-  map = L.map("map", {
-    center: [-33.45, -70.65],
-    zoom: 10,
-    minZoom: 4,
-    zoomControl: true,
-  });
+  map = L.map("map", { center: [-33.45, -70.65], zoom: 10, minZoom: 4, zoomControl: true });
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     opacity: 1.0,
@@ -148,17 +147,18 @@ function initMap() {
   setTimeout(() => map.invalidateSize(), 120);
 }
 
-function dibujarMarcadores(proyectosVisibles) {
+function proyectosEnPantalla() {
+  if (!map || !proyectos.length) return [];
+  const bounds = map.getBounds();
+  return proyectos.filter((p) => bounds.contains([p.lat, p.lon]));
+}
+
+function dibujarMarcadores(items) {
   markersLayer.clearLayers();
 
-  const colores = {
-    Aprob: "#10b981",
-    Calif: "#f59e0b",
-    Rech: "#ef4444",
-    Otros: "#6b7280",
-  };
+  const colores = { Aprob: "#10b981", Calif: "#f59e0b", Rech: "#ef4444", Otros: "#6b7280" };
 
-  proyectosVisibles.forEach((p) => {
+  items.forEach((p) => {
     const marker = L.circleMarker([p.lat, p.lon], {
       radius: 6,
       fillColor: colores[p.bucket] || colores.Otros,
@@ -179,17 +179,10 @@ function dibujarMarcadores(proyectosVisibles) {
   });
 }
 
-function proyectosEnPantalla() {
-  if (!map || !proyectos.length) return [];
-  const bounds = map.getBounds();
-  return proyectos.filter((p) => bounds.contains([p.lat, p.lon]));
-}
-
 function actualizarResumenYCapas() {
   if (!map || !proyectos.length) return;
 
   const visibles = proyectosEnPantalla();
-
   dibujarMarcadores(visibles);
 
   const bboxInfo = document.getElementById("bboxInfo");
@@ -202,8 +195,8 @@ function actualizarResumenYCapas() {
 function onMapClick(e) {
   const { lat, lng } = e.latlng;
 
-  const modo = filters.getModoSeleccion(); // proximidad
-  const n = filters.getNProximos();
+  const modo = filtros.getModoSeleccion(); // en tu HTML: proximidad
+  const n = filtros.getNProximos();
 
   const url = buildMapainfoUrl({
     baseHref: window.location.href,
@@ -212,12 +205,13 @@ function onMapClick(e) {
     modo,
     radioKm: 10, // fijo en index.html actual
     n,
-    sectores: [], // no aplica aquí
+    sectores: [],
   });
 
   window.open(url, "_blank");
 }
 
+// -------- boot
 function boot() {
   initMap();
 
@@ -229,10 +223,10 @@ function boot() {
     onAfterToggle: () => setTimeout(() => map?.invalidateSize(), 250),
   });
 
-  filters = initFiltersController({
+  filtros = initFiltersController({
     onFiltersChanged: () => {
-      // En este HTML, el único filtro real es N (no afecta el mapa, solo mapainfo),
-      // así que no recalculamos nada aquí.
+      // En tu index actual, cambiar N no altera el mapa principal (solo mapainfo),
+      // así que no recalculamos aquí.
     },
   });
 
