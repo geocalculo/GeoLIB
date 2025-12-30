@@ -378,9 +378,12 @@
 
       <!-- ✅ Botón KMZ (NO afecta layout del panel) -->
       <div class="info-actions">
-        <button id="btnKmz" type="button" class="btn-kmz" onclick="downloadProximityKMZ()">
-          ⬇ Descargar proyectos en KMZ
-        </button>
+
+      <button id="btnKmz" type="button" class="btn-kmz">
+        ⬇ Descargar proyectos en KMZ
+      </button>
+
+
       </div>
     </div>
 
@@ -434,6 +437,6 @@
   <script src="js/graficos.js"></script>
 
   <!-- Lógica principal del mapa (incluye downloadProximityKMZ) -->
-  <script src="js/mapainfo.js"></script>
+  <script type="module" src="js/mapainfo.js"></script>
 </body>
 </html>

@@ -1,986 +1,296 @@
-// ===========================
-// GeoEVA - mapainfo.js (FINAL)
-// Detalle de proximidad + panel + gráficos + Export KMZ (TEXTO SIMPLE)
-// (con punto consulta + círculo + puntos + estilos + popups tipo tabla + 2 links)
-// + Balloon del círculo y punto consulta: SOLO TEXTO (Top 3 + resumen)
-// + Sanitización XML/KML (evita "not well-formed (invalid token)" en Google Earth)
-// + Basemap heredable (localStorage) para mantener combinación del index.html
-// + Sector NO filtra (solo informativo)
-// ===========================
+// js/mapainfo.js  (NUEVO - versión modular, completa, con fitBounds correcto)
+// GeoEVA - Detalle de proximidad + panel + gráficos + Export KMZ
 //
-// Requisitos en mapainfo.html (orden recomendado):
+// ✅ Requisitos en mapainfo.html (orden):
 // 1) Leaflet
 // 2) XLSX
 // 3) Plotly
-// 4) JSZip  (para KMZ)
-// 5) graficos.js (initCharts + getKmlBalloonSummaryText)
-// 6) mapainfo.js (este)
+// 4) JSZip
+// 5) graficos.js  (define window.initCharts si aplica)
+// 6) mapainfo.js  (ESTE como módulo)
 //
-// Botón:
-// <button onclick="downloadProximityKMZ()">⬇ Descargar proyectos en KMZ</button>
-//
-// ===========================
+// ⚠️ mapainfo.html debe cargar este archivo así:
+// <script type="module" src="js/mapainfo.js"></script>
 
+import { loadProyectosXlsx } from "./core/dataLoader.js";
+import { runProximityEngine } from "./features/proximity/proximityEngine.js";
+import { buildReportModel } from "./report/reportModel.js";
+import { createMapLayers } from "./ui/mapLayers.js";
+import { createProjectsPanel } from "./ui/panel.js";
+import { updateCharts } from "./ui/chartsController.js";
+import { downloadProximityKMZ } from "./export/kmzExport.js";
+import { formatMMU } from "./core/utils.js";
+
+// ===========================
+// Config
+// ===========================
 const DATA_XLSX_URL = "capas/nacional.xlsx";
 
-// ---------------------------
-// Estado global (para export)
-// ---------------------------
-let globalParams = null;
-let proyectosDentroDelRadio = [];
-let markersMap = new Map(); // id -> marker
-let currentHighlightedId = null;
+// ===========================
+// URL params
+// ===========================
+function getUrlParamFloat(name) {
+  const v = new URLSearchParams(window.location.search).get(name);
+  if (v == null) return null;
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
 
-let isLoadingData = false;
+function getUrlParamInt(name) {
+  const v = new URLSearchParams(window.location.search).get(name);
+  if (v == null) return null;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function getUrlParamStr(name, fallback = "") {
+  const v = new URLSearchParams(window.location.search).get(name);
+  return v == null ? fallback : String(v);
+}
+
+// lat/lng (tu estándar)
+const consultaLat = getUrlParamFloat("lat") ?? -27.5;
+const consultaLng = getUrlParamFloat("lng") ?? -70.25;
+const modoRaw = (getUrlParamStr("modo", "proximidad") || "proximidad").toLowerCase();
+const n = getUrlParamInt("n") ?? 10;
+const radioKm = getUrlParamFloat("radio") ?? 10;
+
+// ===========================
+// DOM refs (mapainfo.html actual)
+// ===========================
+const elCoords = document.getElementById("coordsLabel");
+const elModo = document.getElementById("modoLabel");
+const elRadio = document.getElementById("radioLabel");
+const elCount = document.getElementById("countLabel");
+const elInv = document.getElementById("invLabel");
+const btnKmz = document.getElementById("btnKmz");
+
+// Panel
+const panelToggle = document.getElementById("panelToggle");
+const projectsPanel = document.getElementById("projectsPanel");
+
+// ===========================
+// Estado
+// ===========================
 let map = null;
-let clickTimeout = null;
-let isHighlighting = false;
+let mapLayers = null;
+let panel = null;
+let model = null; // reportModel actual (para KMZ)
 
-// Export helpers
-let queryPoint = null; // {lat,lng}
-let exportCircleKm = null; // radioKm
-let exportModo = null; // "radio"|"proximidad"
-let exportNParam = null;
-let exportSectoresFiltro = []; // informativo (NO filtra)
-let exportResumen = null; // {resumenAprob,... invAprob,...}
-
-// ---------------------------
-// Utils
-// ---------------------------
-function parseCoord(value) {
-  if (value === null || value === undefined) return null;
-  let s = String(value).trim();
-  if (!s) return null;
-  s = s.replace(/\s/g, "");
-  if (s.indexOf(",") >= 0 && s.indexOf(".") >= 0) {
-    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
-      s = s.replace(/\./g, "").replace(",", ".");
-    } else {
-      s = s.replace(/,/g, "");
-    }
-  } else if (s.indexOf(",") >= 0) {
-    s = s.replace(",", ".");
-  }
-  const num = Number(s);
-  return Number.isFinite(num) ? num : null;
-}
-
-function distanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const rad = Math.PI / 180;
-  const dLat = (lat2 - lat1) * rad;
-  const dLon = (lon2 - lon1) * rad;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * rad) *
-      Math.cos(lat2 * rad) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function formatMMU(value) {
-  if (!Number.isFinite(value) || value <= 0) return "—";
-  return (
-    value.toLocaleString("es-CL", {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }) + " MMU$"
-  );
-}
-
-// ---- XML/KML hardening: evita "invalid token" por caracteres de control ----
-function stripInvalidXmlChars(s) {
-  // Remueve controles inválidos en XML 1.0 (frecuentes al venir desde XLSX)
-  // Permitidos: \t \n \r
-  return String(s ?? "").replace(
-    /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,
-    ""
-  );
-}
-
-function xmlEscape(s) {
-  const clean = stripInvalidXmlChars(s);
-  return clean
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
-
-function safeCdata(text) {
-  // evita romper CDATA y limpia chars inválidos
-  return stripInvalidXmlChars(text).replaceAll("]]>", "]]&gt;");
-}
-
-async function loadExcelData() {
-  if (isLoadingData) {
-    console.warn("⚠️ Carga de datos ya en progreso, esperando...");
-    return null;
-  }
-  isLoadingData = true;
-
+// ===========================
+// Basemap prefs (heredadas de index.html)
+// ===========================
+function readBasemapPrefs() {
   try {
-    const resp = await fetch(DATA_XLSX_URL);
-    if (!resp.ok)
-      throw new Error(`HTTP ${resp.status} al cargar ${DATA_XLSX_URL}`);
-    const buf = await resp.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
-    const sheetName = wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-
-    const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-    if (!json.length) return [];
-
-    const rows = json.slice(1);
-
-    // columnas (según tu nacional.xlsx)
-    const COL_NOMBRE = 0;
-    const COL_WEB = 1;
-    const COL_TIPO = 2;
-    const COL_REGION = 3;
-    const COL_INV = 9;
-    const COL_FECHA = 10;
-    const COL_ESTADO = 11;
-    const COL_SECTOR = 13;
-    const COL_LAT = 14;
-    const COL_LON = 15;
-    const COL_ANEXOS = 16;
-    const COL_ANIO = 17;
-
-    const data = [];
-
-    for (const row of rows) {
-      if (!row || row.length === 0) continue;
-
-      const lat = parseCoord(row[COL_LAT]);
-      const lon = parseCoord(row[COL_LON]);
-      if (lat === null || lon === null) continue;
-
-      const invNum = parseCoord(row[COL_INV]);
-      const anioVal = row[COL_ANIO];
-      const anioNum =
-        anioVal !== null && anioVal !== undefined && anioVal !== ""
-          ? parseInt(anioVal, 10)
-          : null;
-
-      data.push({
-        lat,
-        lon,
-        nombre: stripInvalidXmlChars(row[COL_NOMBRE] || ""),
-        web: stripInvalidXmlChars(row[COL_WEB] || ""),
-        tipo: stripInvalidXmlChars(row[COL_TIPO] || ""),
-        region: stripInvalidXmlChars(row[COL_REGION] || ""),
-        inversion: invNum,
-        fechaIngreso: stripInvalidXmlChars(row[COL_FECHA] || ""),
-        estado: stripInvalidXmlChars(row[COL_ESTADO] || ""),
-        sector: stripInvalidXmlChars(row[COL_SECTOR] || ""),
-        anexos: stripInvalidXmlChars(row[COL_ANEXOS] || ""),
-        anio: anioNum,
-      });
-    }
-
-    return data;
-  } finally {
-    isLoadingData = false;
-  }
-}
-
-function ajustarZoomCirculo(map, circle) {
-  const size = map.getSize();
-  const minSide = Math.min(size.x, size.y);
-  const paddingPx = minSide * 0.2;
-  map.fitBounds(circle.getBounds(), { padding: [paddingPx, paddingPx] });
-}
-
-// ---------------------------
-// Panel lateral
-// ---------------------------
-function togglePanel() {
-  const panel = document.getElementById("projectsPanel");
-  panel?.classList.toggle("collapsed");
-}
-
-function renderProjectsList(proyectos) {
-  if (proyectos.length > 500) {
-    console.warn(
-      `⚠️ ${proyectos.length} proyectos en el panel. El rendimiento puede degradarse.`
-    );
-  }
-
-  const panelContent = document.getElementById("panelContent");
-  const panelCount = document.getElementById("panelCount");
-  if (!panelContent || !panelCount) return;
-
-  panelContent.innerHTML = "";
-  panelCount.textContent = proyectos.length;
-
-  proyectos.forEach((proyecto) => {
-    const item = document.createElement("div");
-    item.className = "project-item";
-    item.dataset.projectId = proyecto.id;
-
-    let dotColor = "#6b7280";
-    if (proyecto.bucket === "Aprob") dotColor = "#16a34a";
-    else if (proyecto.bucket === "Calif") dotColor = "#ea580c";
-    else if (proyecto.bucket === "Rech") dotColor = "#dc2626";
-
-    const nombre = proyecto.nombre || "";
-    const nombreDisplay =
-      nombre.length > 60 ? nombre.substring(0, 57) + "..." : nombre;
-
-    item.innerHTML = `
-      <div class="project-id">#${proyecto.id}</div>
-      <div class="project-name" title="${xmlEscape(nombre)}">${xmlEscape(
-      nombreDisplay
-    )}</div>
-      <div class="project-status-dot" style="background:${dotColor}"></div>
-    `;
-
-    item.addEventListener("click", (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      highlightProject(proyecto.id);
-    });
-
-    panelContent.appendChild(item);
-  });
-}
-
-function clearHighlight() {
-  if (currentHighlightedId === null) return;
-
-  const highlightedItem = document.querySelector(".project-item.highlighted");
-  if (highlightedItem) highlightedItem.classList.remove("highlighted");
-
-  const marker = markersMap.get(currentHighlightedId);
-  if (marker) {
-    const el = marker.getElement();
-    if (el) el.classList.remove("marker-highlighted");
-    marker.closePopup();
-  }
-
-  currentHighlightedId = null;
-}
-
-function highlightProject(projectId) {
-  if (isHighlighting) return;
-  if (currentHighlightedId === projectId) return;
-
-  isHighlighting = true;
-  try {
-    clearHighlight();
-
-    // Resaltar item lista
-    const listItem = document.querySelector(
-      `[data-project-id="${projectId}"]`
-    );
-    if (listItem) {
-      listItem.classList.add("highlighted");
-      listItem.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-
-    // Resaltar marker + abrir popup
-    const marker = markersMap.get(projectId);
-    if (marker) {
-      const el = marker.getElement();
-      if (el) el.classList.add("marker-highlighted");
-      marker.openPopup();
-    }
-
-    currentHighlightedId = projectId;
-  } finally {
-    isHighlighting = false;
-  }
-}
-
-// ---------------------------
-// Popup tipo tabla (GeoIPT-like)
-// ---------------------------
-function getPopupTableHTML(p) {
-  const latDisplay = Number.isFinite(p.lat) ? p.lat.toFixed(6) : "—";
-  const lonDisplay = Number.isFinite(p.lon) ? p.lon.toFixed(6) : "—";
-  const distDisplay = Number.isFinite(p.distKm) ? p.distKm.toFixed(2) : "—";
-
-  return `
-    <table border="1" cellpadding="4" cellspacing="0"
-           style="border-collapse:collapse; font-family:Arial; font-size:13px; width:100%;">
-      <tr><th align="left">Proyecto</th><td>#${xmlEscape(p.id)} - ${xmlEscape(
-    p.nombre || "—"
-  )}</td></tr>
-      <tr><th align="left">Tipo</th><td>${xmlEscape(p.tipo || "—")}</td></tr>
-      <tr><th align="left">Sector</th><td>${xmlEscape(
-        p.sector || "—"
-      )}</td></tr>
-      <tr><th align="left">Estado</th><td>${xmlEscape(
-        p.estado || "—"
-      )}</td></tr>
-      <tr><th align="left">Año</th><td>${xmlEscape(p.anio ?? "—")}</td></tr>
-      <tr><th align="left">Inversión</th><td>${xmlEscape(
-        formatMMU(p.inversion)
-      )}</td></tr>
-      <tr><th align="left">Latitud</th><td>${xmlEscape(
-        latDisplay
-      )}</td></tr>
-      <tr><th align="left">Longitud</th><td>${xmlEscape(
-        lonDisplay
-      )}</td></tr>
-      <tr><th align="left">Distancia (km)</th><td>${xmlEscape(
-        distDisplay
-      )}</td></tr>
-      <tr><th align="left">Expediente</th>
-          <td>${
-            p.web
-              ? `<a href="${xmlEscape(p.web)}" target="_blank">Abrir expediente</a>`
-              : "—"
-          }</td></tr>
-      <tr><th align="left">Anexos</th>
-          <td>${
-            p.anexos
-              ? `<a href="${xmlEscape(p.anexos)}" target="_blank">Abrir anexos</a>`
-              : "—"
-          }</td></tr>
-    </table>
-  `;
-}
-
-// ---------------------------
-// Basemap heredable (misma combinación que index.html)
-// ---------------------------
-function getBasemapPrefs() {
-  const raw = localStorage.getItem("geoeva_basemap");
-  if (!raw) return null;
-  try {
-    const obj = JSON.parse(raw);
-    if (obj && typeof obj === "object") return obj;
-    return null;
+    const raw = localStorage.getItem("geoeva_basemap");
+    if (!raw) return null;
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
-function addBasemapLayers(map) {
-  const bm = getBasemapPrefs();
+function initMap() {
+  map = L.map("map", {
+    center: [consultaLat, consultaLng],
+    zoom: 11,
+    minZoom: 4,
+    zoomControl: true,
+  });
 
-  // Defaults (igual a tu actual)
-  const osmOpacity = Number.isFinite(bm?.osmOpacity) ? bm.osmOpacity : 1.0;
-  const imgOpacity = Number.isFinite(bm?.imgOpacity) ? bm.imgOpacity : 0.1;
-  const addOSM = bm?.addOSM !== false; // default true
-  const addIMG = bm?.addIMG !== false; // default true
+  const prefs = readBasemapPrefs() || {
+    addOSM: true,
+    osmOpacity: 1.0,
+    addIMG: true,
+    imgOpacity: 0.1,
+  };
 
-  if (addOSM) {
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      opacity: osmOpacity,
+  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    opacity: Math.max(0, Math.min(1, Number(prefs.osmOpacity ?? 1))),
+    attribution: "&copy; OpenStreetMap contributors",
+  });
+
+  const img = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
       maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors",
-    }).addTo(map);
-  }
-
-  if (addIMG) {
-    L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      { opacity: imgOpacity, maxZoom: 19 }
-    ).addTo(map);
-  }
-}
-
-// ---------------------------
-// KMZ helpers
-// ---------------------------
-function kmlColorFromHex(hex, alphaFF = "ff") {
-  // KML usa aabbggrr
-  const h = (hex || "#000000").replace("#", "");
-  const rr = h.substring(0, 2);
-  const gg = h.substring(2, 4);
-  const bb = h.substring(4, 6);
-  return `${alphaFF}${bb}${gg}${rr}`.toLowerCase();
-}
-
-function circlePolygonCoords(lng, lat, radiusKm, steps = 96) {
-  // Aproximación: polígono WGS84 alrededor del punto
-  const R = 6371; // km
-  const rad = Math.PI / 180;
-  const latRad = lat * rad;
-  const lngRad = lng * rad;
-  const d = radiusKm / R;
-
-  const coords = [];
-  for (let i = 0; i <= steps; i++) {
-    const brng = (2 * Math.PI * i) / steps;
-    const lat2 = Math.asin(
-      Math.sin(latRad) * Math.cos(d) +
-        Math.cos(latRad) * Math.sin(d) * Math.cos(brng)
-    );
-    const lng2 =
-      lngRad +
-      Math.atan2(
-        Math.sin(brng) * Math.sin(d) * Math.cos(latRad),
-        Math.cos(d) - Math.sin(latRad) * Math.sin(lat2)
-      );
-
-    const latDeg = lat2 / rad;
-    const lngDeg = lng2 / rad;
-    coords.push(`${lngDeg},${latDeg},0`);
-  }
-  return coords.join(" ");
-}
-
-// ---------------------------
-// Balloon TEXTO SIMPLE
-// ---------------------------
-function buildConsultaTextForKml() {
-  const lat = queryPoint?.lat;
-  const lng = queryPoint?.lng;
-  const radioKm = exportCircleKm ?? null;
-
-  const modo = exportModo || "radio";
-  const n = exportNParam ?? null;
-
-  const snap = new Date().toLocaleString("es-CL");
-
-  const lines = [];
-  lines.push("CONSULTA");
-  lines.push(
-    `• Punto: ${Number.isFinite(lat) ? lat.toFixed(6) : "—"}, ${
-      Number.isFinite(lng) ? lng.toFixed(6) : "—"
-    }`
-  );
-  lines.push(`• Modo: ${modo}${modo === "proximidad" ? ` (N=${n})` : ""}`);
-  lines.push(
-    `• Radio: ${Number.isFinite(radioKm) ? radioKm.toFixed(2) : "—"} km`
+      opacity: Math.max(0, Math.min(1, Number(prefs.imgOpacity ?? 0.1))),
+    }
   );
 
-  // Sectores: informativo, no filtra
-  const sectores = Array.isArray(exportSectoresFiltro) ? exportSectoresFiltro : [];
-  if (sectores.length) lines.push(`• Sectores (info): ${sectores.join(", ")}`);
-
-  lines.push(`• Snapshot: ${snap}`);
-  return lines.join("\n");
-}
-
-function chooseBucketFromProyecto(p) {
-  const b = (p.bucket || "").toLowerCase();
-  if (b.includes("aprob")) return "Aprob";
-  if (b.includes("calif")) return "Calif";
-  if (b.includes("rech")) return "Rech";
-  return "Otros";
-}
-
-// ---------------------------
-// ✅ Export principal: KMZ (TEXTO)
-// ---------------------------
-window.downloadProximityKMZ = async function downloadProximityKMZ() {
-  try {
-    if (
-      !queryPoint ||
-      !Number.isFinite(queryPoint.lat) ||
-      !Number.isFinite(queryPoint.lng)
-    ) {
-      alert("❌ No se pudo determinar el punto de consulta para exportar.");
-      return;
-    }
-
-    if (!Array.isArray(proyectosDentroDelRadio) || proyectosDentroDelRadio.length === 0) {
-      alert("No hay proyectos dentro del radio para exportar.");
-      return;
-    }
-
-    if (!window.JSZip) {
-      alert("❌ Falta JSZip. Asegúrate de cargarlo antes de mapainfo.js.");
-      return;
-    }
-
-    const lat = queryPoint.lat;
-    const lng = queryPoint.lng;
-    const radioKm = exportCircleKm ?? 0;
-
-    // Colores GeoEVA
-    const HEX = {
-      Aprob: "#16a34a",
-      Calif: "#ea580c",
-      Rech: "#dc2626",
-      Otros: "#6b7280",
-      Consulta: "#1d4ed8",
-      Circulo: "#1d4ed8",
-    };
-
-    const stylesKml = `
-      <Style id="stConsulta">
-        <IconStyle>
-          <color>${kmlColorFromHex(HEX.Consulta, "ff")}</color>
-          <scale>1.3</scale>
-          <Icon>
-            <href>http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
-          </Icon>
-        </IconStyle>
-        <LabelStyle><scale>1.0</scale></LabelStyle>
-      </Style>
-
-      <Style id="stCircle">
-        <LineStyle><color>${kmlColorFromHex(HEX.Circulo, "ff")}</color><width>3</width></LineStyle>
-        <PolyStyle><color>${kmlColorFromHex(HEX.Circulo, "15")}</color></PolyStyle>
-      </Style>
-
-      <Style id="stAprob">
-        <IconStyle>
-          <color>${kmlColorFromHex(HEX.Aprob, "ff")}</color>
-          <scale>1.1</scale>
-          <Icon><href>http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png</href></Icon>
-        </IconStyle>
-      </Style>
-
-      <Style id="stCalif">
-        <IconStyle>
-          <color>${kmlColorFromHex(HEX.Calif, "ff")}</color>
-          <scale>1.1</scale>
-          <Icon><href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href></Icon>
-        </IconStyle>
-      </Style>
-
-      <Style id="stRech">
-        <IconStyle>
-          <color>${kmlColorFromHex(HEX.Rech, "ff")}</color>
-          <scale>1.1</scale>
-          <Icon><href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href></Icon>
-        </IconStyle>
-      </Style>
-
-      <Style id="stOtros">
-        <IconStyle>
-          <color>${kmlColorFromHex(HEX.Otros, "ff")}</color>
-          <scale>1.1</scale>
-          <Icon><href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href></Icon>
-        </IconStyle>
-      </Style>
-    `;
-
-    // --------- Balloon TEXTO (consulta + resumen Top3) ----------
-    const consultaText = buildConsultaTextForKml();
-
-    // Normalizar data para resumen (graficos.js)
-    const dataForSummary = proyectosDentroDelRadio.map((p) => ({
-      sector: (p.sector || "Sin sector").toString(),
-      estado: (p.estado || "Sin estado").toString(),
-      tipo: (p.tipo || "Sin tipo").toString(),
-      anio: Number.isFinite(p.anio) ? p.anio : null,
-      inversionMm: Number.isFinite(p.inversion) ? p.inversion : 0,
-    }));
-
-    const resumenText =
-      typeof window.getKmlBalloonSummaryText === "function"
-        ? window.getKmlBalloonSummaryText({
-            data: dataForSummary,
-            radiusM: Number.isFinite(exportCircleKm) ? exportCircleKm * 1000 : null,
-            center: { lat: queryPoint.lat, lon: queryPoint.lng },
-            links: { geoeva: "", geoipt: "" },
-          })
-        : "RESUMEN\n• (No disponible: falta getKmlBalloonSummaryText en graficos.js)";
-
-    const circleBalloonText = `${consultaText}\n\n${resumenText}`;
-
-    const consultaPlacemark = `
-      <Placemark>
-        <name>Punto de consulta</name>
-        <styleUrl>#stConsulta</styleUrl>
-        <description><![CDATA[<pre>${safeCdata(consultaText)}</pre>]]></description>
-        <Point><coordinates>${lng},${lat},0</coordinates></Point>
-      </Placemark>
-    `;
-
-    const circlePoly =
-      radioKm > 0
-        ? `
-        <Placemark>
-          <name>Área de análisis (radio)</name>
-          <styleUrl>#stCircle</styleUrl>
-          <description><![CDATA[<pre>${safeCdata(circleBalloonText)}</pre>]]></description>
-          <Polygon>
-            <outerBoundaryIs>
-              <LinearRing>
-                <coordinates>${circlePolygonCoords(lng, lat, radioKm, 120)}</coordinates>
-              </LinearRing>
-            </outerBoundaryIs>
-          </Polygon>
-        </Placemark>
-      `
-        : "";
-
-    // Proyectos
-    const proyectosValidos = proyectosDentroDelRadio.filter(
-      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)
-    );
-
-    const placemarksProyectos = proyectosValidos
-      .map((p) => {
-        const bucket = chooseBucketFromProyecto(p);
-        const styleUrl =
-          bucket === "Aprob"
-            ? "#stAprob"
-            : bucket === "Calif"
-            ? "#stCalif"
-            : bucket === "Rech"
-            ? "#stRech"
-            : "#stOtros";
-
-        const html = getPopupTableHTML(p);
-
-        return `
-          <Placemark>
-            <name>#${xmlEscape(p.id)} - ${xmlEscape(p.nombre || "Proyecto")}</name>
-            <styleUrl>${styleUrl}</styleUrl>
-            <description><![CDATA[${safeCdata(html)}]]></description>
-            <Point><coordinates>${p.lon},${p.lat},0</coordinates></Point>
-          </Placemark>
-        `;
-      })
-      .join("\n");
-
-    const kml = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-<Document>
-  <name>GeoEVA – Proximidad</name>
-  <description><![CDATA[<pre>${safeCdata(
-    `GeoEVA – Exportación KMZ\n• Proyectos: ${proyectosValidos.length}`
-  )}</pre>]]></description>
-
-  ${stylesKml}
-
-  <Folder>
-    <name>Consulta</name>
-    ${consultaPlacemark}
-    ${circlePoly}
-  </Folder>
-
-  <Folder>
-    <name>Proyectos</name>
-    ${placemarksProyectos}
-  </Folder>
-
-</Document>
-</kml>`;
-
-    // Armar KMZ
-    const zip = new JSZip();
-    zip.file("doc.kml", kml);
-
-    const blob = await zip.generateAsync({
-      type: "blob",
-      compression: "DEFLATE",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "geoeva_proximidad_texto.kmz";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("❌ Error exportando KMZ:", err);
-    alert("❌ Error exportando KMZ. Revisa consola.");
-  }
-};
-
-// ---------------------------
-// Init principal
-// ---------------------------
-document.addEventListener("DOMContentLoaded", async () => {
-  // reset
-  proyectosDentroDelRadio = [];
-  markersMap.clear();
-  currentHighlightedId = null;
-
-  const params = new URLSearchParams(window.location.search);
-  globalParams = params;
-
-  const lat = parseFloat(params.get("lat"));
-  const lng = parseFloat(params.get("lng"));
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    alert(
-      "❌ Error: Coordenadas inválidas en la URL.\n\nVerifica parámetros 'lat' y 'lng'."
-    );
-    console.error("Parámetros inválidos:", { lat, lng });
-    return;
-  }
-
-  queryPoint = { lat, lng };
-
-  const modo = params.get("modo") || "radio";
-  const radioParam = parseFloat(params.get("radio")) || 10;
-  const nParam = parseInt(params.get("n") || "10", 10);
-  const sectoresParam = params.get("sectores") || "";
-  const sectoresFiltro = sectoresParam
-    ? sectoresParam.split("|").filter(Boolean)
-    : [];
-
-  exportModo = modo;
-  exportNParam = nParam;
-  exportSectoresFiltro = sectoresFiltro; // ✅ informativo (NO filtra)
-
-  const coordsLabel = document.getElementById("coordsLabel");
-  const modoLabel = document.getElementById("modoLabel");
-  const radioLabel = document.getElementById("radioLabel");
-  const countLabel = document.getElementById("countLabel");
-  const invLabel = document.getElementById("invLabel");
-
-  if (coordsLabel)
-    coordsLabel.textContent = `Punto: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-
-  if (modoLabel) {
-    modoLabel.textContent =
-      modo === "proximidad"
-        ? `Modo: Proximidad (N=${nParam} aprobados)`
-        : `Modo: Radio (R=${radioParam} km)`;
-  }
-
-  const toggleEl = document.getElementById("panelToggle");
-  if (toggleEl) toggleEl.addEventListener("click", togglePanel);
-
-  // Mapa
-  map = L.map("map", { center: [lat, lng], zoom: 10, minZoom: 4 });
-
-  // ✅ Basemap heredable (index.html)
-  addBasemapLayers(map);
+  if (prefs.addOSM !== false) osm.addTo(map);
+  if (prefs.addIMG !== false) img.addTo(map);
 
   L.control.scale().addTo(map);
 
-  // Punto consulta (azul)
-  L.circleMarker([lat, lng], {
-    radius: 6,
-    color: "#1d4ed8",
-    weight: 2,
-    fillColor: "#1d4ed8",
-    fillOpacity: 1,
-  }).addTo(map);
+  mapLayers = createMapLayers(map);
 
-  const markersLayer = L.layerGroup().addTo(map);
+  // Invalidate por layout con aspect-ratio
+  setTimeout(() => map.invalidateSize(), 150);
+}
 
-  // Leyenda
-  const legend = L.control({ position: "bottomleft" });
-  legend.onAdd = function () {
-    const div = L.DomUtil.create("div", "legend");
-    div.innerHTML = `
-      <div class="legend-item"><span class="legend-color" style="background:#16a34a;"></span> Aprobado</div>
-      <div class="legend-item"><span class="legend-color" style="background:#ea580c;"></span> En calificación / evaluación</div>
-      <div class="legend-item"><span class="legend-color" style="background:#dc2626;"></span> Rechazado</div>
-      <div class="legend-item"><span class="legend-color" style="background:#6b7280;"></span> Otros estados</div>
-    `;
-    return div;
-  };
-  legend.addTo(map);
+// ===========================
+// UI: info-bar
+// ===========================
+function setInfoBarFromModel(m) {
+  const q = m.query;
+  const total = m.stats.totalProjects ?? m.projects.length;
 
-  // Cargar datos
-  let proyectos;
+  if (elCoords) elCoords.textContent = `Punto: lat ${q.lat.toFixed(6)}, lng ${q.lng.toFixed(6)}`;
+  if (elModo) {
+    elModo.textContent =
+      `Modo: ${q.modo === "proximidad" ? "Proximidad (Top N aprobados)" : "Radio fijo"}`;
+  }
+  if (elRadio) elRadio.textContent = `Radio: ${Number.isFinite(q.radioKmFinal) ? q.radioKmFinal.toFixed(2) : "—"} km`;
+
+  const invTotal = Number.isFinite(m.stats.invTotal) ? m.stats.invTotal : 0;
+
+  if (elCount) {
+    const a = m.stats?.counts?.Aprob ?? 0;
+    const c = m.stats?.counts?.Calif ?? 0;
+    const r = m.stats?.counts?.Rech ?? 0;
+    const o = m.stats?.counts?.Otros ?? 0;
+    elCount.textContent = `Resumen: ${total} (Aprob ${a} / Calif ${c} / Rech ${r} / Otros ${o})`;
+  }
+
+  if (elInv) elInv.textContent = `Inversión: ${formatMMU(invTotal)}`;
+}
+
+// ===========================
+// UI: panel collapse
+// ===========================
+function initPanelCollapse() {
+  if (!panelToggle || !projectsPanel) return;
+
+  panelToggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    projectsPanel.classList.toggle("collapsed");
+    setTimeout(() => map?.invalidateSize(), 200);
+  });
+}
+
+// ===========================
+// Main
+// ===========================
+async function main() {
+  // 1) init map + UI hooks
+  initMap();
+
+  panel = createProjectsPanel({
+    containerId: "panelContent",
+    countId: "panelCount",
+    onSelectProject: (id) => {
+      panel.highlight(id);
+      mapLayers.highlightProject(id);
+    },
+  });
+
+  initPanelCollapse();
+
+  // 2) Cargar proyectos (perfil completo)
+  let proyectos = [];
   try {
-    proyectos = await loadExcelData();
-    if (!proyectos || proyectos.length === 0)
-      throw new Error("No se pudieron cargar proyectos (Excel vacío o error).");
+    proyectos = await loadProyectosXlsx(DATA_XLSX_URL, "mapainfo");
   } catch (err) {
-    console.error("Error cargando nacional.xlsx:", err);
-    if (radioLabel) radioLabel.textContent = "Radio: —";
-    if (countLabel) countLabel.textContent = "Error al cargar datos de proyectos.";
-    if (invLabel) invLabel.textContent = "Inversión: —";
+    console.error("❌ Error cargando XLSX:", err);
+    alert("No se pudo cargar el Excel de proyectos. Revisa la consola.");
     return;
   }
 
-  // ✅ Sector NO filtra dataset (solo informativo)
-  // Si quieres mantenerlo visible en UI, podrías mostrarlo en modoLabel o en algún badge.
-  // (No hacemos nada acá.)
-
-  const todosConDist = proyectos.map((p) => ({
-    ...p,
-    distKm: distanceKm(lat, lng, p.lat, p.lon),
-  }));
-
-  let radioKm = radioParam;
-  let topNSet = new Set();
-
-  if (modo === "proximidad") {
-    const aprobados = todosConDist.filter((p) =>
-      (p.estado || "").toLowerCase().includes("aprob")
-    );
-    aprobados.sort((a, b) => a.distKm - b.distKm);
-    const aprobTopN = aprobados.slice(0, nParam);
-
-    if (aprobTopN.length) {
-      radioKm = aprobTopN[aprobTopN.length - 1].distKm;
-      topNSet = new Set(
-        aprobTopN.map((p) => `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`)
-      );
-    } else {
-      radioKm = radioParam;
-    }
+  // 3) Engine (punto -> puntos)
+  let engineOutput = null;
+  try {
+    engineOutput = runProximityEngine({
+      projects: proyectos,
+      center: { lat: consultaLat, lng: consultaLng },
+      modo: modoRaw === "radio" ? "radio" : "proximidad",
+      radioKm,
+      n,
+    });
+  } catch (err) {
+    console.error("❌ Error en proximityEngine:", err);
+    alert("Error al calcular proximidad. Revisa la consola.");
+    return;
   }
 
-  exportCircleKm = radioKm;
-
-  // Círculo
-  const circle = L.circle([lat, lng], {
-    radius: radioKm * 1000,
-    color: "#1d4ed8",
-    weight: 3,
-    fill: false,
-    fillOpacity: 0,
-    interactive: false,
-  }).addTo(map);
-
-  ajustarZoomCirculo(map, circle);
-  map.on("resize", () => ajustarZoomCirculo(map, circle));
-
-  // Dentro del radio
-  const dentro = todosConDist.filter((p) => p.distKm <= radioKm);
-
-  // Sort estable: distancia + nombre
-  dentro.sort((a, b) => {
-    if (a.distKm !== b.distKm) return a.distKm - b.distKm;
-    return (a.nombre || "").localeCompare(b.nombre || "");
+  // 4) Modelo estándar (para UI + export)
+  model = buildReportModel({
+    engineOutput,
+    meta: {
+      sourceXlsx: DATA_XLSX_URL,
+      generatedAt: new Date().toISOString(),
+    },
   });
 
-  let resumenAprob = 0,
-    resumenCalif = 0,
-    resumenRech = 0,
-    resumenOtros = 0;
-  let invAprob = 0,
-    invCalif = 0,
-    invRech = 0,
-    invOtros = 0;
+  // Debug opcional
+  window.__geoeva_model = model;
 
-  dentro.forEach((p, index) => {
-    const estadoL = (p.estado || "").toLowerCase();
-    const key = `${p.lat}|${p.lon}|${(p.nombre || "").trim()}`;
+  // 5) UI: info-bar
+  setInfoBarFromModel(model);
 
-    p.id = index + 1;
+  // 6) Map layers: punto + círculo + markers
+  const radioFinal = Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0
+    ? model.query.radioKmFinal
+    : radioKm;
 
-    let color = "#6b7280";
-    let bucket = "Otros";
+  mapLayers.setQueryPoint(model.query.lat, model.query.lng);
+  mapLayers.setQueryCircle(model.query.lat, model.query.lng, radioFinal);
 
-    if (modo === "proximidad" && topNSet.has(key)) {
-      color = "#16a34a";
-      bucket = "Aprob";
-    } else if (estadoL.includes("rech")) {
-      color = "#dc2626";
-      bucket = "Rech";
-    } else if (estadoL.includes("calif") || estadoL.includes("eval")) {
-      color = "#ea580c";
-      bucket = "Calif";
-    } else if (estadoL.includes("aprob")) {
-      color = "#16a34a";
-      bucket = "Aprob";
-    }
-
-    p.bucket = bucket;
-
-    if (bucket === "Aprob") resumenAprob++;
-    else if (bucket === "Calif") resumenCalif++;
-    else if (bucket === "Rech") resumenRech++;
-    else resumenOtros++;
-
-    if (Number.isFinite(p.inversion)) {
-      if (bucket === "Aprob") invAprob += p.inversion;
-      else if (bucket === "Calif") invCalif += p.inversion;
-      else if (bucket === "Rech") invRech += p.inversion;
-      else invOtros += p.inversion;
-    }
-
-    const m = L.circleMarker([p.lat, p.lon], {
-      radius: 4,
-      color,
-      weight: 1,
-      fillColor: color,
-      fillOpacity: 0.8,
-    });
-
-    // Tooltip ID (anti-eventos)
-    m.bindTooltip(`#${p.id}`, {
-      permanent: true,
-      direction: "top",
-      className: "project-id-label",
-      offset: [0, -10],
-      interactive: false,
-      opacity: 1,
-      bubblingMouseEvents: false,
-    });
-
-    // Popup tipo tabla (incluye 2 links)
-    m.bindPopup(getPopupTableHTML(p), { maxWidth: 420 });
-
-    m.on("click", (e) => {
-      L.DomEvent.stopPropagation(e);
-      if (clickTimeout) clearTimeout(clickTimeout);
-      clickTimeout = setTimeout(() => highlightProject(p.id), 50);
-    });
-
-    m.on("popupclose", () => {
-      if (!isHighlighting) clearHighlight();
-    });
-
-    m.addTo(markersLayer);
-    markersMap.set(p.id, m);
+  mapLayers.renderProjects(model.projects, {
+    onMarkerClick: (id) => {
+      panel.highlight(id);
+      mapLayers.highlightProject(id);
+    },
   });
 
-  proyectosDentroDelRadio = dentro;
-  renderProjectsList(dentro);
+  // ✅ FIT BOUNDS CORRECTO: usar el círculo REAL (no uno temporal)
+  // Requiere que ui/mapLayers.js exponga getQueryCircleBounds()
+  const bounds = typeof mapLayers.getQueryCircleBounds === "function"
+    ? mapLayers.getQueryCircleBounds()
+    : null;
 
-  // Cinta superior
-  if (radioLabel) radioLabel.textContent = `Radio: ${radioKm.toFixed(1)} km`;
-
-  if (countLabel) {
-    countLabel.textContent =
-      `Resumen – Aprob: ${resumenAprob} | Calif: ${resumenCalif} | ` +
-      `Rech: ${resumenRech} | Otros: ${resumenOtros}`;
+  if (bounds) {
+    map.fitBounds(bounds, { padding: [20, 20] });
+  } else {
+    map.setView([model.query.lat, model.query.lng], 12);
   }
 
-  if (invLabel) {
-    invLabel.textContent =
-      `Inversión – Aprob: ${formatMMU(invAprob)} | ` +
-      `Calif: ${formatMMU(invCalif)} | ` +
-      `Rech: ${formatMMU(invRech)} | ` +
-      `Otros: ${formatMMU(invOtros)}`;
-  }
+  // 7) Panel list
+  panel.render(model.projects);
 
-  exportResumen = {
-    resumenAprob,
-    resumenCalif,
-    resumenRech,
-    resumenOtros,
-    invAprob,
-    invCalif,
-    invRech,
-    invOtros,
+  // 8) Charts (si graficos.js expone initCharts)
+  updateCharts(model);
+
+  // 9) Export KMZ (botón + compat global)
+  const doKmz = async () => {
+    if (!model) return;
+    try {
+      await downloadProximityKMZ({ model });
+    } catch (err) {
+      console.error("❌ Error exportando KMZ:", err);
+      alert("No se pudo exportar KMZ. Revisa la consola.");
+    }
   };
 
-  // Datos para charts (web)
-  const chartData = dentro.map((p) => {
-    const tipoRaw = (p.tipo || "").toUpperCase();
-    let tipoNorm = "Otros";
-    if (tipoRaw.includes("EIA")) tipoNorm = "EIA";
-    else if (tipoRaw.includes("DIA")) tipoNorm = "DIA";
+  // Compat: si el HTML aún tiene onclick
+  window.downloadProximityKMZ = doKmz;
 
-    return {
-      tipo: tipoNorm,
-      estado: p.estado || "Otros",
-      sector: p.sector || "Sin sector",
-      region: p.region || "Sin región",
-      nombre: p.nombre || "Sin nombre",
-      inversionMm: p.inversion || 0,
-      anio: p.anio && Number.isFinite(p.anio) ? p.anio : null,
-      distKm: Number.isFinite(p.distKm) ? p.distKm : 0,
-    };
-  });
-
-  const chartDataValid = chartData.filter(
-    (d) => Number.isFinite(d.inversionMm) && Number.isFinite(d.distKm)
-  );
-
-  window.chartDataGlobal = chartDataValid;
-
-  if (typeof window.initCharts === "function") {
-    window.initCharts(chartDataValid);
-  } else {
-    console.warn("initCharts(chartData) no está definido. Revisa js/graficos.js");
+  if (btnKmz) {
+    btnKmz.disabled = false;
+    btnKmz.addEventListener("click", (e) => {
+      e.preventDefault();
+      doKmz();
+    });
   }
-});
+}
 
-console.log("✅ mapainfo.js FINAL cargado: downloadProximityKMZ() disponible");
+// ===========================
+// Start
+// ===========================
+document.addEventListener("DOMContentLoaded", () => {
+  main().catch((err) => {
+    console.error("❌ Error fatal en mapainfo.js:", err);
+    alert("Error fatal. Revisa la consola.");
+  });
+});
