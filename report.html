@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>SEA Mining - Informe (PDF)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Estilos reporte (pantalla + print) -->
+  <link rel="stylesheet" href="css/report.css" />
+</head>
+
+<body>
+  <div class="report-page">
+
+    <!-- Barra superior (no se imprime) -->
+    <div class="report-top no-print">
+      <div class="brand">SEA Mining · GeoEVA</div>
+      <div class="actions">
+        <button id="btnPrint" type="button" class="btn">
+          🖨️ Imprimir / Guardar PDF
+        </button>
+        <a class="btn btn-ghost" href="mapainfo.html" id="btnBack">↩ Volver</a>
+      </div>
+    </div>
+
+    <!-- Encabezado informe -->
+    <header class="report-header">
+      <h1>Informe de Proximidad</h1>
+      <p class="muted">Generado desde el visor GeoEVA (SEA Mining).</p>
+      <div class="meta-grid">
+        <div class="meta" id="coordsLabel">Punto: —</div>
+        <div class="meta" id="modoLabel">Modo: —</div>
+        <div class="meta" id="radioLabel">Radio: —</div>
+        <div class="meta" id="countLabel">Resumen: —</div>
+        <div class="meta" id="invLabel">Inversión: —</div>
+        <div class="meta" id="generatedAtLabel">Fecha: —</div>
+      </div>
+    </header>
+
+    <!-- Resumen ejecutivo -->
+    <section class="card">
+      <h2>Resumen ejecutivo</h2>
+      <div class="kpi-grid" id="kpiGrid">
+        <!-- KPIs inyectados por JS -->
+      </div>
+      <p class="muted" id="notes">Fuente: e-SEIA / dataset local (capas/nacional.xlsx). Distancias calculadas por Haversine.</p>
+    </section>
+
+    <!-- Mapa -->
+    <section class="card">
+      <h2>Mapa de proximidad</h2>
+      <div class="map-frame">
+        <div id="map"></div>
+      </div>
+      <div class="small muted">*En impresión PDF, el mapa se renderiza como imagen de los tiles visibles.</div>
+    </section>
+
+    <!-- Gráficos -->
+    <section class="card" id="chartsSection">
+      <h2>Análisis gráfico</h2>
+      <div id="chartsGrid" class="charts-grid"></div>
+    </section>
+
+    <!-- Tabla -->
+    <section class="card">
+      <h2>Detalle de proyectos</h2>
+      <div class="table-wrap">
+        <table class="report-table" id="projectsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Proyecto</th>
+              <th>Estado</th>
+              <th>Sector</th>
+              <th>Dist. (km)</th>
+              <th>Expediente</th>
+              <th>Anexos</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- filas inyectadas por JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="report-footer muted">
+      <div>GeoEVA · SEA Mining</div>
+      <div class="page-numbers">Página <span class="pageNumber"></span> / <span class="totalPages"></span></div>
+    </footer>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <!-- Mismo sistema de gráficos -->
+  <script src="js/graficos.js"></script>
+
+  <!-- Page logic -->
+  <script type="module" src="js/report/reportPage.js"></script>
+</body>
+</html>

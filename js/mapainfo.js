@@ -11,7 +11,7 @@ import { downloadProximityKMZ } from "./export/kmzExport.js";
 
 import { getMapainfoParamsFromUrl } from "./app/router.js";
 import { renderInfoBar } from "./ui/infoBar.js";
-import { bindKmzButton } from "./ui/actions.js";
+import { bindKmzButton, bindReportButton } from "./ui/actions.js";
 
 // -------------------
 // Config
@@ -155,6 +155,14 @@ async function main() {
     exporter: downloadProximityKMZ,
     attachGlobalName: "downloadProximityKMZ",
   });
+
+  // 9) Informe (Desktop/PDF)
+  bindReportButton({
+    buttonId: "btnPdf",
+    getModel: () => model,
+    reportPage: "report.html",
+    attachGlobalName: "openReport",
+  });
 }
 
 // -------------------
@@ -166,3 +174,104 @@ document.addEventListener("DOMContentLoaded", () => {
     alert("Error fatal. Revisa la consola.");
   });
 });
+
+function isMobile() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function initMobileSheet() {
+  const sheet = document.getElementById("mobileSheet");
+  const backdrop = document.getElementById("mobileSheetBackdrop");
+  const btnClose = document.getElementById("msClose");
+  const handle = document.getElementById("mobileSheetHandle");
+
+  function close() {
+    sheet.classList.add("hidden");
+    backdrop.classList.add("hidden");
+    sheet.setAttribute("aria-hidden", "true");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+
+  function open() {
+    sheet.classList.remove("hidden");
+    backdrop.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
+    backdrop.setAttribute("aria-hidden", "false");
+  }
+
+  backdrop?.addEventListener("click", close);
+  btnClose?.addEventListener("click", close);
+  handle?.addEventListener("click", close);
+
+  // Exponer
+  window.__closeMobileSheet = close;
+  window.__openMobileSheet = open;
+}
+
+function openMobileSheet(p) {
+  if (!isMobile()) return;
+
+  const title = document.getElementById("msTitle");
+  const meta = document.getElementById("msMeta");
+  const exp = document.getElementById("msExp");
+  const anx = document.getElementById("msAnx");
+
+  title.textContent = p?.nombre || "Proyecto";
+
+  const dist = Number.isFinite(p?.distKm) ? `${p.distKm.toFixed(2)} km` : "—";
+  const estado = p?.estado || "—";
+  const sector = p?.sector || "—";
+
+  meta.innerHTML = `
+    <div><b>Distancia:</b> ${dist}</div>
+    <div><b>Estado:</b> ${escapeHtml(estado)}</div>
+    <div><b>Sector:</b> ${escapeHtml(sector)}</div>
+  `;
+
+  const expUrl = (p?.web || "").trim();
+  const anxUrl = (p?.anexos || "").trim();
+
+  if (expUrl) { exp.href = expUrl; exp.style.opacity = "1"; exp.style.pointerEvents = "auto"; }
+  else { exp.href = "#"; exp.style.opacity = "0.5"; exp.style.pointerEvents = "none"; }
+
+  if (anxUrl) { anx.href = anxUrl; anx.style.opacity = "1"; anx.style.pointerEvents = "auto"; }
+  else { anx.href = "#"; anx.style.opacity = "0.5"; anx.style.pointerEvents = "none"; }
+
+  window.__openMobileSheet?.();
+}
+
+// helpers
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initMobileSheet();
+});
+
+window.openMobileSheetTest = function () {
+  const sheet = document.getElementById("mobileSheet");
+  const backdrop = document.getElementById("mobileSheetBackdrop");
+  const title = document.getElementById("msTitle");
+  const meta = document.getElementById("msMeta");
+
+  if (!sheet || !backdrop) {
+    alert("No existe mobileSheet en el HTML (revisa que esté dentro de <body>).");
+    return;
+  }
+
+  title.textContent = "PROYECTO TEST";
+  meta.innerHTML = `
+    <div><b>Distancia:</b> 2.34 km</div>
+    <div><b>Estado:</b> Aprobado</div>
+    <div><b>Sector:</b> Energía</div>
+  `;
+
+  sheet.classList.remove("hidden");
+  backdrop.classList.remove("hidden");
+};

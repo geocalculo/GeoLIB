@@ -351,6 +351,84 @@
         padding: 1px 4px !important;
       }
     }
+    /* ======= Mobile Bottom Sheet ======= */
+.hidden { display: none !important; }
+
+.mobile-backdrop{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(2px);
+  z-index: 5000;
+}
+
+.mobile-sheet{
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: 70vh;
+  background: #fff;
+  z-index: 5001;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.2);
+  padding: 10px 12px 14px;
+  overflow: hidden;
+}
+
+.mobile-sheet__handle{
+  width: 44px; height: 5px;
+  background: #d1d5db;
+  border-radius: 999px;
+  margin: 6px auto 10px;
+}
+
+.mobile-sheet__header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mobile-sheet__title{ font-size: 15px; font-weight: 700; }
+.mobile-sheet__close{
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 18px;
+}
+
+.mobile-sheet__meta{
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 10px;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #f9fafb;
+  max-height: 26vh;
+  overflow: auto;
+}
+
+.mobile-sheet__actions{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ms-btn{
+  display:flex; align-items:center; justify-content:center;
+  height: 44px; border-radius: 12px;
+  font-weight: 700; text-decoration: none;
+}
+
+.ms-btn--primary{ background:#2563eb; color:#fff; }
+.ms-btn--secondary{ background:#fff; color:#111827; border:1px solid #e5e7eb; }
+
+@media (min-width: 769px){
+  .mobile-backdrop, .mobile-sheet { display: none !important; }
+}
+
   </style>
 </head>
 
@@ -381,6 +459,10 @@
 
       <button id="btnKmz" type="button" class="btn-kmz">
         ⬇ Descargar proyectos en KMZ
+      </button>
+
+      <button id="btnPdf" type="button" class="btn-kmz" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 6px 14px rgba(29, 78, 216, 0.25);">
+        🖨️ Informe (PDF)
       </button>
 
 
@@ -438,5 +520,42 @@
 
   <!-- Lógica principal del mapa (incluye downloadProximityKMZ) -->
   <script type="module" src="js/mapainfo.js"></script>
+  <!-- Bottom Sheet (solo móvil) -->
+<div id="mobileSheetBackdrop" class="mobile-backdrop hidden" aria-hidden="true"></div>
+
+<section id="mobileSheet" class="mobile-sheet hidden" aria-hidden="true">
+  <div class="mobile-sheet__handle" id="mobileSheetHandle" title="Desliza o toca para cerrar"></div>
+
+  <header class="mobile-sheet__header">
+    <div class="mobile-sheet__title" id="msTitle">Proyecto</div>
+    <button class="mobile-sheet__close" id="msClose" aria-label="Cerrar">✕</button>
+  </header>
+
+  <div class="mobile-sheet__meta" id="msMeta">
+    <!-- se llena por JS -->
+  </div>
+
+  <div class="mobile-sheet__actions">
+    <a id="msExp" class="ms-btn ms-btn--primary" href="#" target="_blank" rel="noopener">Abrir expediente</a>
+    <a id="msAnx" class="ms-btn ms-btn--secondary" href="#" target="_blank" rel="noopener">Abrir anexos</a>
+  </div>
+</section>
+<script>
+  function openMobileSheetTest() {
+    const sheet = document.getElementById("mobileSheet");
+    const backdrop = document.getElementById("mobileSheetBackdrop");
+    const title = document.getElementById("msTitle");
+    const meta = document.getElementById("msMeta");
+
+    if (!sheet || !backdrop) { alert("No existe mobileSheet en el HTML"); return; }
+
+    title.textContent = "PROYECTO TEST";
+    meta.innerHTML = "<div><b>Distancia:</b> 2.34 km</div><div><b>Estado:</b> Aprobado</div><div><b>Sector:</b> Energía</div>";
+
+    sheet.classList.remove("hidden");
+    backdrop.classList.remove("hidden");
+  }
+</script>
+
 </body>
 </html>
