@@ -362,14 +362,14 @@ function updateMobileSummary(proyectosInView) {
     }
   });
 
-  const set = (key, val) => {
-    const el = root.querySelector(`.ms-value[data-key="${key}"]`);
-    if (el) el.textContent = val;
-  };
+const elA = document.getElementById("msAprobadosVal");
+const elC = document.getElementById("msCalificacionVal");
+const elR = document.getElementById("msRechazadosVal");
 
-  set("aprobados", aprob);
-  set("calificacion", calif);
-  set("rechazados", rech);
+if (elA) elA.textContent = String(aprob);
+if (elC) elC.textContent = String(calif);
+if (elR) elR.textContent = String(rech);
+
 }
 
 
