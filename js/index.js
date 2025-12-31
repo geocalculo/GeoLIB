@@ -1,5 +1,4 @@
 // js/app/index.js
-// Requiere: <script type="module" src="js/app/index.js"></script>
 
 import { initPanelResponsive } from "../ui/layoutController.js";
 import { initFiltersController } from "../ui/filtersController.js";
@@ -14,231 +13,279 @@ let markersLayer;
 let proyectos = [];
 let filtros;
 
-// -------- helpers mínimos
-function parseCoord(value) {
-  if (value === null || value === undefined) return null;
-  let s = String(value).trim();
-  if (!s) return null;
-  s = s.replace(/\s/g, "");
-
-  if (s.includes(",") && s.includes(".")) {
-    if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
-    else s = s.replace(/,/g, "");
-  } else if (s.includes(",")) {
-    s = s.replace(",", ".");
+// ===============================
+// DEBUG RESUMEN MÓVIL (FORZADO)
+// ===============================
+function debugForceMobileSummary(n) {
+  const root = document.getElementById("mobileSummary");
+  if (!root) {
+    console.warn("❌ mobileSummary NO existe en DOM");
+    return;
   }
 
-  const num = Number(s);
-  return Number.isFinite(num) ? num : null;
-}
-
-function pickBucket(estado) {
-  const e = String(estado || "").toLowerCase();
-  if (e.includes("aprob")) return "Aprob";
-  if (e.includes("calif")) return "Calif";
-  if (e.includes("rech")) return "Rech";
-  return "Otros";
-}
-
-// -------- loaders
-async function loadRegionesData() {
-  try {
-    const resp = await fetch(REGIONES_JSON_URL);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const regiones = await resp.json();
-    populateRegionSelect(regiones);
-  } catch (err) {
-    console.error("❌ Error cargando regiones.json:", err);
-    const select = document.getElementById("region-select");
-    if (select) select.innerHTML = '<option value="">❌ Error cargando regiones</option>';
-  }
-}
-
-function populateRegionSelect(regiones) {
-  const select = document.getElementById("region-select");
-  if (!select) return;
-
-  select.innerHTML = '<option value="">Selecciona una región</option>';
-
-  regiones.forEach((region) => {
-    const option = document.createElement("option");
-    option.value = region.id;
-    option.textContent = region.nombre;
-    select.appendChild(option);
+  root.querySelectorAll(".ms-value").forEach((el, i) => {
+    el.textContent = String(n + i);
   });
 
-  select.addEventListener("change", (e) => {
-    const regionId = e.target.value;
-    if (!regionId || !map) return;
-
-    const region = regiones.find((r) => r.id === regionId);
-    if (!region) return;
-
-    if (region.centro && region.zoom) map.setView(region.centro, region.zoom + 2);
-    setTimeout(actualizarResumenYCapas, 250);
-  });
+  console.log("✅ mobile summary actualizado (debug)", n);
 }
 
-async function loadExcelData() {
-  const resp = await fetch(DATA_XLSX_URL);
-  const buf = await resp.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array" });
-  const ws = wb.Sheets[wb.SheetNames[0]];
 
-  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-  if (!json.length) return [];
+// --------------------------------
+// Utils
+// --------------------------------
+const isMobile = () => window.matchMedia("(max-width: 768px)").matches;
 
-  const rows = json.slice(1);
+function safeText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = String(value ?? "—");
+}
 
-  const COL_NOMBRE = 0;
-  const COL_REGION = 3;
-  const COL_ESTADO = 11;
-  const COL_SECTOR = 13;
-  const COL_LAT = 14;
-  const COL_LON = 15;
+function normalizeEstado(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
-  const data = [];
+/**
+ * Ajusta estos match si tus estados vienen con variantes.
+ * La idea es mapear a 3 buckets: aprobados / calificacion / rechazados
+ */
+function bucketEstado(estado) {
+  const e = normalizeEstado(estado);
 
-  for (const row of rows) {
-    if (!row || row.length === 0) continue;
+  // Aprobados
+  if (
+    e.includes("aprob") ||
+    e.includes("resolucion de calificacion ambiental favorable") ||
+    e.includes("rca favorable") ||
+    e === "aprobado"
+  ) return "aprobados";
 
-    const lat = parseCoord(row[COL_LAT]);
-    const lon = parseCoord(row[COL_LON]);
-    if (lat === null || lon === null) continue;
+  // En calificación / tramitación
+  if (
+    e.includes("calific") ||
+    e.includes("evaluacion") ||
+    e.includes("en tramit") ||
+    e.includes("admis") ||
+    e.includes("en revision") ||
+    e.includes("en evaluacion")
+  ) return "calificacion";
 
-    const estado = row[COL_ESTADO] || "";
+  // Rechazados / desistidos / no admitidos (ajusta según tu criterio)
+  if (
+    e.includes("rechaz") ||
+    e.includes("desist") ||
+    e.includes("no admis") ||
+    e.includes("termin") ||
+    e.includes("caduc")
+  ) return "rechazados";
 
-    data.push({
-      lat,
-      lon,
-      nombre: row[COL_NOMBRE] || "",
-      region: row[COL_REGION] || "",
-      estado,
-      sector: row[COL_SECTOR] || "",
-      bucket: pickBucket(estado),
-    });
+  // Si no calza, no lo contamos en el resumen móvil (o puedes meterlo en calificación)
+  return "otros";
+}
+
+function updateMobileSummaryFromVisibles(visibles) {
+  // contar por palabras clave simples (SEA-friendly)
+  let aprobados = 0, calificacion = 0, rechazados = 0;
+
+  for (const p of visibles) {
+    const e = normalizeEstado(p.estado);
+
+    if (e.includes("rechaz") || e.includes("desfavorable") || e.includes("desist") || e.includes("inadmis") || e.includes("no admit")) {
+      rechazados++;
+    } else if (e.includes("aprob") || e.includes("favorable") || e.includes("rca favorable")) {
+      aprobados++;
+    } else {
+      // default: en trámite / calificación
+      calificacion++;
+    }
   }
 
-  return data;
+  // escribir valores usando data-key (robusto)
+  const root = document.getElementById("mobileSummary");
+  if (!root) return;
+
+  const setVal = (key, val) => {
+    const el = root.querySelector(`.ms-value[data-key="${key}"]`);
+    if (el) el.textContent = String(val);
+  };
+
+  setVal("aprobados", aprobados);
+  setVal("calificacion", calificacion);
+  setVal("rechazados", rechazados);
 }
 
-// -------- map
+
+// --------------------------------
+// MAP INIT
+// --------------------------------
 function initMap() {
-  map = L.map("map", { center: [-33.45, -70.65], zoom: 10, minZoom: 4, zoomControl: true });
+  map = L.map("map", {
+    center: [-33.45, -70.65],
+    zoom: 10,
+    minZoom: 4,
+    zoomControl: true,
+    dragging: !isMobile(),
+    touchZoom: isMobile(),     // ✅ 2 dedos
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    boxZoom: false,
+    keyboard: false,
+  });
+
+  // Guardar referencia global
+  window.__leafletMap = map;
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    opacity: 1.0,
     maxZoom: 19,
+    opacity: 1,
     attribution: "&copy; OpenStreetMap contributors",
   }).addTo(map);
 
   L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { opacity: 0.2, maxZoom: 19 }
+    { maxZoom: 19, opacity: 0.2 }
   ).addTo(map);
 
   L.control.scale().addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
 
+  // 🔒 Bloquea scroll de página sobre el mapa
+  if (isMobile()) {
+    map.getContainer().style.touchAction = "none";
+  }
+
   map.on("moveend", actualizarResumenYCapas);
   map.on("click", onMapClick);
 
-  setTimeout(() => map.invalidateSize(), 120);
+  setTimeout(() => map.invalidateSize(), 150);
 }
 
-function proyectosEnPantalla() {
-  if (!map || !proyectos.length) return [];
-  const bounds = map.getBounds();
-  return proyectos.filter((p) => bounds.contains([p.lat, p.lon]));
+// --------------------------------
+// DATA
+// --------------------------------
+async function loadExcelData() {
+  const resp = await fetch(DATA_XLSX_URL);
+  const buf = await resp.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  const rows = json.slice(1);
+
+  return rows
+    .map((r) => ({
+      nombre: r[0] || "",
+      region: r[3] || "",
+      estado: r[11] || "",
+      sector: r[13] || "",
+      lat: Number(r[14]),
+      lon: Number(r[15]),
+    }))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
 }
 
-function dibujarMarcadores(items) {
-  markersLayer.clearLayers();
-
-  const colores = { Aprob: "#10b981", Calif: "#f59e0b", Rech: "#ef4444", Otros: "#6b7280" };
-
-  items.forEach((p) => {
-    const marker = L.circleMarker([p.lat, p.lon], {
-      radius: 6,
-      fillColor: colores[p.bucket] || colores.Otros,
-      color: "#fff",
-      weight: 1,
-      opacity: 1,
-      fillOpacity: 0.8,
-    });
-
-    marker.bindPopup(`
-      <strong>${p.nombre}</strong><br/>
-      Estado: ${p.estado}<br/>
-      Sector: ${p.sector}<br/>
-      Región: ${p.region}
-    `);
-
-    markersLayer.addLayer(marker);
-  });
-}
-
+// --------------------------------
+// MAP RENDER
+// --------------------------------
 function actualizarResumenYCapas() {
   if (!map || !proyectos.length) return;
 
-  const visibles = proyectosEnPantalla();
-  dibujarMarcadores(visibles);
+  const bounds = map.getBounds();
+  const visibles = proyectos.filter((p) => bounds.contains([p.lat, p.lon]));
 
-  const bboxInfo = document.getElementById("bboxInfo");
-  if (bboxInfo) bboxInfo.textContent = `Proyectos en pantalla: ${visibles.length} proyectos`;
+  markersLayer.clearLayers();
 
+  visibles.forEach((p) => {
+    L.circleMarker([p.lat, p.lon], {
+      radius: 6,
+      fillColor: "#10b981",
+      color: "#fff",
+      weight: 1,
+      fillOpacity: 0.8,
+    }).addTo(markersLayer);
+  });
+
+  safeText("bboxInfo", `Proyectos en pantalla: ${visibles.length}`);
+
+  // Desktop: tabla resumen existente
   const resumen = summarizeByRegionAndState(visibles);
   renderSummaryTable(resumen, "summaryTableContainer");
+
+  // Mobile: barra 3 estados (si existe)
+  updateMobileSummaryFromVisibles(visibles);
 }
 
+// --------------------------------
+// CLICK MAP → MAPAINFO
+// --------------------------------
 function onMapClick(e) {
   const { lat, lng } = e.latlng;
-
-  const modo = filtros.getModoSeleccion(); // en tu HTML: proximidad
-  const n = filtros.getNProximos();
 
   const url = buildMapainfoUrl({
     baseHref: window.location.href,
     lat,
     lng,
-    modo,
-    radioKm: 10, // fijo en index.html actual
-    n,
+    modo: "proximidad",
+    radioKm: 10,
+    n: filtros.getNProximos(),
     sectores: [],
   });
 
   window.open(url, "_blank");
 }
 
-// -------- boot
+// --------------------------------
+// MOBILE: ocultar panel + backdrop + botón (si están en DOM)
+// --------------------------------
+function forceMobileNoPanel() {
+  const panel = document.getElementById("configPanel");
+  const backdrop = document.getElementById("panelBackdrop");
+  const btn = document.getElementById("togglePanelBtn");
+
+  if (panel) panel.style.display = "none";
+  if (backdrop) backdrop.style.display = "none";
+  if (btn) btn.style.display = "none";
+}
+
+// --------------------------------
+// BOOT
+// --------------------------------
 function boot() {
   initMap();
 
-  initPanelResponsive({
-    panelId: "configPanel",
-    backdropId: "panelBackdrop",
-    headerBtnId: "togglePanelBtn",
-    isMobileWidth: 768,
-    onAfterToggle: () => setTimeout(() => map?.invalidateSize(), 250),
-  });
-
-  filtros = initFiltersController({
-    onFiltersChanged: () => {
-      // En tu index actual, cambiar N no altera el mapa principal (solo mapainfo),
-      // así que no recalculamos aquí.
-    },
-  });
-
-  Promise.all([loadRegionesData(), loadExcelData()])
-    .then(([, data]) => {
-      proyectos = data;
-      actualizarResumenYCapas();
-    })
-    .catch((err) => {
-      console.error("❌ Boot error:", err);
-      alert("Error al iniciar GeoEVA. Revisa consola.");
+  // ✅ Si es móvil: no inicializamos panel responsive
+  if (isMobile()) {
+    forceMobileNoPanel();
+  } else {
+    // ✅ Desktop: panel normal
+    initPanelResponsive({
+      panelId: "configPanel",
+      backdropId: "panelBackdrop",
+      headerBtnId: "togglePanelBtn",
+      isMobileWidth: 768,
+      onOpen: () => {
+        document.body.style.overflow = "hidden";
+        map.dragging.disable();
+      },
+      onClose: () => {
+        document.body.style.overflow = "";
+        // ✅ importante: re-habilitar drag en desktop
+        map.dragging.enable();
+      },
     });
+  }
+
+  filtros = initFiltersController({});
+
+  loadExcelData().then((data) => {
+    proyectos = data;
+    actualizarResumenYCapas();
+  });
 }
 
 document.addEventListener("DOMContentLoaded", boot);
+

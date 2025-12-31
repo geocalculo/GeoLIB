@@ -5,195 +5,137 @@
   <title>SEA Mining - Explorador de proyectos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Fuente Inter (opcional pero recomendada) -->
+  <!-- Fuente -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Leaflet CSS -->
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-  <!-- CSS Full-Height -->
+  <!-- CSS -->
   <link rel="stylesheet" href="css/index-fullheight.css" />
 </head>
 
 <body>
-  <div class="app-wrapper">
+<div class="app-wrapper">
 
-    <!-- ========================================================= -->
-    <!-- HEADER COMPACTO -->
-    <!-- ========================================================= -->
-    <header class="app-header">
-      <div class="app-header-inner">
-        <h1>SEA Mining - Explorador</h1>
+  <!-- ================================================= -->
+  <!-- HEADER -->
+  <!-- ================================================= -->
+  <header class="app-header">
+    <div class="app-header-inner">
+      <h1>SEA Mining - Explorador</h1>
 
-        <!-- Selector de Región -->
-        <div class="region-selector-container">
-          <label for="region-select" class="region-label">📍 Región:</label>
-          <select id="region-select" class="region-select">
-            <option value="">Cargando regiones...</option>
-          </select>
-        </div>
+      <div class="region-selector-container">
+        <label for="region-select" class="region-label">📍 Región:</label>
+        <select id="region-select" class="region-select">
+          <option value="">Cargando regiones...</option>
+        </select>
       </div>
-
-      <!-- Botón toggle para móvil -->
-      <button
-        id="togglePanelBtn"
-        class="panel-toggle-btn"
-        aria-label="Abrir configuración"
-        type="button"
-      >
-        ☰ Configuración
+    </div>
+    <!-- ===== RESUMEN MOVIL (solo mobile por CSS) ===== -->
+    <div class="mobile-summary" id="mobileSummary" aria-label="Resumen por estado">
+      <button class="ms-card ms-aprobados" id="msAprobados" type="button">
+        <div class="ms-label">🟢 Aprobados</div>
+        <div class="ms-value" id="msAprobadosVal">—</div>
       </button>
-    </header>
 
-    <!-- ========================================================= -->
-    <!-- MAIN - Full Height -->
-    <!-- ========================================================= -->
-    <main>
-      <div class="layout">
+      <button class="ms-card ms-calificacion" id="msCalificacion" type="button">
+        <div class="ms-label">🟡 En calificación</div>
+        <div class="ms-value" id="msCalificacionVal">—</div>
+      </button>
 
-        <!-- ========================================================= -->
-        <!-- PANEL LATERAL -->
-        <!-- Desktop: Siempre visible -->
-        <!-- Móvil: Overlay colapsable -->
-        <!-- ========================================================= -->
-        <section class="panel" id="configPanel">
+      <button class="ms-card ms-rechazados" id="msRechazados" type="button">
+        <div class="ms-label">🔴 Rechazados</div>
+        <div class="ms-value" id="msRechazadosVal">—</div>
+      </button>
+    </div>
 
-          <!-- Contenido scrollable -->
-          <div class="panel-scroll">
+    <button
+      id="togglePanelBtn"
+      class="panel-toggle-btn"
+      type="button"
+      aria-label="Abrir configuración"
+    >
+      ☰ Configuración
+    </button>
+  </header>
 
-            <!-- ========================================================= -->
-            <!-- SECCIÓN: RESUMEN -->
-            <!-- ========================================================= -->
-            <div class="panel-section">
-              <div class="badge badge-resumen">📊 RESUMEN</div>
+  <!-- ================================================= -->
+  <!-- MAIN -->
+  <!-- ================================================= -->
+  <main>
+    <div class="layout">
 
-              <div id="bboxInfo" class="bbox-info">
-                Proyectos en pantalla: —
-              </div>
+      <!-- PANEL -->
+      <section class="panel" id="configPanel">
+        <div class="panel-scroll">
 
-              <div id="summaryTableContainer" class="summary-table-container">
-                <p>El resumen por región y estado se mostrará aquí.</p>
-              </div>
+          <div class="panel-section">
+            <div class="badge badge-resumen">📊 RESUMEN</div>
 
-              <div id="sectorTableContainer" class="summary-table-container">
-                <p>El resumen por sector se mostrará aquí.</p>
-              </div>
-
-
-
-
+            <div id="bboxInfo" class="bbox-info">
+              Proyectos en pantalla: —
             </div>
 
-            <!-- ========================================================= -->
-            <!-- SECCIÓN: FILTROS -->
-            <!-- ========================================================= -->
-            <div class="panel-section">
+            <div id="summaryTableContainer" class="summary-table-container"></div>
+            <div id="sectorTableContainer" class="summary-table-container"></div>
+          </div>
 
+          <div class="panel-section">
 
-              <!-- MODO DE SELECCIÓN -->
-              <div class="field-block">
-                <label class="field-label">Modo de selección</label>
-
-                <div class="radio-group">
-                  <label class="chip">
-                    <input
-                      type="radio"
-                      name="modoSeleccion"
-                      value="proximidad"
-                      checked
-                    />
-                    <span>Por Proximidad</span>
-                  </label>
-                </div>
-
-                <span class="hint">
-                  Selecciona los <strong>N proyectos aprobados más cercanos</strong>.
-                  El último determina el radio automático.
-                </span>
+            <div class="field-block">
+              <label class="field-label">Modo de selección</label>
+              <div class="radio-group">
+                <label class="chip">
+                  <input type="radio" checked />
+                  <span>Por Proximidad</span>
+                </label>
               </div>
-
-              <!-- SLIDER POR PROXIMIDAD (N APROBADOS MÁS CERCANOS) -->
-              <div class="field-block">
-                <label class="field-label">Selección por Proximidad</label>
-
-                <input
-                  type="range"
-                  id="nSlider"
-                  min="5"
-                  max="20"
-                  step="1"
-                  value="10"
-                  class="range-input"
-                />
-
-                <div class="hint">
-                  N proyectos <strong>aprobados</strong> más cercanos:
-                  <strong><span id="nValue">10</span></strong>
-                </div>
-              </div>
-
-              <!-- Mensaje -->
-              <span class="hint">
-                El análisis detallado se mostrará en
-                <strong>mapainfo.html</strong>, que se abre al hacer clic sobre el mapa.
-              </span>
             </div>
+
+            <div class="field-block">
+              <label class="field-label">Proyectos más cercanos</label>
+              <input
+                type="range"
+                id="nSlider"
+                min="5"
+                max="20"
+                step="1"
+                value="10"
+                class="range-input"
+              />
+              <div class="hint">
+                N aprobados: <strong><span id="nValue">10</span></strong>
+              </div>
+            </div>
+
+            <span class="hint">
+              El detalle se abre tocando el mapa.
+            </span>
 
           </div>
-        </section>
+        </div>
+      </section>
 
-        <!-- Backdrop para móvil (overlay) -->
-        <div id="panelBackdrop" class="panel-backdrop"></div>
+      <div id="panelBackdrop" class="panel-backdrop"></div>
 
-        <!-- ========================================================= -->
-        <!-- MAPA PRINCIPAL - Full Height -->
-        <!-- ========================================================= -->
-        <section class="map-section">
-          <div id="map" class="map-main"></div>
-        </section>
+      <!-- MAPA -->
+      <section class="map-section">
+        <div id="map" class="map-main"></div>
+      </section>
 
-      </div>
-    </main>
+    </div>
+  </main>
 
-    <!-- ========================================================= -->
-    <!-- SCRIPTS -->
-    <!-- ========================================================= -->
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- ================================================= -->
+  <!-- SCRIPTS -->
+  <!-- ================================================= -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script type="module" src="js/app/index.js"></script>
 
-    <!-- SheetJS para leer /capas/nacional.xlsx -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-    <!-- ✅ Nuevo JS principal modular -->
-    <script type="module" src="js/app/index.js"></script>
-
-
-    <!-- ========================================================= -->
-    <!-- ✅ Basemap prefs: defaults (para heredar en mapainfo.html) -->
-    <!-- Si index-fullheight.js luego maneja un selector/slider de basemap,
-         que lo actualice y llame a localStorage.setItem("geoeva_basemap", ...) -->
-    <!-- ========================================================= -->
-    <script>
-      (function initBasemapPrefsDefaults(){
-        // Defaults: OSM + Imagery 0.10 (igual a tu mapainfo.js)
-        try {
-          if (!localStorage.getItem("geoeva_basemap")) {
-            localStorage.setItem("geoeva_basemap", JSON.stringify({
-              addOSM: true,
-              osmOpacity: 1.0,
-              addIMG: true,
-              imgOpacity: 0.10
-            }));
-          }
-        } catch(e) {
-          // sin bloquear
-          console.warn("No se pudo inicializar geoeva_basemap:", e);
-        }
-      })();
-    </script>
-
-  </div>
+</div>
 </body>
 </html>

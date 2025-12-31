@@ -331,6 +331,49 @@ function renderSectorTable(rows) {
 }
 
 // ---------------------------
+// Resumen móvil (cards Aprob / Calif / Rech)
+// ---------------------------
+function updateMobileSummary(proyectosInView) {
+  const root = document.getElementById("mobileSummary");
+  if (!root) return;
+
+  let aprob = 0;
+  let calif = 0;
+  let rech = 0;
+
+  proyectosInView.forEach(p => {
+    const e = String(p.estado || "").toLowerCase();
+
+    if (e.includes("aprob")) {
+      aprob++;
+    } else if (e.includes("calif") || e.includes("eval")) {
+      calif++;
+    } else if (
+      e.includes("rech") ||
+      e.includes("desfavorable") ||
+      e.includes("inadmis") ||
+      e.includes("no admit") ||
+      e.includes("desist")
+    ) {
+      rech++;
+    } else {
+      // fallback razonable → calificación
+      calif++;
+    }
+  });
+
+  const set = (key, val) => {
+    const el = root.querySelector(`.ms-value[data-key="${key}"]`);
+    if (el) el.textContent = val;
+  };
+
+  set("aprobados", aprob);
+  set("calificacion", calif);
+  set("rechazados", rech);
+}
+
+
+// ---------------------------
 // Refresh por BBOX (moveend)
 // ---------------------------
 function refreshByBbox() {
@@ -351,6 +394,8 @@ function refreshByBbox() {
 
   const resumenSec = calcResumenSector(proyectosEnBBox);
   renderSectorTable(resumenSec);
+  updateMobileSummary(proyectosEnBBox);
+
 }
 
 // ---------------------------
