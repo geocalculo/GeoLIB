@@ -429,6 +429,23 @@
   .mobile-backdrop, .mobile-sheet { display: none !important; }
 }
 
+  
+    /* ===== Modo móvil v1: simplificar UI ===== */
+    @media (max-width: 768px) {
+      /* ocultar panel y gráficos en móvil */
+      #projectsPanel { display: none !important; }
+      #chartsSection { display: none !important; }
+
+      /* mapa más protagonista */
+      .map-container { gap: 0.75rem; }
+      .map-square { aspect-ratio: auto; }
+      #map { min-height: 55vh; }
+
+      /* botones full width */
+      .info-actions { flex-direction: column; align-items: stretch; }
+      .btn-kmz { width: 100%; justify-content: center; }
+    }
+
   </style>
 </head>
 

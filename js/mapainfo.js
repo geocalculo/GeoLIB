@@ -43,7 +43,7 @@ function readBasemapPrefs() {
 // -------------------
 function initMap({ lat, lng }) {
   map = L.map("map", { center: [lat, lng], zoom: 11, minZoom: 4, zoomControl: true });
-
+  disableMapScrollOnMobile(map);
   const prefs = readBasemapPrefs() || { addOSM: true, osmOpacity: 1.0, addIMG: true, imgOpacity: 0.1 };
 
   const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -63,6 +63,26 @@ function initMap({ lat, lng }) {
   L.control.scale().addTo(map);
 
   mapLayers = createMapLayers(map);
+
+  function disableMapScrollOnMobile(map) {
+  if (!window.matchMedia("(max-width: 768px)").matches) return;
+
+  // Desactiva comportamientos molestos
+  map.scrollWheelZoom.disable();
+  map.doubleClickZoom.disable();
+  map.boxZoom.disable();
+  map.keyboard.disable();
+  map.touchZoom.disable();
+
+  // Mantiene drag (pan) activo
+  map.dragging.enable();
+
+  // Evita que el touch del mapa haga scroll de la página
+  const container = map.getContainer();
+  container.style.touchAction = "none";
+}
+
+
   setTimeout(() => map.invalidateSize(), 150);
 }
 
@@ -86,6 +106,8 @@ function initPanelCollapse() {
 // -------------------
 async function main() {
   const params = getMapainfoParamsFromUrl();
+  // Modo móvil: simplificar UX (Top N fijo)
+  if (isMobile()) params.n = 10;
   initMap({ lat: params.lat, lng: params.lng });
 
   panel = createProjectsPanel({
@@ -143,10 +165,14 @@ async function main() {
   else map.setView([model.query.lat, model.query.lng], 12);
 
   // 6) Panel list
-  panel.render(model.projects);
+  if (!isMobile()) {
+    panel.render(model.projects);
+  }
 
   // 7) Charts
-  updateCharts(model);
+  if (!isMobile()) {
+    updateCharts(model);
+  }
 
   // 8) KMZ (botón + compat onclick)
   bindKmzButton({
@@ -185,18 +211,50 @@ function initMobileSheet() {
   const btnClose = document.getElementById("msClose");
   const handle = document.getElementById("mobileSheetHandle");
 
+  function lockMap() {
+    const map = window.__leafletMap;
+    if (!map) return;
+
+    map.dragging.disable();
+    map.scrollWheelZoom.disable();
+    map.doubleClickZoom.disable();
+    map.boxZoom.disable();
+    map.keyboard.disable();
+
+    if (map.tap) map.tap.disable();
+  }
+
+  function unlockMap() {
+    const map = window.__leafletMap;
+    if (!map) return;
+
+    map.dragging.enable();
+    map.scrollWheelZoom.enable();
+    map.doubleClickZoom.enable();
+    map.boxZoom.enable();
+    map.keyboard.enable();
+
+    if (map.tap) map.tap.enable();
+  }
+
   function close() {
     sheet.classList.add("hidden");
     backdrop.classList.add("hidden");
+
     sheet.setAttribute("aria-hidden", "true");
     backdrop.setAttribute("aria-hidden", "true");
+
+    unlockMap();
   }
 
   function open() {
     sheet.classList.remove("hidden");
     backdrop.classList.remove("hidden");
+
     sheet.setAttribute("aria-hidden", "false");
     backdrop.setAttribute("aria-hidden", "false");
+
+    lockMap();
   }
 
   backdrop?.addEventListener("click", close);
@@ -204,9 +262,10 @@ function initMobileSheet() {
   handle?.addEventListener("click", close);
 
   // Exponer
-  window.__closeMobileSheet = close;
   window.__openMobileSheet = open;
+  window.__closeMobileSheet = close;
 }
+
 
 function openMobileSheet(p) {
   if (!isMobile()) return;
@@ -239,6 +298,11 @@ function openMobileSheet(p) {
 
   window.__openMobileSheet?.();
 }
+
+// Exponer API para otros módulos (mapLayers)
+window.openMobileSheet = openMobileSheet;
+window.__isMobile = isMobile;
+
 
 // helpers
 function escapeHtml(s) {
