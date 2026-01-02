@@ -1,0 +1,445 @@
+/* ===========================
+   GeoEVA - MapaInfo Styles
+   =========================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f3f4f6;
+  color: #111827;
+  min-height: 100vh;
+}
+
+.page-wrapper {
+  width: 70%;
+  max-width: 1400px;
+  margin: 0 auto 2rem auto;
+}
+
+@media (max-width: 900px) {
+  .page-wrapper {
+    width: 95%;
+  }
+}
+
+header {
+  background: #020617;
+  color: #e5e7eb;
+  padding: 0.75rem 1.25rem;
+  border-radius: 14px;
+  margin-top: 1rem;
+}
+
+header h1 {
+  font-size: 1.2rem;
+  margin-bottom: 0.2rem;
+}
+
+header p {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.info-bar {
+  margin-top: 1rem;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.85rem;
+  background: #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.map-square {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  position: relative;
+  margin-top: 1rem;
+}
+
+.map-square > #map {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+#map {
+  min-height: 350px;
+}
+
+.legend {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 6px 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.charts-wrapper {
+  margin-top: 2rem;
+  padding-bottom: 3rem;
+}
+
+.charts-title {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: #0f172a;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.chart-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.chart-card h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.plotly-chart {
+  width: 100%;
+  height: 260px;
+}
+
+@media (max-width: 900px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===========================
+   Labels con Polylines
+   =========================== */
+
+.project-label-icon {
+  border: none !important;
+  background: transparent !important;
+}
+
+.project-label {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.7rem;
+  font-weight: 400;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #000000;
+  transition: all 0.3s ease;
+  cursor: help;
+  /* Sombra de texto fuerte para legibilidad */
+  text-shadow: 
+    -1px -1px 0 #fff,
+     1px -1px 0 #fff,
+    -1px  1px 0 #fff,
+     1px  1px 0 #fff,
+    -2px -2px 3px rgba(255, 255, 255, 0.9),
+     2px -2px 3px rgba(255, 255, 255, 0.9),
+    -2px  2px 3px rgba(255, 255, 255, 0.9),
+     2px  2px 3px rgba(255, 255, 255, 0.9);
+}
+
+.project-label-aprobado {
+  color: #16a34a;
+}
+
+.project-label-calificacion {
+  color: #ea580c;
+}
+
+.project-label-rechazado {
+  color: #dc2626;
+}
+
+.project-label:hover {
+  max-width: none;
+  white-space: normal;
+  z-index: 10000;
+  transform: scale(1.1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+@media (max-width: 768px) {
+  .project-label {
+    font-size: 0.65rem;
+    max-width: 120px;
+  }
+}
+
+/* ===========================
+   Sistema de Highlighting A++
+   =========================== */
+
+.project-label-highlighted {
+  color: #667eea !important;
+  font-weight: 800 !important;
+  font-size: 0.8rem !important;
+  transform: scale(1.15);
+  z-index: 1000 !important;
+  animation: pulse-label 2s ease-in-out infinite;
+  /* Sombra más fuerte para destacar */
+  text-shadow: 
+    -1px -1px 0 #fff,
+     1px -1px 0 #fff,
+    -1px  1px 0 #fff,
+     1px  1px 0 #fff,
+    -2px -2px 4px rgba(255, 255, 255, 1),
+     2px -2px 4px rgba(255, 255, 255, 1),
+    -2px  2px 4px rgba(255, 255, 255, 1),
+     2px  2px 4px rgba(255, 255, 255, 1),
+     0 0 8px rgba(102, 126, 234, 0.6) !important;
+}
+
+@keyframes pulse-label {
+  0%, 100% { 
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 6px rgba(102, 126, 234, 0.6));
+  }
+  50% { 
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 10px rgba(102, 126, 234, 0.9));
+  }
+}
+
+.project-label-dimmed {
+  opacity: 0.3 !important;
+  filter: grayscale(70%);
+  transition: all 0.3s ease;
+}
+
+.filter-counter {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(102, 126, 234, 0.95);
+  backdrop-filter: blur(10px);
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: none;
+  line-height: 1.4;
+}
+
+.filter-counter.active {
+  display: block;
+  animation: slideInDown 0.3s ease;
+}
+
+.filter-counter small {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.9;
+  margin-top: 0.2rem;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-reset-btn {
+  position: absolute;
+  top: 80px;
+  right: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  z-index: 1000;
+  display: none;
+  transition: all 0.3s ease;
+}
+
+.filter-reset-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+}
+
+.filter-reset-btn.active {
+  display: block;
+  animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animación de anillos pulsantes */
+@keyframes pulse-ring {
+  0% {
+    stroke-opacity: 1;
+    r: 150;
+  }
+  100% {
+    stroke-opacity: 0;
+    r: 350;
+  }
+}
+
+/* ======= Mobile Bottom Sheet ======= */
+.hidden { display: none !important; }
+
+.mobile-backdrop{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(2px);
+  z-index: 5000;
+}
+
+.mobile-sheet{
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: 70vh;
+  background: #fff;
+  z-index: 5001;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.2);
+  padding: 10px 12px 14px;
+  overflow: hidden;
+}
+
+.mobile-sheet__handle{
+  width: 44px; height: 5px;
+  background: #d1d5db;
+  border-radius: 999px;
+  margin: 6px auto 10px;
+}
+
+.mobile-sheet__header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mobile-sheet__title{
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.mobile-sheet__close{
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.mobile-sheet__meta{
+  font-size: 13px;
+  color: #111827;
+  line-height: 1.35;
+  padding: 10px 10px;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #f9fafb;
+  max-height: 26vh;
+  overflow: auto;
+}
+
+.mobile-sheet__actions{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ms-btn{
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  height: 44px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.ms-btn--primary{
+  background: #2563eb;
+  color: white;
+}
+
+.ms-btn--secondary{
+  background: #fff;
+  color: #111827;
+  border-color: #e5e7eb;
+}
+
+/* Solo aplica en móvil */
+@media (min-width: 769px){
+  .mobile-backdrop, .mobile-sheet { display: none !important; }
+}
+

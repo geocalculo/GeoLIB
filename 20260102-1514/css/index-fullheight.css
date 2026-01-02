@@ -1,0 +1,913 @@
+/* ===========================
+   GeoEVA - Full Height Layout
+   Panel fijo ≥768px | Colapsable <768px (pero ahora DESACTIVADO en móvil por UX)
+   =========================== */
+
+/* Reset básico */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Evita scroll en body */
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #111827;
+}
+
+/* ===========================
+   HEADER - Compacto y fijo
+   =========================== */
+.app-header {
+  height: 70px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  color: #1f2937;
+  padding: 0 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  position: relative;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-header-inner h1 {
+  font-size: 1.375rem;
+  margin: 0;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  white-space: nowrap;
+}
+
+.app-header-inner p {
+  display: none; /* Oculto para mantener header compacto */
+}
+
+/* Botón toggle móvil */
+.panel-toggle-btn {
+  display: none; /* Solo visible en móvil (pero en esta UX lo ocultamos igual) */
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  white-space: nowrap;
+}
+
+.panel-toggle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.panel-toggle-btn:active {
+  transform: translateY(0);
+}
+
+/* ===========================
+   APP WRAPPER - Full Height
+   =========================== */
+.app-wrapper {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0; /* Importante para flex */
+}
+
+/* ===========================
+   LAYOUT PRINCIPAL
+   =========================== */
+.layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===========================
+   PANEL LATERAL
+   Desktop: SIEMPRE VISIBLE
+   Móvil: overlay (pero lo ocultaremos por UX)
+   =========================== */
+.panel {
+  width: 380px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 0; /* Sin bordes en full-height */
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  height: 100%;
+  transition: none; /* Sin transición en desktop */
+  z-index: 10;
+}
+
+/* Header del panel */
+.panel-header {
+  padding: 1.75rem 1.75rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  flex-shrink: 0;
+}
+
+/* Contenido scrollable */
+.panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem 1.75rem 1.75rem;
+
+  /* Scrollbar personalizado */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 126, 234, 0.3) transparent;
+}
+
+.panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
+}
+
+/* Tirador lateral - OCULTO en desktop */
+.panel-toggle {
+  display: none; /* No se usa en desktop */
+}
+
+/* ===========================
+   CONTENIDO DEL PANEL
+   =========================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  padding: 0.375rem 0.875rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.panel h2 {
+  font-size: 1.375rem;
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.panel p {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* Campos */
+.field-block {
+  margin-bottom: 1.75rem;
+}
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+  color: #374151;
+}
+
+.field-label::before {
+  content: "●";
+  color: #667eea;
+  font-size: 0.5rem;
+}
+
+/* Checkboxes de sector */
+.sector-multiselect {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  transition: all 0.3s ease;
+}
+
+.sector-multiselect:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.08);
+}
+
+#sectorCheckboxContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.875rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.checkbox-item:hover {
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.hint {
+  display: block;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin-top: 0.625rem;
+  line-height: 1.5;
+  padding: 0.75rem;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 10px;
+  border-left: 3px solid #667eea;
+}
+
+.hint strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+/* Botones de acción */
+.link-btn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: #667eea;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.link-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #5568d3;
+}
+
+/* Radio group - Modo de selección */
+.radio-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  background: #f3f4f6;
+  border: 2px solid transparent;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  position: relative;
+}
+
+.chip:hover {
+  background: #e5e7eb;
+  transform: translateY(-2px);
+}
+
+.chip input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip input[type="radio"]:checked + span,
+.chip:has(input[type="radio"]:checked) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+/* Sliders */
+.range-input {
+  width: 100%;
+  height: 8px;
+  border-radius: 10px;
+  background: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+  outline: none;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.range-input:hover {
+  opacity: 1;
+}
+
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 3px solid #667eea;
+  transition: all 0.2s;
+}
+
+.range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.range-input::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 3px solid #667eea;
+  border: none;
+  transition: all 0.2s;
+}
+
+.range-input::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Debug pill */
+.debug-pill {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  color: #374151;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  font-weight: 500;
+}
+
+/* BBOX Info */
+.bbox-info {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Tabla resumen */
+.summary-table-container {
+  margin-top: 1.25rem;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e5e7eb;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.summary-table-container table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.summary-table-container th,
+.summary-table-container td {
+  padding: 0.75rem 0.5rem;
+  text-align: right;
+}
+
+.summary-table-container th:first-child,
+.summary-table-container td:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+
+.summary-table-container thead {
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.summary-table-container thead th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  padding-bottom: 0.75rem;
+}
+
+.summary-table-container tbody tr {
+  transition: background 0.2s;
+}
+
+.summary-table-container tbody tr:hover {
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.summary-table-container tbody tr:not(:last-child) {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* ===========================
+   MAPA PRINCIPAL - Full Height
+   =========================== */
+.map-section {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.map-main {
+  width: 100%;
+  height: 100%;
+  border-radius: 0; /* Sin bordes en full-height */
+  overflow: hidden;
+}
+
+/* ===========================
+   Leaflet overrides
+   =========================== */
+.leaflet-container {
+  font-family: inherit;
+  height: 100% !important;
+}
+
+/* Controles de Leaflet mejorados */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  margin: 1rem !important;
+}
+
+.leaflet-control-zoom a {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #667eea !important;
+  font-weight: bold !important;
+  border: none !important;
+  transition: all 0.2s !important;
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+}
+
+/* ===========================
+   Selector de Región
+   =========================== */
+.region-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.region-selector-container:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.region-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #667eea;
+  white-space: nowrap;
+  display: none; /* Oculto en móvil para ahorrar espacio */
+}
+
+.region-select {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: white;
+  color: #1f2937;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 160px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  outline: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23667eea' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px;
+  padding-right: 2.25rem;
+}
+
+.region-select:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+}
+
+.region-select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+}
+
+@media (min-width: 768px) {
+  .region-label {
+    display: inline;
+  }
+
+  .region-select {
+    min-width: 200px;
+  }
+}
+
+/* ===========================
+   RESPONSIVE: MÓVIL < 768px
+   UX NUEVO: SIN PANEL / SIN BOTÓN / HEADER EN 3 FILAS
+   =========================== */
+@media (max-width: 767px) {
+
+  /* Header ahora crece (no altura fija) y se organiza en columnas */
+  .app-header {
+    height: auto;                 /* ✅ clave */
+    padding: 10px 10px 8px;
+    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  /* Fila 1: título centrado */
+  .app-header-inner {
+    flex: none;
+    width: 100%;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .app-header-inner h1 {
+    font-size: 1rem;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Fila 2: barra resumen móvil */
+  .mobile-summary {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    padding: 8px 0 4px;
+    order: 2;
+  }
+
+  .ms-card {
+    flex: 1;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+    color: inherit;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .ms-label {
+    font-size: 12px;
+    opacity: 0.9;
+    line-height: 1.1;
+  }
+
+  .ms-value {
+    margin-top: 6px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+  }
+
+  /* Colores sutiles por estado */
+  .ms-aprobados { border-color: rgba(34,197,94,0.35); }
+  .ms-calificacion { border-color: rgba(234,179,8,0.35); }
+  .ms-rechazados { border-color: rgba(239,68,68,0.35); }
+
+  /* Fila 3: selector región */
+  .region-selector-container {
+    width: 100%;
+    justify-content: center;
+    margin-top: 2px;
+    order: 3;
+  }
+
+  /* Mapa ocupa todo el ancho */
+  .map-section {
+    width: 100%;
+  }
+
+  /* ✅ Desactivar panel y su UX */
+  #togglePanelBtn { display: none !important; }
+  #configPanel { display: none !important; }
+  #panelBackdrop { display: none !important; }
+  .panel-toggle-btn { display: none !important; }
+
+  /* Ajuste adicional: en móviles muy pequeños, radio group en 1 columna */
+  @media (max-width: 480px) {
+    .radio-group {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+/* ===========================
+   RESPONSIVE: Pantallas grandes
+   =========================== */
+@media (min-width: 1400px) {
+  .panel {
+    width: 420px;
+  }
+}
+
+/* ===========================
+   Animaciones
+   =========================== */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.field-block {
+  animation: slideIn 0.3s ease-out backwards;
+}
+
+.field-block:nth-child(1) { animation-delay: 0.05s; }
+.field-block:nth-child(2) { animation-delay: 0.1s; }
+.field-block:nth-child(3) { animation-delay: 0.15s; }
+.field-block:nth-child(4) { animation-delay: 0.2s; }
+.field-block:nth-child(5) { animation-delay: 0.25s; }
+
+/* ===========================
+   Accesibilidad
+   =========================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Estados de enfoque */
+input:focus,
+select:focus,
+button:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* ===========================
+   Utilidades
+   =========================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ===========================
+   Secciones del Panel
+   =========================== */
+.panel-section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  animation: fadeInSection 0.4s ease-out;
+}
+
+.panel-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 1rem;
+}
+
+/* Animación de entrada */
+@keyframes fadeInSection {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Badge específico de sección */
+.panel-section .badge {
+  margin-bottom: 1.25rem;
+  display: inline-flex;
+}
+
+/* Badges con colores diferentes */
+.badge-resumen {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+.badge-filtros {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+}
+
+.badge-debug {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3) !important;
+}
+
+/* Ajustar spacing del resumen en la sección */
+.panel-section #bboxInfo {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+}
+
+.panel-section #summaryTableContainer {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Ajustar el primer field-block de cada sección */
+.panel-section .field-block:first-of-type {
+  margin-top: 0;
+}
+
+/* Sección DEBUG - Oculta por defecto en producción */
+.panel-section-debug {
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.panel-section-debug:hover {
+  opacity: 1;
+}
+
+/* Opcional: Hacer debug colapsable */
+.panel-section-debug.collapsed {
+  padding-bottom: 0;
+}
+
+.panel-section-debug.collapsed #coordsDisplay {
+  display: none;
+}
+
+/* Mejoras visuales adicionales */
+.panel-section:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.panel-section:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.panel-section:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Hover effect en badges */
+.badge {
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+
+.badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* Responsive: En móvil, reducir spacing del panel (aunque esté oculto, no molesta) */
+@media (max-width: 767px) {
+  .panel-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .panel-section .badge {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.75rem;
+  }
+}
