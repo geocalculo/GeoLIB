@@ -299,13 +299,28 @@ box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 .plotly-chart { width: 100%; height: 260px; }
 
 @media (max-width: 900px) {
-.charts-grid { grid-template-columns: 1fr; }
-.map-container { flex-direction: column; }
-.projects-panel { width: 100%; max-height: 300px; }
-.map-square { width: 100%; }
-.info-actions { justify-content: flex-start; }
-.btn-kmz { width: 100%; justify-content: center; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .map-container { flex-direction: column; }
+  .projects-panel { width: 100%; max-height: 300px; }
+
+  /* ✅ FIX MAPA EN MÓVIL */
+  .map-square{
+    width: 100%;
+    aspect-ratio: auto;   /* importante */
+    height: 60vh;         /* alto estable */
+    max-height: 520px;
+    min-height: 360px;
+  }
+
+  /* asegura que el div absoluto tenga alto real */
+  .map-square > #map{
+    height: 100% !important;
+  }
+
+  .info-actions { justify-content: flex-start; }
+  .btn-kmz { width: 100%; justify-content: center; }
 }
+
 
 /* Estilos para resaltado de puntos en el mapa */
 .marker-highlighted {
