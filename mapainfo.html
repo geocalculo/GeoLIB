@@ -2,13 +2,12 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>GeoEVA – Detalle de proximidad</title>
+  <title>SEA Mining - Detalle de proximidad</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-  <!-- ✅ CSS propio (nueva estructura) -->
+  <!-- App CSS -->
   <link rel="stylesheet" href="css/mapainfo.css" />
 </head>
 
@@ -16,136 +15,126 @@
   <div class="page-wrapper">
 
     <!-- HEADER -->
-    <header class="app-header">
-      <div class="header-left">
-        <h1>GeoEVA – Proximidad</h1>
-        <div class="header-sub">
-          <span id="hdrLatLng">—</span>
-          <span class="dot">•</span>
-          <span id="hdrModo">—</span>
-        </div>
-      </div>
-
-      <div class="header-right">
-        <button id="btnOpenPDF" class="btn secondary" type="button">📄 PDF</button>
-        <button id="btnDownloadKMZ" class="btn" type="button">⬇ KMZ</button>
-      </div>
+    <header>
+      <h1>SEA Mining – Detalle de proximidad</h1>
+      <p>Proyectos dentro del radio definido desde el punto consultado.</p>
     </header>
 
-    <!-- MAIN LAYOUT -->
-    <main class="layout">
+    <!-- CINTA SUPERIOR -->
+    <div class="info-bar">
+      <div class="info-row">
+        <span id="coordsLabel">Punto: —</span>
+        <span id="modoLabel">Modo: —</span>
+        <span id="radioLabel">Radio: —</span>
+      </div>
 
-      <!-- PANEL (desktop / lista) -->
-      <aside id="projectsPanel" class="panel">
-        <div class="panel-header">
-          <div class="badge">RESULTADOS</div>
-          <h2>Proyectos cercanos</h2>
-          <p class="muted" id="panelSubtitle">—</p>
+      <div class="info-row">
+        <span id="countLabel">Resumen: —</span>
+        <span id="invLabel">Inversión: —</span>
+      </div>
+
+      <!-- ✅ Botón KMZ (NO afecta layout del panel) -->
+      <div class="info-actions">
+
+      <button id="btnKmz" type="button" class="btn-kmz">
+        ⬇ Descargar proyectos en KMZ
+      </button>
+
+      <button id="btnPdf" type="button" class="btn-kmz" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 6px 14px rgba(29, 78, 216, 0.25);">
+        🖨️ Informe (PDF)
+      </button>
+
+
+      </div>
+    </div>
+
+    <!-- CONTENEDOR DE MAPA + PANEL -->
+    <div class="map-container">
+      <!-- MAPA CUADRADO -->
+      <div class="map-square">
+        <div id="map"></div>
+      </div>
+
+      <!-- PANEL LATERAL DE PROYECTOS -->
+      <div class="projects-panel" id="projectsPanel">
+        <div class="panel-header" id="panelToggle">
+          <div class="panel-title">
+            <span>📋 Proyectos</span>
+            <span class="panel-count" id="panelCount">0</span>
+          </div>
+          <button class="toggle-btn" type="button">◀</button>
         </div>
-
-        <div class="panel-scroll">
-          <div class="panel-section">
-            <div class="mini-info" id="summaryInfo">—</div>
-          </div>
-
-          <div class="panel-section">
-            <div class="section-title">Lista</div>
-            <div id="projectsList" class="projects-list"></div>
-          </div>
+        <div class="panel-content" id="panelContent">
+          <!-- Los proyectos se inyectarán aquí dinámicamente -->
         </div>
-      </aside>
+      </div>
+    </div>
 
-      <!-- MAPA + gráficos -->
-      <section class="map-section">
-
-        <div class="map-square">
-          <div id="map"></div>
-
-          <!-- Loader -->
-          <div id="mapLoader" class="map-loader">
-            <div class="loader-spinner"></div>
-            <p>Cargando mapa…</p>
-          </div>
-
-          <!-- Tooltip educativo (móvil) -->
-          <div id="mapTooltip" class="map-gesture-tooltip" style="display:none;">
-            <span>👆👆</span> Usa 2 dedos para zoom/pan
-          </div>
-
-          <!-- Leyenda simple -->
-          <div class="legend" id="legend">
-            <div class="leg-row"><span class="leg-dot ok"></span> Aprobados</div>
-            <div class="leg-row"><span class="leg-dot mid"></span> En calificación</div>
-            <div class="leg-row"><span class="leg-dot bad"></span> Rechazados</div>
-          </div>
-        </div>
-
-        <!-- Gráficos (si tu JS los usa, sino puedes ocultarlo en CSS) -->
-        <section id="chartsSection" class="charts-section">
-          <h3>Gráficos</h3>
-          <div class="charts-grid">
-            <div class="chart-card"><div id="chartBySector"></div></div>
-            <div class="chart-card"><div id="chartByEstado"></div></div>
-          </div>
-        </section>
-
-      </section>
-    </main>
+    <!-- SECCIÓN DE GRÁFICOS -->
+    <div id="chartsSection" class="charts-wrapper">
+      <h2 class="charts-title">Análisis gráfico de la inversión</h2>
+      <div id="chartsGrid" class="charts-grid"></div>
+    </div>
 
   </div>
 
-  <!-- ===========================
-       Bottom Sheet (móvil)
-       =========================== -->
-  <div id="sheetBackdrop" class="sheet-backdrop"></div>
-
-  <section id="bottomSheet" class="bottom-sheet" aria-hidden="true">
-    <div class="sheet-handle" id="sheetHandle"></div>
-
-    <div class="sheet-header">
-      <div class="sheet-title" id="sheetTitle">Proyecto</div>
-      <button id="sheetCloseBtn" class="sheet-close" type="button">✕</button>
-    </div>
-
-    <div class="sheet-body">
-      <div class="kv">
-        <div class="k">Estado</div><div class="v" id="sheetEstado">—</div>
-        <div class="k">Sector</div><div class="v" id="sheetSector">—</div>
-        <div class="k">Región</div><div class="v" id="sheetRegion">—</div>
-        <div class="k">Distancia</div><div class="v" id="sheetDist">—</div>
-      </div>
-
-      <div class="sheet-actions">
-        <a id="sheetLinkExp" class="btn link" href="#" target="_blank" rel="noopener">Abrir expediente</a>
-        <a id="sheetLinkAnx" class="btn link" href="#" target="_blank" rel="noopener">Abrir anexos</a>
-      </div>
-
-      <div class="sheet-note">
-        Tip: desliza la página con 1 dedo. Para mover/zoom el mapa usa 2 dedos.
-      </div>
-    </div>
-  </section>
-
-  <!-- ===========================
-       Scripts (orden estable)
-       =========================== -->
+  <!-- =========================================================
+       SCRIPTS (ORDEN CORRECTO)
+       ========================================================= -->
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- XLSX -->
+  <!-- SheetJS para leer el Excel nacional -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- Plotly (si lo usas) -->
+  <!-- Plotly.js -->
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 
-  <!-- JSZip (KMZ) -->
+  <!-- ✅ JSZip (NECESARIO para KMZ) -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
-  <!-- Gráficos (si define initCharts u otros helpers) -->
+  <!-- Lógica de gráficos parametrizados -->
   <script src="js/graficos.js"></script>
 
-  <!-- App principal -->
+  <!-- Lógica principal del mapa (incluye downloadProximityKMZ) -->
   <script type="module" src="js/mapainfo.js"></script>
+  <!-- Bottom Sheet (solo móvil) -->
+<div id="mobileSheetBackdrop" class="mobile-backdrop hidden" aria-hidden="true"></div>
+
+<section id="mobileSheet" class="mobile-sheet hidden" aria-hidden="true">
+  <div class="mobile-sheet__handle" id="mobileSheetHandle" title="Desliza o toca para cerrar"></div>
+
+  <header class="mobile-sheet__header">
+    <div class="mobile-sheet__title" id="msTitle">Proyecto</div>
+    <button class="mobile-sheet__close" id="msClose" aria-label="Cerrar">✕</button>
+  </header>
+
+  <div class="mobile-sheet__meta" id="msMeta">
+    <!-- se llena por JS -->
+  </div>
+
+  <div class="mobile-sheet__actions">
+    <a id="msExp" class="ms-btn ms-btn--primary" href="#" target="_blank" rel="noopener">Abrir expediente</a>
+    <a id="msAnx" class="ms-btn ms-btn--secondary" href="#" target="_blank" rel="noopener">Abrir anexos</a>
+  </div>
+</section>
+<script>
+  function openMobileSheetTest() {
+    const sheet = document.getElementById("mobileSheet");
+    const backdrop = document.getElementById("mobileSheetBackdrop");
+    const title = document.getElementById("msTitle");
+    const meta = document.getElementById("msMeta");
+
+    if (!sheet || !backdrop) { alert("No existe mobileSheet en el HTML"); return; }
+
+    title.textContent = "PROYECTO TEST";
+    meta.innerHTML = "<div><b>Distancia:</b> 2.34 km</div><div><b>Estado:</b> Aprobado</div><div><b>Sector:</b> Energía</div>";
+
+    sheet.classList.remove("hidden");
+    backdrop.classList.remove("hidden");
+  }
+</script>
+
 </body>
 </html>
