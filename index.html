@@ -35,22 +35,24 @@
       </div>
     </div>
     <!-- ===== RESUMEN MOVIL (solo mobile por CSS) ===== -->
+     
     <div class="mobile-summary" id="mobileSummary" aria-label="Resumen por estado">
-      <button class="ms-card ms-aprobados" id="msAprobados" type="button">
+      <button class="ms-card ms-aprobados" type="button">
         <div class="ms-label">🟢 Aprobados</div>
-        <div class="ms-value" id="msAprobadosVal">—</div>
+        <div class="ms-value" data-key="aprobados">—</div>
       </button>
 
-      <button class="ms-card ms-calificacion" id="msCalificacion" type="button">
+      <button class="ms-card ms-calificacion" type="button">
         <div class="ms-label">🟡 En calificación</div>
-        <div class="ms-value" id="msCalificacionVal">—</div>
+        <div class="ms-value" data-key="calificacion">—</div>
       </button>
 
-      <button class="ms-card ms-rechazados" id="msRechazados" type="button">
+      <button class="ms-card ms-rechazados" type="button">
         <div class="ms-label">🔴 Rechazados</div>
-        <div class="ms-value" id="msRechazadosVal">—</div>
+        <div class="ms-value" data-key="rechazados">—</div>
       </button>
     </div>
+
 
     <button
       id="togglePanelBtn"
