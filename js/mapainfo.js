@@ -1,5 +1,5 @@
-// js/mapainfo.js (modular, con orquestación más limpia + modo móvil mejorado)
-// Requiere: <script type="module" src="js/mapainfo.js"></script>
+// js/mapainfo.js - VERSIÓN DEFINITIVA CON MAPA EN PDF
+// PDF con jsPDF + captura de mapa con dom-to-image
 
 import { loadProyectosXlsx } from "./core/dataLoader.js";
 import { runProximityEngine } from "./features/proximity/proximityEngine.js";
@@ -8,32 +8,21 @@ import { createMapLayers } from "./ui/mapLayers.js";
 import { createProjectsPanel } from "./ui/panel.js";
 import { updateCharts } from "./ui/chartsController.js";
 import { downloadProximityKMZ } from "./export/kmzExport.js";
-
 import { getMapainfoParamsFromUrl } from "./app/router.js";
 import { renderInfoBar } from "./ui/infoBar.js";
-import { bindKmzButton, bindReportButton } from "./ui/actions.js";
+import { bindKmzButton } from "./ui/actions.js";
 
-// -------------------
-// Config
-// -------------------
 const DATA_XLSX_URL = "capas/nacional.xlsx";
 
-// -------------------
-// State
-// -------------------
 let map = null;
 let mapLayers = null;
 let panel = null;
 let model = null;
 
-// -------------------
-// Helpers
-// -------------------
 function isMobile() {
   return window.matchMedia("(max-width: 768px)").matches;
 }
 
-// Basemap prefs (desde index.html)
 function readBasemapPrefs() {
   try {
     const raw = localStorage.getItem("geoeva_basemap");
@@ -43,63 +32,43 @@ function readBasemapPrefs() {
   }
 }
 
-/**
- * Política UX móvil:
- * - 1 dedo: NO se arrastra el mapa (la página puede scrollear)
- * - 2 dedos: pinch zoom (y opcional pan con 2 dedos, activado acá)
- */
-function enableTwoFingerZoomOnly(map) {
-  if (!map) return;
-  if (!isMobile()) return;
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
-  // Base: NO pan con 1 dedo, SÍ pinch con 2 dedos
+function enableTwoFingerZoomOnly(map) {
+  if (!map || !isMobile()) return;
+  if (map._twoFingerEnabled) return;
+  map._twoFingerEnabled = true;
+
   map.dragging.disable();
   map.touchZoom.enable();
   map.doubleClickZoom.disable();
   map.scrollWheelZoom.disable();
   map.boxZoom.disable();
   map.keyboard.disable();
-
-  if (map.tap) map.tap.enable(); // tap para markers
+  if (map.tap) map.tap.enable();
 
   const container = map.getContainer();
-
-  // Permite scroll vertical del documento con 1 dedo
   container.style.touchAction = "pan-y";
 
-  // Con 2 dedos: evitamos scroll/pinch del navegador, para que Leaflet haga pinch
-  container.addEventListener(
-    "touchmove",
-    (e) => {
-      if (e.touches && e.touches.length >= 2) {
-        e.preventDefault();
-      }
-    },
-    { passive: false }
-  );
+  container.addEventListener("touchmove", (e) => {
+    if (e.touches && e.touches.length >= 2) e.preventDefault();
+  }, { passive: false });
 
-  // (Opcional) Permitir PAN solo mientras hay 2 dedos
-  container.addEventListener(
-    "touchstart",
-    (e) => {
-      if (e.touches && e.touches.length >= 2) map.dragging.enable();
-      else map.dragging.disable();
-    },
-    { passive: true }
-  );
+  container.addEventListener("touchstart", (e) => {
+    if (e.touches && e.touches.length >= 2) map.dragging.enable();
+    else map.dragging.disable();
+  }, { passive: true });
 
-  container.addEventListener(
-    "touchend",
-    () => {
-      map.dragging.disable();
-    },
-    { passive: true }
-  );
+  container.addEventListener("touchend", () => map.dragging.disable(), { passive: true });
 }
 
-// -------------------
-// Mobile bottom sheet
-// -------------------
 function initMobileSheet() {
   const sheet = document.getElementById("mobileSheet");
   const backdrop = document.getElementById("mobileSheetBackdrop");
@@ -113,9 +82,6 @@ function initMobileSheet() {
     backdrop.classList.add("hidden");
     sheet.setAttribute("aria-hidden", "true");
     backdrop.setAttribute("aria-hidden", "true");
-
-    // Al cerrar, volvemos a la política móvil del mapa (1 dedo scroll, 2 dedos zoom)
-    if (window.__leafletMap) enableTwoFingerZoomOnly(window.__leafletMap);
   }
 
   function open() {
@@ -123,10 +89,6 @@ function initMobileSheet() {
     backdrop.classList.remove("hidden");
     sheet.setAttribute("aria-hidden", "false");
     backdrop.setAttribute("aria-hidden", "false");
-
-    // Si el sheet está abierto, mantenemos el mapa "amigable":
-    // seguimos permitiendo pinch a 2 dedos, pero sin pan con 1 dedo (ya lo hace la política).
-    if (window.__leafletMap) enableTwoFingerZoomOnly(window.__leafletMap);
   }
 
   backdrop.addEventListener("click", close);
@@ -135,15 +97,6 @@ function initMobileSheet() {
 
   window.__openMobileSheet = open;
   window.__closeMobileSheet = close;
-}
-
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function openMobileSheet(p) {
@@ -159,13 +112,10 @@ function openMobileSheet(p) {
   title.textContent = p?.nombre || "Proyecto";
 
   const dist = Number.isFinite(p?.distKm) ? `${p.distKm.toFixed(2)} km` : "—";
-  const estado = p?.estado || "—";
-  const sector = p?.sector || "—";
-
   meta.innerHTML = `
     <div><b>Distancia:</b> ${dist}</div>
-    <div><b>Estado:</b> ${escapeHtml(estado)}</div>
-    <div><b>Sector:</b> ${escapeHtml(sector)}</div>
+    <div><b>Estado:</b> ${escapeHtml(p?.estado || "—")}</div>
+    <div><b>Sector:</b> ${escapeHtml(p?.sector || "—")}</div>
   `;
 
   const expUrl = (p?.web || "").trim();
@@ -194,46 +144,21 @@ function openMobileSheet(p) {
   window.__openMobileSheet?.();
 }
 
-// Exponer API para otros módulos (mapLayers)
 window.openMobileSheet = openMobileSheet;
 window.__isMobile = isMobile;
 
-// (Test manual desde consola)
-window.openMobileSheetTest = function () {
-  const sheet = document.getElementById("mobileSheet");
-  const backdrop = document.getElementById("mobileSheetBackdrop");
-  const title = document.getElementById("msTitle");
-  const meta = document.getElementById("msMeta");
-
-  if (!sheet || !backdrop) {
-    alert("No existe mobileSheet en el HTML (revisa que esté dentro de <body>).");
-    return;
-  }
-
-  title.textContent = "PROYECTO TEST";
-  meta.innerHTML = `
-    <div><b>Distancia:</b> 2.34 km</div>
-    <div><b>Estado:</b> Aprobado</div>
-    <div><b>Sector:</b> Energía</div>
-  `;
-
-  sheet.classList.remove("hidden");
-  backdrop.classList.remove("hidden");
-};
-
-// -------------------
-// Map init
-// -------------------
 function initMap({ lat, lng }) {
   map = L.map("map", { center: [lat, lng], zoom: 11, minZoom: 4, zoomControl: true });
-
-  // Exponer mapa para otros módulos
   window.__leafletMap = map;
 
-  // Política móvil (1 dedo scroll / 2 dedos zoom)
   enableTwoFingerZoomOnly(map);
 
-  const prefs = readBasemapPrefs() || { addOSM: true, osmOpacity: 1.0, addIMG: true, imgOpacity: 0.1 };
+  const prefs = readBasemapPrefs() || {
+    addOSM: true,
+    osmOpacity: 1.0,
+    addIMG: true,
+    imgOpacity: 0.1,
+  };
 
   const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -255,28 +180,233 @@ function initMap({ lat, lng }) {
   setTimeout(() => map.invalidateSize(), 150);
 }
 
-// -------------------
-// Panel collapse
-// -------------------
-function initPanelCollapse() {
-  const panelToggle = document.getElementById("panelToggle");
-  const projectsPanel = document.getElementById("projectsPanel");
-  if (!panelToggle || !projectsPanel) return;
+// =====================================================
+// CAPTURA DE MAPA CON dom-to-image (NO DEPENDE DE CORS)
+// =====================================================
+async function captureMapPng() {
+  if (!window.domtoimage) {
+    console.warn("dom-to-image no cargado");
+    return null;
+  }
 
-  panelToggle.addEventListener("click", (e) => {
-    e.preventDefault();
-    projectsPanel.classList.toggle("collapsed");
-    setTimeout(() => map?.invalidateSize(), 200);
+  const mapDiv = document.getElementById("map");
+  if (!mapDiv) return null;
+
+  try {
+    // Ajustar zoom para que el círculo ocupe 60-70% del viewport
+    const theMap = window.__leafletMap;
+    const bounds = typeof mapLayers.getQueryCircleBounds === "function" 
+      ? mapLayers.getQueryCircleBounds() 
+      : null;
+    
+    if (theMap && bounds) {
+      // Padding para que el círculo ocupe ~65% del espacio
+      theMap.fitBounds(bounds, { 
+        padding: [30, 30],
+        animate: false,
+        maxZoom: 14 
+      });
+    }
+
+    // Esperar tiles (más tiempo para asegurar carga)
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Capturar DIV completo con aspect ratio del contenedor
+    const dataUrl = await window.domtoimage.toPng(mapDiv, {
+      quality: 0.92,
+      width: mapDiv.offsetWidth,
+      height: mapDiv.offsetHeight
+    });
+
+    return dataUrl;
+  } catch (error) {
+    console.warn("Error capturando mapa:", error);
+    return null;
+  }
+}
+
+// =====================================================
+// PDF CON jsPDF + IMAGEN DE MAPA
+// =====================================================
+async function downloadPDFDirect({ params, resumen, proyectos }) {
+  console.log('📄 Generando PDF...');
+  
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    throw new Error('jsPDF no disponible');
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const margin = 15;
+  const pageWidth = 210;
+  const contentWidth = pageWidth - (margin * 2);
+  let y = margin;
+
+  // Título
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('GeoEVA – Informe de Proximidad', margin, y);
+  y += 10;
+
+  doc.setDrawColor(200, 200, 200);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 8;
+
+  // Info
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  
+  const info = [
+    `Punto: ${Number(params.lat).toFixed(6)}, ${Number(params.lng).toFixed(6)}`,
+    `Modo: ${params.modo} | Radio: ${Number(params.radio).toFixed(2)} km | Proyectos: ${params.n}`,
+    `${resumen.texto || 'Sin datos'}`,
+    `${resumen.inversion || 'Sin datos'}`
+  ];
+
+  info.forEach(line => {
+    const lines = doc.splitTextToSize(line, contentWidth);
+    doc.text(lines, margin, y);
+    y += lines.length * 5;
+  });
+
+  y += 5;
+
+  // MAPA
+  console.log('📷 Capturando mapa...');
+  const mapPng = await captureMapPng();
+
+  if (mapPng) {
+    // Aspect ratio 1:1 (cuadrado)
+    const imgSize = Math.min(contentWidth, 100); // 100mm máximo
+    const imgW = imgSize;
+    const imgH = imgSize;
+
+    if (y + imgH > 270) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Mapa de consulta", margin, y);
+    y += 6;
+
+    doc.addImage(mapPng, "PNG", margin, y, imgW, imgH);
+    y += imgH + 8;
+
+    console.log('✅ Mapa agregado');
+  } else {
+    doc.setFontSize(9);
+    doc.text("⚠ No se pudo capturar mapa", margin, y);
+    y += 8;
+  }
+
+  // Tabla
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Proyectos Encontrados', margin, y);
+  y += 8;
+
+  const headers = [['#', 'Proyecto', 'Estado', 'Sector', 'Región', 'Dist. (km)']];
+  const data = proyectos.map((p, i) => [
+    String(i + 1),
+    (p.nombre || '').substring(0, 40),
+    p.estado || '—',
+    p.sector || '—',
+    p.region || '—',
+    Number.isFinite(p.distKm) ? p.distKm.toFixed(2) : '—'
+  ]);
+
+  if (doc.autoTable) {
+    doc.autoTable({
+      head: headers,
+      body: data,
+      startY: y,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 65 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 20, halign: 'right' }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // Footer
+  if (y > 270) {
+    doc.addPage();
+    y = margin;
+  }
+  
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(`Generado: ${new Date().toLocaleString('es-CL')}`, margin, y);
+
+  const filename = `GeoEVA_informe_${Date.now()}.pdf`;
+  doc.save(filename);
+  console.log('✅ PDF:', filename);
+}
+
+function bindPdfButtonOnce() {
+  const btn = document.getElementById("btnPdf");
+  if (!btn) return;
+  if (btn.dataset.bound === "1") return;
+  btn.dataset.bound = "1";
+
+  btn.addEventListener("click", async () => {
+    try {
+      if (!model) {
+        alert("Espera a que carguen los datos...");
+        return;
+      }
+
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "⏳ Generando...";
+
+      const resumenTexto = document.getElementById("countLabel")?.textContent || "";
+      const invTexto = document.getElementById("invLabel")?.textContent || "";
+
+      const radio = Number(
+        model?.query?.radioKmFinal ?? model?.query?.radioKm ?? model?.query?.radio ?? NaN
+      );
+
+      await downloadPDFDirect({
+        params: {
+          lat: model.query.lat,
+          lng: model.query.lng,
+          radio: Number.isFinite(radio) ? radio : 0,
+          modo: model.query.modo,
+          n: model.query.n ?? (model.projects?.length ?? 0),
+        },
+        resumen: { texto: resumenTexto, inversion: invTexto },
+        proyectos: Array.isArray(model.projects) ? model.projects : [],
+      });
+      
+      btn.textContent = "✅ Listo";
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 2000);
+      
+    } catch (err) {
+      console.error("❌ Error:", err);
+      alert(`Error: ${err.message}`);
+      btn.textContent = "🖨️ PDF";
+      btn.disabled = false;
+    }
   });
 }
 
-// -------------------
-// Main
-// -------------------
 async function main() {
   const params = getMapainfoParamsFromUrl();
-
-  // Modo móvil: simplificar UX (Top N fijo)
   if (isMobile()) params.n = 10;
 
   initMap({ lat: params.lat, lng: params.lng });
@@ -290,12 +420,8 @@ async function main() {
     },
   });
 
-  initPanelCollapse();
-
-  // 1) data
   const proyectos = await loadProyectosXlsx(DATA_XLSX_URL, "mapainfo");
 
-  // 2) engine
   const engineOutput = runProximityEngine({
     projects: proyectos,
     center: { lat: params.lat, lng: params.lng },
@@ -304,49 +430,37 @@ async function main() {
     n: params.n,
   });
 
-  // 3) model (para UI + export)
   model = buildReportModel({
     engineOutput,
     meta: { sourceXlsx: DATA_XLSX_URL, generatedAt: new Date().toISOString() },
   });
 
-  // Debug opcional
   window.__geoeva_model = model;
 
-  // 4) UI: barra superior
   renderInfoBar(model);
 
-  // 5) Map layers
   const radioFinal =
-    Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0 ? model.query.radioKmFinal : params.radio;
+    Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0
+      ? model.query.radioKmFinal
+      : params.radio;
 
   mapLayers.setQueryPoint(model.query.lat, model.query.lng);
   mapLayers.setQueryCircle(model.query.lat, model.query.lng, radioFinal);
 
   mapLayers.renderProjects(model.projects, {
     onMarkerClick: (id) => {
-      // Desktop: highlight + popup (o sheet si en móvil)
       panel.highlight(id);
       mapLayers.highlightProject(id);
     },
   });
 
-  // fit bounds (si existe)
   const bounds = typeof mapLayers.getQueryCircleBounds === "function" ? mapLayers.getQueryCircleBounds() : null;
-  if (bounds) map.fitBounds(bounds, { padding: [20, 20] });
+  if (bounds) map.fitBounds(bounds, { padding: [40, 40] });
   else map.setView([model.query.lat, model.query.lng], 12);
 
-  // 6) Panel list (desktop)
-  if (!isMobile()) {
-    panel.render(model.projects);
-  }
+  if (!isMobile()) panel.render(model.projects);
+  if (!isMobile()) updateCharts(model);
 
-  // 7) Charts (desktop)
-  if (!isMobile()) {
-    updateCharts(model);
-  }
-
-  // 8) KMZ
   bindKmzButton({
     buttonId: "btnKmz",
     getModel: () => model,
@@ -354,23 +468,13 @@ async function main() {
     attachGlobalName: "downloadProximityKMZ",
   });
 
-  // 9) Informe (Desktop/PDF)
-  bindReportButton({
-    buttonId: "btnPdf",
-    getModel: () => model,
-    reportPage: "report.html",
-    attachGlobalName: "openReport",
-  });
+  bindPdfButtonOnce();
 }
 
-// -------------------
-// Start
-// -------------------
 document.addEventListener("DOMContentLoaded", () => {
   initMobileSheet();
-
   main().catch((err) => {
-    console.error("❌ Error fatal en mapainfo.js:", err);
-    alert("Error fatal. Revisa la consola.");
+    console.error("❌ Error:", err);
+    alert("Error fatal.");
   });
 });

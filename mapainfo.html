@@ -4,23 +4,17 @@
   <meta charset="UTF-8" />
   <title>SEA Mining - Detalle de proximidad</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- App CSS -->
   <link rel="stylesheet" href="css/mapainfo.css" />
 </head>
 
 <body>
   <div class="page-wrapper">
-
-    <!-- HEADER -->
     <header>
       <h1>SEA Mining – Detalle de proximidad</h1>
       <p>Proyectos dentro del radio definido desde el punto consultado.</p>
     </header>
 
-    <!-- CINTA SUPERIOR -->
     <div class="info-bar">
       <div class="info-row">
         <span id="coordsLabel">Punto: —</span>
@@ -33,108 +27,63 @@
         <span id="invLabel">Inversión: —</span>
       </div>
 
-      <!-- ✅ Botón KMZ (NO afecta layout del panel) -->
       <div class="info-actions">
-
-      <button id="btnKmz" type="button" class="btn-kmz">
-        ⬇ Descargar proyectos en KMZ
-      </button>
-
-      <button id="btnPdf" type="button" class="btn-kmz" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 6px 14px rgba(29, 78, 216, 0.25);">
-        🖨️ Informe (PDF)
-      </button>
-
-
+        <button id="btnKmz" type="button" class="btn-kmz">⬇ KMZ</button>
+        <button id="btnPdf" type="button" class="btn-kmz" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">🖨️ PDF</button>
       </div>
     </div>
 
-    <!-- CONTENEDOR DE MAPA + PANEL -->
     <div class="map-container">
-      <!-- MAPA CUADRADO -->
       <div class="map-square">
         <div id="map"></div>
       </div>
 
-      <!-- PANEL LATERAL DE PROYECTOS -->
       <div class="projects-panel" id="projectsPanel">
-        <div class="panel-header" id="panelToggle">
+        <div class="panel-header">
           <div class="panel-title">
             <span>📋 Proyectos</span>
             <span class="panel-count" id="panelCount">0</span>
           </div>
-          <button class="toggle-btn" type="button">◀</button>
         </div>
-        <div class="panel-content" id="panelContent">
-          <!-- Los proyectos se inyectarán aquí dinámicamente -->
-        </div>
+        <div class="panel-content" id="panelContent"></div>
       </div>
     </div>
 
-    <!-- SECCIÓN DE GRÁFICOS -->
     <div id="chartsSection" class="charts-wrapper">
       <h2 class="charts-title">Análisis gráfico de la inversión</h2>
       <div id="chartsGrid" class="charts-grid"></div>
     </div>
-
   </div>
 
-  <!-- =========================================================
-       SCRIPTS (ORDEN CORRECTO)
-       ========================================================= -->
+  <!-- Mobile sheet -->
+  <div id="mobileSheetBackdrop" class="mobile-backdrop hidden" aria-hidden="true"></div>
+  <section id="mobileSheet" class="mobile-sheet hidden" aria-hidden="true">
+    <div class="mobile-sheet__handle" id="mobileSheetHandle"></div>
+    <header class="mobile-sheet__header">
+      <div class="mobile-sheet__title" id="msTitle">Proyecto</div>
+      <button class="mobile-sheet__close" id="msClose" aria-label="Cerrar">✕</button>
+    </header>
+    <div class="mobile-sheet__meta" id="msMeta"></div>
+    <div class="mobile-sheet__actions">
+      <a id="msExp" class="ms-btn ms-btn--primary" href="#" target="_blank" rel="noopener">Abrir expediente</a>
+      <a id="msAnx" class="ms-btn ms-btn--secondary" href="#" target="_blank" rel="noopener">Abrir anexos</a>
+    </div>
+  </section>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Scripts -->
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  
+  <!-- PDF: jsPDF + autoTable -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  
+  <!-- Captura de mapa: dom-to-image (SIN problemas de CORS) -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
 
-  <!-- SheetJS para leer el Excel nacional -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- Plotly.js -->
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-
-  <!-- ✅ JSZip (NECESARIO para KMZ) -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
-  <!-- Lógica de gráficos parametrizados -->
-  <script src="js/graficos.js"></script>
-
-  <!-- Lógica principal del mapa (incluye downloadProximityKMZ) -->
+  <script defer src="js/graficos.js"></script>
   <script type="module" src="js/mapainfo.js"></script>
-  <!-- Bottom Sheet (solo móvil) -->
-<div id="mobileSheetBackdrop" class="mobile-backdrop hidden" aria-hidden="true"></div>
-
-<section id="mobileSheet" class="mobile-sheet hidden" aria-hidden="true">
-  <div class="mobile-sheet__handle" id="mobileSheetHandle" title="Desliza o toca para cerrar"></div>
-
-  <header class="mobile-sheet__header">
-    <div class="mobile-sheet__title" id="msTitle">Proyecto</div>
-    <button class="mobile-sheet__close" id="msClose" aria-label="Cerrar">✕</button>
-  </header>
-
-  <div class="mobile-sheet__meta" id="msMeta">
-    <!-- se llena por JS -->
-  </div>
-
-  <div class="mobile-sheet__actions">
-    <a id="msExp" class="ms-btn ms-btn--primary" href="#" target="_blank" rel="noopener">Abrir expediente</a>
-    <a id="msAnx" class="ms-btn ms-btn--secondary" href="#" target="_blank" rel="noopener">Abrir anexos</a>
-  </div>
-</section>
-<script>
-  function openMobileSheetTest() {
-    const sheet = document.getElementById("mobileSheet");
-    const backdrop = document.getElementById("mobileSheetBackdrop");
-    const title = document.getElementById("msTitle");
-    const meta = document.getElementById("msMeta");
-
-    if (!sheet || !backdrop) { alert("No existe mobileSheet en el HTML"); return; }
-
-    title.textContent = "PROYECTO TEST";
-    meta.innerHTML = "<div><b>Distancia:</b> 2.34 km</div><div><b>Estado:</b> Aprobado</div><div><b>Sector:</b> Energía</div>";
-
-    sheet.classList.remove("hidden");
-    backdrop.classList.remove("hidden");
-  }
-</script>
-
 </body>
 </html>
