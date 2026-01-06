@@ -55,6 +55,9 @@ function enableTwoFingerZoomOnly(map) {
   if (map.tap) map.tap.enable();
 
   const container = map.getContainer();
+  const hint = document.getElementById('mapTouchHint');
+  let hintTimeout;
+  
   container.style.touchAction = "pan-y";
 
   container.addEventListener("touchmove", (e) => {
@@ -62,11 +65,42 @@ function enableTwoFingerZoomOnly(map) {
   }, { passive: false });
 
   container.addEventListener("touchstart", (e) => {
-    if (e.touches && e.touches.length >= 2) map.dragging.enable();
-    else map.dragging.disable();
+    const touchCount = e.touches ? e.touches.length : 0;
+    
+    if (touchCount >= 2) {
+      // 2+ dedos: habilitar mapa
+      map.dragging.enable();
+      
+      // Ocultar hint
+      if (hint) {
+        hint.classList.remove('active');
+      }
+    } else {
+      // 1 dedo: deshabilitar mapa
+      map.dragging.disable();
+      
+      // Mostrar hint brevemente
+      if (hint) {
+        hint.classList.add('active');
+        clearTimeout(hintTimeout);
+        hintTimeout = setTimeout(() => {
+          hint.classList.remove('active');
+        }, 2000);
+      }
+    }
   }, { passive: true });
 
-  container.addEventListener("touchend", () => map.dragging.disable(), { passive: true });
+  container.addEventListener("touchend", () => {
+    map.dragging.disable();
+  }, { passive: true });
+  
+  // Mostrar hint inicial por 3 segundos
+  if (hint) {
+    hint.classList.add('active');
+    setTimeout(() => {
+      hint.classList.remove('active');
+    }, 3000);
+  }
 }
 
 function initMobileSheet() {
@@ -458,7 +492,10 @@ async function main() {
   if (bounds) map.fitBounds(bounds, { padding: [40, 40] });
   else map.setView([model.query.lat, model.query.lng], 12);
 
-  if (!isMobile()) panel.render(model.projects);
+  // ✅ CAMBIO: Renderizar panel SIEMPRE (en móvil y desktop)
+  panel.render(model.projects);
+  
+  // ✅ Gráficos solo en desktop
   if (!isMobile()) updateCharts(model);
 
   bindKmzButton({

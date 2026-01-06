@@ -1,4 +1,3 @@
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -298,30 +297,6 @@ box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 .chart-card h3 { margin-bottom: 0.5rem; font-size: 1rem; }
 .plotly-chart { width: 100%; height: 260px; }
 
-@media (max-width: 900px) {
-  .charts-grid { grid-template-columns: 1fr; }
-  .map-container { flex-direction: column; }
-  .projects-panel { width: 100%; max-height: 300px; }
-
-  /* ✅ FIX MAPA EN MÓVIL */
-  .map-square{
-    width: 100%;
-    aspect-ratio: auto;   /* importante */
-    height: 60vh;         /* alto estable */
-    max-height: 520px;
-    min-height: 360px;
-  }
-
-  /* asegura que el div absoluto tenga alto real */
-  .map-square > #map{
-    height: 100% !important;
-  }
-
-  .info-actions { justify-content: flex-start; }
-  .btn-kmz { width: 100%; justify-content: center; }
-}
-
-
 /* Estilos para resaltado de puntos en el mapa */
 .marker-highlighted {
 transform: scale(1.8) !important;
@@ -350,12 +325,44 @@ z-index: 400 !important;
 .leaflet-tooltip.project-id-label { pointer-events: none !important; }
 .project-id-label::before { border: none !important; }
 
-@media (max-width: 900px) {
-.leaflet-tooltip.project-id-label {
-font-size: 9px !important;
-padding: 1px 4px !important;
+/* ========================================
+HINT DE 2 DEDOS (móvil)
+======================================== */
+.map-touch-hint {
+  display: none; /* Oculto por defecto */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.02);
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
+
+.map-touch-hint.active {
+  opacity: 1;
 }
+
+.map-touch-hint-content {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 16px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  text-align: center;
+  max-width: 280px;
+}
+
 /* ======= Mobile Bottom Sheet ======= */
 .hidden { display: none !important; }
 
@@ -434,33 +441,91 @@ font-weight: 700; text-decoration: none;
 .mobile-backdrop, .mobile-sheet { display: none !important; }
 }
 
-
-/* ===== Modo móvil v1: simplificar UI ===== */
+/* ===========================
+   RESPONSIVE: MÓVIL
+   UN SOLO MEDIA QUERY CONSOLIDADO
+   =========================== */
 @media (max-width: 768px) {
-/* ocultar panel y gráficos en móvil */
-#projectsPanel { display: none !important; }
-#chartsSection { display: none !important; }
-
-/* mapa más protagonista */
-.map-container { gap: 0.75rem; }
-.map-square { aspect-ratio: auto; }
-#map { min-height: 55vh; }
-
-/* botones full width */
-.info-actions { flex-direction: column; align-items: stretch; }
-.btn-kmz { width: 100%; justify-content: center; }
-}
-
-
-
-/* === PATCH UX móvil (scroll página + mapa estable) === */
-@media (max-width: 768px){
-  .map-square{
-    aspect-ratio: auto;
-    height: 60vh;
+  
+  /* ========== LAYOUT VERTICAL ========== */
+  body {
+    overflow-y: auto !important;
+  }
+  
+  .page-wrapper {
+    height: auto !important;
+  }
+  
+  .map-container {
+    flex-direction: column !important;
+    gap: 0 !important;
+    height: auto !important;
+  }
+  
+  /* ========== MAPA: ALTURA FIJA ========== */
+  .map-square {
+    width: 100% !important;
+    aspect-ratio: auto !important;
+    height: 60vh !important;
+    min-height: 400px;
     max-height: 500px;
+    flex-shrink: 0;
     overflow: hidden;
     position: relative;
   }
-  #map{ min-height: 350px; max-height: 100%; }
+  
+  .map-square > #map {
+    height: 100% !important;
+    border-radius: 0 !important;
+  }
+  
+  /* ========== HINT DE 2 DEDOS: VISIBLE ========== */
+  .map-touch-hint {
+    display: flex !important;
+  }
+  
+  /* ========== PANEL: DEBAJO DEL MAPA ========== */
+  .projects-panel {
+    display: flex !important; /* ✅ CRÍTICO: siempre visible */
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border-top: 2px solid #e5e7eb;
+    margin-top: 0 !important;
+  }
+  
+  .panel-content {
+    max-height: 50vh !important;
+    overflow-y: auto !important;
+  }
+  
+  /* ========== GRÁFICOS: OCULTOS EN MÓVIL ========== */
+  #chartsSection {
+    display: none !important;
+  }
+  
+  /* ========== INFO BAR ========== */
+  .info-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-kmz {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* ========== CHARTS GRID ========== */
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  /* ========== ETIQUETAS EN MAPA ========== */
+  .leaflet-tooltip.project-id-label {
+    font-size: 9px !important;
+    padding: 1px 4px !important;
+  }
+  
 }
