@@ -65,13 +65,12 @@ export function createMapLayers(map) {
       });
 
       const isMobile = window.__isMobile
-  ? window.__isMobile()
-  : window.matchMedia("(max-width: 768px)").matches;
+        ? window.__isMobile()
+        : window.matchMedia("(max-width: 768px)").matches;
 
-if (!isMobile) {
-  m.bindPopup(renderProjectPopupHtml(p));
-}
-
+      if (!isMobile) {
+        m.bindPopup(renderProjectPopupHtml(p));
+      }
 
       // etiqueta ID
       const tooltip = m.bindTooltip(String(p.id), {
@@ -81,33 +80,31 @@ if (!isMobile) {
         offset: [0, 0],
       });
 
-// Click: desktop -> popup; móvil -> bottom sheet (si existe)
-// Click: desktop -> popup; móvil -> bottom sheet (si existe)
-m.on("click", (e) => {
-  const isMobile = window.__isMobile
-    ? window.__isMobile()
-    : window.matchMedia("(max-width: 768px)").matches;
+      // Click: desktop -> popup; móvil -> bottom sheet (si existe)
+      m.on("click", (e) => {
+        const isMobile = window.__isMobile
+          ? window.__isMobile()
+          : window.matchMedia("(max-width: 768px)").matches;
 
-  if (isMobile) {
-    // 1) Cierra cualquier popup abierto
-    map.closePopup();
+        if (isMobile) {
+          // 1) Cierra cualquier popup abierto
+          map.closePopup();
 
-    // 2) Evita que Leaflet intente abrir popup por click
-    L.DomEvent.stop(e);
-    if (typeof m.closePopup === "function") m.closePopup();
+          // 2) Evita que Leaflet intente abrir popup por click
+          L.DomEvent.stop(e);
+          if (typeof m.closePopup === "function") m.closePopup();
 
-    // 3) Abre bottom sheet
-    if (typeof window.openMobileSheet === "function") {
-      window.openMobileSheet(p);
-    }
-    return;
-  }
+          // 3) Abre bottom sheet
+          if (typeof window.openMobileSheet === "function") {
+            window.openMobileSheet(p);
+          }
+          return;
+        }
 
-  // Desktop normal
-  m.openPopup();
-  if (typeof onMarkerClick === "function") onMarkerClick(p.id);
-});
-
+        // Desktop normal
+        m.openPopup();
+        if (typeof onMarkerClick === "function") onMarkerClick(p.id);
+      });
 
       layers.markersLayer.addLayer(m);
       layers.markerById.set(p.id, m);
@@ -116,28 +113,33 @@ m.on("click", (e) => {
     }
   }
 
-function highlightProject(id) {
-  // limpia todos
-  for (const [, marker] of layers.markerById.entries()) {
-    const el = marker.getElement?.();
-    if (el) el.classList.remove("marker-highlighted");
+  function highlightProject(id) {
+    // limpia todos
+    for (const [, marker] of layers.markerById.entries()) {
+      const el = marker.getElement?.();
+      if (el) el.classList.remove("marker-highlighted");
+    }
+
+    const m = layers.markerById.get(id);
+    if (!m) return;
+
+    const el = m.getElement?.();
+    if (el) el.classList.add("marker-highlighted");
+
+    const isMob = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+    if (isMob && typeof window.openMobileSheet === "function") {
+      const p = layers.projectById.get(id);
+      if (p) window.openMobileSheet(p);
+      return;
+    }
+
+    m.openPopup();
   }
 
-  const m = layers.markerById.get(id);
-  if (!m) return;
-
-  const el = m.getElement?.();
-  if (el) el.classList.add("marker-highlighted");
-
-  const isMob = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
-  if (isMob && typeof window.openMobileSheet === "function") {
-    const p = layers.projectById.get(id);
-    if (p) window.openMobileSheet(p);
-    return;
+  // ✅ NUEVO: Exponer bounds del círculo de consulta
+  function getQueryCircleBounds() {
+    return layers.queryCircle ? layers.queryCircle.getBounds() : null;
   }
-
-  m.openPopup();
-}
 
   return {
     clearProjects,
@@ -145,5 +147,6 @@ function highlightProject(id) {
     setQueryCircle,
     renderProjects,
     highlightProject,
+    getQueryCircleBounds, // ✅ Exportar método
   };
 }

@@ -215,6 +215,44 @@ function initMap({ lat, lng }) {
 }
 
 // =====================================================
+// FUNCIÓN DE ENCUADRE PROPORCIONAL
+// =====================================================
+/**
+ * Encuadra el mapa para que el círculo ocupe una fracción específica del viewport.
+ * Usa el lado menor del contenedor para calcular padding proporcional.
+ * 
+ * @param {L.Map} map - Instancia de Leaflet
+ * @param {L.LatLngBounds} bounds - Bounds del círculo (de L.Circle.getBounds())
+ * @param {number} fraction - Fracción del viewport que debe ocupar el círculo (0.60-0.70)
+ */
+function fitCircleToViewport(map, bounds, fraction = 0.65) {
+  if (!map || !bounds) return;
+
+  // Validar fracción
+  const targetFraction = Math.max(0.5, Math.min(0.8, fraction));
+
+  // Obtener dimensiones del contenedor
+  const container = map.getContainer();
+  const containerWidth = container.offsetWidth;
+  const containerHeight = container.offsetHeight;
+
+  // Usar el lado MENOR para calcular padding proporcional
+  const minSide = Math.min(containerWidth, containerHeight);
+
+  // Calcular padding: si queremos que el círculo ocupe 65% del viewport,
+  // el padding total debe ser 35% del lado menor, dividido entre ambos lados
+  const paddingFraction = (1 - targetFraction) / 2;
+  const paddingPx = Math.round(minSide * paddingFraction);
+
+  // Aplicar fitBounds con padding uniforme
+  map.fitBounds(bounds, {
+    padding: [paddingPx, paddingPx],
+    animate: false,
+    maxZoom: 14 // Evitar zoom excesivo en círculos pequeños
+  });
+}
+
+// =====================================================
 // CAPTURA DE MAPA CON dom-to-image (NO DEPENDE DE CORS)
 // =====================================================
 async function captureMapPng() {
@@ -234,12 +272,7 @@ async function captureMapPng() {
       : null;
     
     if (theMap && bounds) {
-      // Padding para que el círculo ocupe ~65% del espacio
-      theMap.fitBounds(bounds, { 
-        padding: [30, 30],
-        animate: false,
-        maxZoom: 14 
-      });
+      fitCircleToViewport(theMap, bounds, 0.65); // ✅ Encuadre proporcional
     }
 
     // Esperar tiles (más tiempo para asegurar carga)
@@ -488,9 +521,16 @@ async function main() {
     },
   });
 
-  const bounds = typeof mapLayers.getQueryCircleBounds === "function" ? mapLayers.getQueryCircleBounds() : null;
-  if (bounds) map.fitBounds(bounds, { padding: [40, 40] });
-  else map.setView([model.query.lat, model.query.lng], 12);
+  // ✅ ENCUADRE PROPORCIONAL DEL CÍRCULO
+  const bounds = typeof mapLayers.getQueryCircleBounds === "function" 
+    ? mapLayers.getQueryCircleBounds() 
+    : null;
+  
+  if (bounds) {
+    fitCircleToViewport(map, bounds, 0.65); // 65% del viewport
+  } else {
+    map.setView([model.query.lat, model.query.lng], 12);
+  }
 
   // ✅ CAMBIO: Renderizar panel SIEMPRE (en móvil y desktop)
   panel.render(model.projects);

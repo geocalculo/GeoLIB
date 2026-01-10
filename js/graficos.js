@@ -1,554 +1,646 @@
-// =======================================
-// graficos.js – Sistema genérico de gráficos Plotly
-// VERSIÓN MEJORADA + Mobile-first (valores visibles) + Salida texto para KMZ
-// =======================================
-//
-// Espera que mapainfo.html llame a:
-//   initCharts(chartData)
-//
-// chartData: array de objetos como:
-//   { sector, estado, inversionMm, anio, tipo, ... }
-//
-// =======================================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>SEA Mining - Prueba de gráficos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-// ---------- Colores por estado ----------
-function getEstadoColor(label) {
-  const txt = (label || "").toString().toLowerCase();
+  <!-- SheetJS (leer Excel) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  if (txt.includes("aprob")) return "rgba(34,197,94,0.9)";     // verde
-  if (txt.includes("rech"))  return "rgba(239,68,68,0.9)";     // rojo
-  if (txt.includes("calif") || txt.includes("eval")) return "rgba(234,179,8,0.9)"; // amarillo
+  <!-- Chart.js para los gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  return "rgba(148,163,184,0.9)"; // slate
-}
-
-// ---------- Helpers números (mobile-friendly) ----------
-function fmtNumber(val, isCount) {
-  if (!Number.isFinite(val)) return isCount ? "0" : "0.0";
-  if (isCount) return Math.round(val).toString();
-
-  // inversión (MMU$) con 1 decimal
-  return (Math.round(val * 10) / 10).toFixed(1);
-}
-
-// abreviación para textos si se quiere (por ahora conservador)
-function fmtCompact(val, isCount) {
-  if (!Number.isFinite(val)) return isCount ? "0" : "0.0";
-  if (isCount) return Math.round(val).toString();
-
-  // compact en MMU$: 1200.0 -> 1.2k (opcional)
-  const abs = Math.abs(val);
-  if (abs >= 1000) return (val / 1000).toFixed(1) + "k";
-  return (Math.round(val * 10) / 10).toFixed(1);
-}
-
-function normalizeKey(raw, dimension) {
-  if (dimension === "anio") {
-    if (raw == null || raw === "") return null;
-    const anioNum = parseInt(raw, 10);
-    if (!Number.isFinite(anioNum)) return null;
-    return String(anioNum);
-  }
-
-  if (raw === undefined || raw === null || String(raw).trim() === "") return "Sin dato";
-  return raw.toString().trim();
-}
-
-function getMetricDelta(row, metric) {
-  if ((metric || "sum") === "count") return 1;
-
-  const inv = Number(row.inversionMm ?? row.inversion ?? row.inversion_mmus ?? 0);
-  if (!Number.isFinite(inv)) return 0;
-  return inv;
-}
-
-// ---------- CONFIGURACIÓN DE GRÁFICOS ----------
-const CHARTS_CONFIG = [
-  // FILA 1: Sector
-  { id: "inv_sector_bar",   title: "Inversión vs sector productivo",   dimension: "sector", chartType: "bar", orientation: "h", metric: "sum" },
-  { id: "count_sector_bar", title: "# Proyectos vs sector productivo", dimension: "sector", chartType: "bar", orientation: "h", metric: "count" },
-
-  // FILA 2: Estado
-  { id: "inv_estado_bar",   title: "Inversión vs estado",   dimension: "estado", chartType: "bar", orientation: "h", metric: "sum" },
-  { id: "count_estado_bar", title: "# Proyectos vs estado", dimension: "estado", chartType: "bar", orientation: "h", metric: "count" },
-
-  // FILA 3: Tipo DIA/EIA
-  { id: "inv_tipo_bar",   title: "Inversión vs tipo (DIA/EIA)",   dimension: "tipo", chartType: "bar", orientation: "h", metric: "sum" },
-  { id: "count_tipo_bar", title: "# Proyectos vs tipo (DIA/EIA)", dimension: "tipo", chartType: "bar", orientation: "h", metric: "count" },
-
-  // FILA 4: Año
-  { id: "inv_anio_bar",   title: "Inversión vs año",   dimension: "anio", chartType: "bar", orientation: "v", metric: "sum",   xTickAngle: 0 },
-  { id: "count_anio_bar", title: "# Proyectos vs año", dimension: "anio", chartType: "bar", orientation: "v", metric: "count", xTickAngle: 0 },
-
-  // FILA 5: Estado (torta)
-  { id: "inv_estado_pie",   title: "Inversión vs estado (torta)",   dimension: "estado", chartType: "pie", metric: "sum" },
-  { id: "count_estado_pie", title: "# Proyectos vs estado (torta)", dimension: "estado", chartType: "pie", metric: "count" }
-];
-
-// ---------- ESTADO GLOBAL ----------
-let fullData = [];
-let activeFilters = {}; // { dimension: valorSeleccionado | null }
-
-// Expuesto globalmente
-window.initCharts = function initCharts(data) {
-  fullData = Array.isArray(data) ? data : [];
-  activeFilters = {};
-  buildChartCards();
-  renderAllCharts();
-  updateFilterIndicators();
-};
-
-// Limpiar todos los filtros
-window.clearAllFilters = function clearAllFilters() {
-  activeFilters = {};
-  renderAllCharts();
-  updateFilterIndicators();
-};
-
-// ========================================
-// ✅ Salida texto simple para KMZ (Top 3 + resumen)
-// ========================================
-
-// devuelve data ya filtrada según activeFilters (ojo: sector no debería filtrar, pero lo respetamos si existiera)
-function getFilteredRows() {
-  return fullData.filter((row) => {
-    for (const dim in activeFilters) {
-      const val = activeFilters[dim];
-      if (!val) continue;
-
-      let rowVal = normalizeKey(row[dim], dim);
-      if (rowVal === null) return false;
-      if (rowVal !== val) return false;
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    return true;
-  });
-}
 
-function buildGroups(rows, dimension, metric) {
-  const g = new Map();
-  rows.forEach((row) => {
-    const key = normalizeKey(row[dimension], dimension);
-    if (key === null) return;
-
-    const delta = getMetricDelta(row, metric);
-    if (!Number.isFinite(delta)) return;
-
-    g.set(key, (g.get(key) || 0) + delta);
-  });
-  return g;
-}
-
-function topNFromGroups(groupsMap, n = 3) {
-  return Array.from(groupsMap.entries())
-    .sort((a, b) => (b[1] || 0) - (a[1] || 0))
-    .slice(0, n);
-}
-
-// 👉 Función principal para balloon
-window.getKmlBalloonSummaryText = function getKmlBalloonSummaryText(opts = {}) {
-  const rows = Array.isArray(opts.data) ? opts.data : fullData;
-  const radiusM = opts.radiusM;
-  const center = opts.center; // {lat, lon}
-
-  // Top3 Estado (count) + Top3 Sector (count) + opcional inversión top
-  const gEstadoCount = buildGroups(rows, "estado", "count");
-  const gSectorCount = buildGroups(rows, "sector", "count");
-  const gEstadoInv   = buildGroups(rows, "estado", "sum");
-  const gSectorInv   = buildGroups(rows, "sector", "sum");
-
-  const topEstadoCount = topNFromGroups(gEstadoCount, 3);
-  const topSectorCount = topNFromGroups(gSectorCount, 3);
-  const topEstadoInv   = topNFromGroups(gEstadoInv, 3);
-  const topSectorInv   = topNFromGroups(gSectorInv, 3);
-
-  const total = rows.length;
-
-  const lines = [];
-  lines.push("RESUMEN");
-  lines.push(`• Proyectos en radio: ${total}`);
-  if (Number.isFinite(radiusM)) lines.push(`• Radio: ${Math.round(radiusM)} m`);
-  if (center && Number.isFinite(center.lat) && Number.isFinite(center.lon)) {
-    lines.push(`• Centro: ${center.lat.toFixed(6)}, ${center.lon.toFixed(6)}`);
-  }
-
-  lines.push("");
-  lines.push("TOP 3 ESTADO (por # proyectos)");
-  if (topEstadoCount.length === 0) lines.push("• Sin datos");
-  topEstadoCount.forEach(([k, v], i) => lines.push(`• ${i + 1}) ${k}: ${fmtNumber(v, true)}`));
-
-  lines.push("");
-  lines.push("TOP 3 SECTOR (por # proyectos)");
-  if (topSectorCount.length === 0) lines.push("• Sin datos");
-  topSectorCount.forEach(([k, v], i) => lines.push(`• ${i + 1}) ${k}: ${fmtNumber(v, true)}`));
-
-  // Si quieres incluir inversión, queda ultra legible:
-  lines.push("");
-  lines.push("TOP 3 ESTADO (por inversión MMU$)");
-  if (topEstadoInv.length === 0) lines.push("• Sin datos");
-  topEstadoInv.forEach(([k, v], i) => lines.push(`• ${i + 1}) ${k}: ${fmtCompact(v, false)} MMU$`));
-
-  lines.push("");
-  lines.push("TOP 3 SECTOR (por inversión MMU$)");
-  if (topSectorInv.length === 0) lines.push("• Sin datos");
-  topSectorInv.forEach(([k, v], i) => lines.push(`• ${i + 1}) ${k}: ${fmtCompact(v, false)} MMU$`));
-
-  // Links opcionales (si mapainfo.js los pasa)
-  if (opts.links && (opts.links.geoeva || opts.links.geoipt)) {
-    lines.push("");
-    lines.push("LINKS");
-    if (opts.links.geoeva) lines.push(`• GeoEVA: ${opts.links.geoeva}`);
-    if (opts.links.geoipt) lines.push(`• GeoIPT: ${opts.links.geoipt}`);
-  }
-
-  return lines.join("\n");
-};
-
-// ========================================
-// Construcción dinámica de tarjetas
-// ========================================
-function buildChartCards() {
-  const grid = document.getElementById("chartsGrid");
-  if (!grid) return;
-
-  grid.innerHTML = "";
-
-  CHARTS_CONFIG.forEach((cfg, index) => {
-    const card = document.createElement("div");
-    card.className = "chart-card";
-    card.id = `card_${cfg.id}`;
-
-    card.style.cssText = `
-      position: relative;
-      transition: all 0.3s ease;
-      cursor: pointer;
-      animation: fadeInUp 0.4s ease forwards;
-      animation-delay: ${0.05 * (index + 1)}s;
-      opacity: 0;
-    `;
-
-    const h3 = document.createElement("h3");
-    h3.textContent = cfg.title;
-    h3.style.cssText = `
+    body {
+      background-color: #f3f4f6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: #020617;
+      color: #e5e7eb;
+      padding: 0.9rem 1.5rem;
+      border-bottom: 1px solid #111827;
+    }
+
+    .header-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .coords-text {
+      font-size: 0.9rem;
+      color: #cbd5f5;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 1.5rem auto 2rem;
+      padding: 0 1rem;
+      width: 100%;
+    }
+
+    .small-text {
+      font-size: 0.9rem;
+      color: #4b5563;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.1);
+      padding: 1.25rem 1.5rem;
       margin-bottom: 1rem;
-    `;
+    }
 
-    const div = document.createElement("div");
-    div.id = `chart_${cfg.id}`;
-    div.className = "plotly-chart";
+    h2.h5 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-title">SEA Mining - Prueba de gráficos</div>
+    <div id="coordsDisplay" class="coords-text">
+      Coordenadas consulta: lat ?, lng ?
+    </div>
+    <div id="sectoresDisplay" class="coords-text">
+      Sectores productivos: Todos
+    </div>
+  </header>
 
-    card.appendChild(h3);
-    card.appendChild(div);
-    grid.appendChild(card);
+  <main>
+    <section class="card">
+      <h2 class="h5 mb-1">Entorno de ensayo de gráficos</h2>
+      <p class="small-text">
+        Este entorno carga el mismo Excel y lógica de proximidad (top 10 aprobados &amp; proyectos en radio),
+        pero solo genera gráficos definidos en <code>config/graficos.json</code>.
+      </p>
+      <p class="small-text" id="radioInfo">
+        Radio de análisis: (aún no calculado).
+      </p>
+    </section>
 
-    cfg.containerId = div.id;
-    cfg.cardId = card.id;
-  });
+    <section class="card">
+      <h2 class="h5 mb-1">Gráficos generados</h2>
+      <p class="small-text">
+        Los gráficos se construyen usando <code>proyectosEnRadio</code> del motor geolib y la configuración JSON.
+      </p>
+      <div id="chartsContainer" style="margin-top: 1rem;"></div>
+    </section>
+  </main>
 
-  if (!document.getElementById("chart-animations-style")) {
-    const style = document.createElement("style");
-    style.id = "chart-animations-style";
-    style.textContent = `
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
+  <script>
+    // ===============================
+    // Parámetros URL
+    // ===============================
+    const urlParams = new URLSearchParams(window.location.search);
+    const consultaLat = parseFloat(urlParams.get("lat")) || -27.5;
+    const consultaLng = parseFloat(urlParams.get("lng")) || -70.25;
 
-      .chart-card:hover {
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
-        transform: translateY(-2px);
-      }
+    const secParam = urlParams.get("sec");
+    let sectoresFiltro = [];
+    if (secParam && secParam.trim() !== "") {
+      sectoresFiltro = secParam
+        .split(",")
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    }
 
-      .chart-card.filtered {
-        border: 2px solid #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-      }
+    // XLSX dinámico opcional: ?xlsx=capas/SEA_Atacama_Proyectos.xlsx
+    const xlsxParam = urlParams.get("xlsx");
+    const DATA_XLSX_URL =
+      xlsxParam && xlsxParam.trim() !== ""
+        ? xlsxParam
+        : "capas/SEA_Atacama_Proyectos.xlsx";
 
-      .filter-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.2rem 0.5rem;
-        background: #3b82f6;
-        color: white;
-        font-size: 0.7rem;
-        border-radius: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
+    document.getElementById("coordsDisplay").textContent =
+      `Coordenadas consulta: lat ${consultaLat.toFixed(6)}, lng ${consultaLng.toFixed(6)}`;
 
-      .filter-badge:hover { background: #2563eb; transform: scale(1.05); }
-      .filter-badge::after { content: '×'; font-size: 0.9rem; font-weight: bold; margin-left: 0.2rem; }
+    if (!sectoresFiltro.length) {
+      document.getElementById("sectoresDisplay").textContent =
+        "Sectores productivos: Todos";
+    } else {
+      document.getElementById("sectoresDisplay").textContent =
+        "Sectores productivos: " + sectoresFiltro.join(", ");
+    }
 
-      .chart-card::before {
-        content: '👆 Clic para filtrar';
-        position: absolute;
-        top: -8px;
-        right: 10px;
-        background: #fbbf24;
-        color: #78350f;
-        padding: 0.2rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        pointer-events: none;
-        z-index: 10;
-      }
+    let proyectosOriginal = [];
+    let proyectosEnRadio = [];
+    let top10Aprobados = [];
 
-      .chart-card:hover::before { opacity: 1; }
-      .chart-card.filtered::before { display: none; }
+    // ===============================
+    // Helpers
+    // ===============================
+    function normalizeHeader(h) {
+      return String(h || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+    }
 
-      @media (max-width: 768px) { .chart-card::before { display: none; } }
-    `;
-    document.head.appendChild(style);
-  }
-}
+    function normalizeSimple(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+    }
 
-// Indicadores visuales
-function updateFilterIndicators() {
-  CHARTS_CONFIG.forEach((cfg) => {
-    const card = document.getElementById(cfg.cardId);
-    if (!card) return;
+    function parseCoord(value) {
+      if (value === null || value === undefined) return null;
+      let s = String(value).trim();
+      if (!s) return null;
+      s = s.replace(",", ".");
+      const n = Number(s);
+      return isNaN(n) ? null : n;
+    }
 
-    const hasFilter = activeFilters[cfg.dimension];
+    function normalizarEstado(estadoRaw) {
+      if (!estadoRaw) return "Sin información";
+      let e = normalizeSimple(estadoRaw);
+      if (e.includes("rechaz")) return "Rechazado";
+      if (e.includes("aprob") || e.includes("favorabl")) return "Aprobado";
+      if (e.includes("calific") || e.includes("evalu")) return "En evaluación";
+      return String(estadoRaw).trim();
+    }
 
-    if (hasFilter) {
-      card.classList.add("filtered");
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const toRad = deg => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
 
-      const h3 = card.querySelector("h3");
-      let badge = h3.querySelector(".filter-badge");
+    // Conversión Excel serial date → "AAAA-MM-DD"
+    function excelDateToYMD(value) {
+      if (value == null) return null;
 
-      if (!badge) {
-        badge = document.createElement("span");
-        badge.className = "filter-badge";
-        badge.textContent = "Filtrado";
-        badge.onclick = (e) => {
-          e.stopPropagation();
-          clearChartFilter(cfg.dimension);
+      let n = Number(value);
+      if (!isFinite(n)) return null;
+
+      n = Math.round(n); // por si viene 40430.123
+
+      const fechaBase = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30
+      const ms = fechaBase.getTime() + n * 86400000;
+      const d = new Date(ms);
+
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(d.getUTCDate()).padStart(2, "0");
+
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // ===============================
+    // Cargar Excel y aplicar lógica geolib (sin mapa)
+    // ===============================
+    async function cargarDatos() {
+      try {
+        const resp = await fetch(DATA_XLSX_URL);
+        if (!resp.ok) {
+          console.error("No se pudo cargar el Excel:", DATA_XLSX_URL);
+          return;
+        }
+
+        const data = new Uint8Array(await resp.arrayBuffer());
+        const workbook = XLSX.read(data, { type: "array" });
+
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const arr = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+        const headers = arr[0];
+        const filas = arr.slice(1);
+
+        let idxLat = -1,
+          idxLon = -1,
+          idxEstado = -1,
+          idxNombre = -1,
+          idxSector = -1,
+          idxInv = -1,
+          idxFechaAprob = -1,
+          idxWeb = -1,
+          idxIdExp = -1,
+          idxTipo = -1;
+
+        headers.forEach((h, i) => {
+          const n = normalizeHeader(h);
+          if (n.includes("latitud") && idxLat === -1) idxLat = i;
+          if (n.includes("longitud") && idxLon === -1) idxLon = i;
+          if (n.includes("estado") && !n.includes("fecha") && idxEstado === -1)
+            idxEstado = i;
+          if (n.includes("nombre") && n.includes("proyecto") && idxNombre === -1)
+            idxNombre = i;
+          if (n.includes("sector") && idxSector === -1) idxSector = i;
+          if ((n.includes("inversion") || n.includes("inversi")) && idxInv === -1)
+            idxInv = i;
+          if (
+            idxFechaAprob === -1 &&
+            n.includes("fecha") &&
+            (n.includes("aprob") ||
+              n.includes("calific") ||
+              n.includes("resol"))
+          ) {
+            idxFechaAprob = i;
+          }
+          if ((n.includes("web") || n.includes("url")) && idxWeb === -1)
+            idxWeb = i;
+          if (n.includes("id expediente") || n.includes("id_expediente")) {
+            if (idxIdExp === -1) idxIdExp = i;
+          }
+          if (n.includes("tipo") && n.includes("present") && idxTipo === -1)
+            idxTipo = i;
+        });
+
+        const filtroSectoresNorm = new Set(
+          sectoresFiltro.map(s => normalizeSimple(s))
+        );
+
+        proyectosOriginal = filas
+          .map(row => {
+            const lat = idxLat >= 0 ? parseCoord(row[idxLat]) : null;
+            const lon = idxLon >= 0 ? parseCoord(row[idxLon]) : null;
+
+            const estado_actual = idxEstado >= 0 ? row[idxEstado] : null;
+            const nombre_proyecto = idxNombre >= 0 ? row[idxNombre] : null;
+            const sector_productivo = idxSector >= 0 ? row[idxSector] : null;
+            const inversion_mmu = idxInv >= 0 ? row[idxInv] : null;
+            const tipo_presentacion = idxTipo >= 0 ? row[idxTipo] : null;
+
+            // conversión de fecha de aprobación
+            let fecha_aprobacion = null;
+            if (idxFechaAprob >= 0) {
+              const rawFecha = row[idxFechaAprob];
+              if (rawFecha != null && rawFecha !== "") {
+                const num = Number(rawFecha);
+                if (isFinite(num)) {
+                  fecha_aprobacion = excelDateToYMD(num);
+                } else {
+                  fecha_aprobacion = String(rawFecha);
+                }
+              }
+            }
+
+            const web_raw = idxWeb >= 0 ? row[idxWeb] : null;
+            const id_expediente = idxIdExp >= 0 ? row[idxIdExp] : null;
+
+            if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return null;
+
+            // Filtro por sector
+            if (sectoresFiltro.length > 0 && idxSector >= 0) {
+              const sectorNorm = normalizeSimple(sector_productivo);
+              if (!filtroSectoresNorm.has(sectorNorm)) return null;
+            }
+
+            const dist_km = haversineKm(consultaLat, consultaLng, lat, lon);
+
+            // URL del expediente (disponible si quieres usarla después)
+            let url_expediente = null;
+            if (web_raw) {
+              url_expediente = String(web_raw).trim();
+            } else if (id_expediente) {
+              const idStr = String(id_expediente).trim();
+              if (idStr) {
+                url_expediente =
+                  "https://seia.sea.gob.cl/expediente/ficha/fichaPrincipal.php?modo=ficha&id_expediente=" +
+                  encodeURIComponent(idStr);
+              }
+            }
+
+            return {
+              lat,
+              lon,
+              estado_actual,
+              nombre_proyecto,
+              sector_productivo,
+              inversion_mmu,
+              fecha_aprobacion,
+              tipo_presentacion,
+              url_expediente,
+              dist_km,
+              esTop10Aprobado: false,
+            };
+          })
+          .filter(p => p !== null);
+
+        // Top 10 aprobados
+        const aprobados = proyectosOriginal
+          .filter(p => normalizarEstado(p.estado_actual) === "Aprobado")
+          .sort((a, b) => a.dist_km - b.dist_km);
+
+        top10Aprobados = aprobados.slice(0, 10);
+        const radioKm =
+          top10Aprobados.length > 0
+            ? top10Aprobados[top10Aprobados.length - 1].dist_km
+            : 0;
+
+        const topSet = new Set(top10Aprobados);
+        proyectosOriginal.forEach(p => {
+          if (topSet.has(p)) p.esTop10Aprobado = true;
+        });
+
+        proyectosEnRadio =
+          radioKm > 0
+            ? proyectosOriginal.filter(p => p.dist_km <= radioKm)
+            : [];
+
+        document.getElementById("radioInfo").textContent =
+          radioKm > 0
+            ? `Radio de análisis (definido por el aprobado más lejano entre los 10): ${radioKm.toFixed(2)} km.`
+            : "No se encontraron proyectos aprobados alrededor del punto consultado para definir un radio.";
+
+        // Exportar datos
+        window.geolibData = {
+          consultaLat,
+          consultaLng,
+          sectoresFiltro,
+          proyectosOriginal,
+          proyectosEnRadio,
+          top10Aprobados,
+          radioKm
         };
-        h3.appendChild(badge);
+
+        // Crear gráficos según configuración
+        cargarConfigGraficos();
+      } catch (err) {
+        console.error("Error cargando el Excel:", err);
       }
-    } else {
-      card.classList.remove("filtered");
-      const badge = card.querySelector(".filter-badge");
-      if (badge) badge.remove();
-    }
-  });
-}
-
-function clearChartFilter(dimension) {
-  delete activeFilters[dimension];
-  renderAllCharts();
-  updateFilterIndicators();
-}
-
-// Render
-function renderAllCharts() {
-  CHARTS_CONFIG.forEach((cfg) => renderChart(cfg));
-}
-
-function renderChart(cfg) {
-  const container = document.getElementById(cfg.containerId);
-  if (!container) return;
-
-  // 0) Categorías globales (estructura estable)
-  const allCategories = Array.from(
-    new Set(
-      fullData
-        .map((row) => normalizeKey(row[cfg.dimension], cfg.dimension))
-        .filter((v) => v !== null)
-    )
-  );
-
-  // 1) Aplicar filtros activos (múltiples)
-  const filtered = getFilteredRows();
-  const hasData = filtered.length > 0;
-
-  // 2) Agrupar
-  const groups = buildGroups(filtered, cfg.dimension, cfg.metric);
-
-  // 3) Labels
-  let labels;
-  if (cfg.dimension === "anio") {
-    labels = allCategories
-      .filter((v) => /^\d{4}$/.test(v))
-      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-  } else {
-    labels = allCategories.slice().sort();
-  }
-
-  const values = labels.map((cat) => groups.get(cat) || 0);
-
-  const isCount = (cfg.metric || "sum") === "count";
-  const xTitleDefault = isCount ? "# Proyectos" : "Inversión (MMU$)";
-  const yTitleDefault = isCount ? "# Proyectos" : "Inversión (MMU$)";
-
-  // 4) Layout base
-  let layout = {
-    margin: { t: 20, b: 60, l: 60, r: 20 }
-  };
-
-  if (!hasData) {
-    layout.annotations = [{
-      text: "Sin datos para<br>los filtros seleccionados",
-      xref: "paper", yref: "paper",
-      x: 0.5, y: 0.5,
-      xanchor: "center", yanchor: "middle",
-      showarrow: false,
-      font: { size: 14, color: "#9ca3af" }
-    }];
-  }
-
-  let dataTraces;
-
-  if (cfg.chartType === "pie") {
-    const pieLabels = Array.from(groups.keys());
-    const pieValues = pieLabels.map((k) => groups.get(k));
-
-    const pieColors =
-      cfg.dimension === "estado"
-        ? pieLabels.map((cat) => getEstadoColor(cat))
-        : undefined;
-
-    if (pieLabels.length === 0) {
-      dataTraces = [{
-        type: "pie",
-        labels: ["Sin datos"],
-        values: [1],
-        textinfo: "none",
-        hoverinfo: "none",
-        marker: { colors: ["#f3f4f6"], line: { color: "#ffffff", width: 1 } }
-      }];
-    } else {
-      dataTraces = [{
-        type: "pie",
-        labels: pieLabels,
-        values: pieValues,
-        // Mobile: mostrar % pero el valor queda en tooltip (siempre útil en desktop)
-        textinfo: "percent",
-        hovertemplate: isCount
-          ? "%{label}<br>%{value:.0f} proyectos (%{percent})<extra></extra>"
-          : "%{label}<br>%{value:.1f} MMU$ (%{percent})<extra></extra>",
-        sort: false,
-        marker: { colors: pieColors, line: { color: "#ffffff", width: 1 } }
-      }];
     }
 
-    layout = { ...layout, showlegend: true };
-  } else {
-    // ---------- BARRAS ----------
-    // Colores con atenuación si la dimensión está filtrada
-    let colors;
-    if (cfg.dimension === "estado") {
-      colors = labels.map((cat) => {
-        const selected = activeFilters[cfg.dimension] || null;
-        const base = getEstadoColor(cat);
-        if (selected && selected !== cat) return base.replace("0.9", "0.2");
-        return base;
-      });
-    } else {
-      colors = labels.map((cat) => {
-        const selected = activeFilters[cfg.dimension] || null;
-        const strong = "rgba(59,130,246,0.9)";
-        const soft = "rgba(59,130,246,0.2)";
-        if (selected && selected !== cat) return soft;
-        return strong;
-      });
+    // ===============================
+    // Motor de gráficos (config JSON)
+    // ===============================
+    async function cargarConfigGraficos() {
+      const container = document.getElementById("chartsContainer");
+      if (!container || !window.geolibData) return;
+
+      container.innerHTML = "";
+
+      let config = null;
+
+      try {
+        const resp = await fetch("config/graficos.json");
+        if (resp.ok) {
+          config = await resp.json();
+        } else {
+          console.warn("No se pudo cargar config/graficos.json, usando config por defecto.");
+        }
+      } catch (err) {
+        console.warn("Error cargando config/graficos.json, usando config por defecto:", err);
+      }
+
+      // Config por defecto si no hay JSON válido
+      if (!config) {
+        config = {
+          charts: [
+            {
+              id: "inv_sector",
+              title: "Inversión por sector",
+              subtitle: "Proyectos dentro del radio",
+              type: "bar-horizontal",
+              dataset: "proyectosEnRadio",
+              groupBy: "sector",
+              metric: "sum_inversion_mmu",
+              legend: "Inversión (MMU$)"
+            },
+            {
+              id: "estado_torta",
+              title: "Estados de los proyectos",
+              subtitle: "Distribución por estado",
+              type: "pie",
+              dataset: "proyectosEnRadio",
+              groupBy: "estado",
+              metric: "count",
+              legend: "N° de proyectos"
+            }
+          ]
+        };
+      }
+
+      const charts = Array.isArray(config.charts) ? config.charts : [];
+      charts.forEach(def => crearGraficoDesdeDef(def, container));
     }
 
-    // ✅ NUEVO: textos visibles (sin hover)
-    const textVals = values.map((v) => (isCount ? fmtNumber(v, true) : fmtNumber(v, false)));
+    function crearGraficoDesdeDef(def, container) {
+      const { proyectosEnRadio, top10Aprobados } = window.geolibData;
 
-    if (cfg.orientation === "h") {
-      dataTraces = [{
-        type: "bar",
-        orientation: "h",
-        x: values,
-        y: labels,
-        marker: { color: colors },
-        text: textVals,
-        textposition: "auto",
-        cliponaxis: false,
-        hovertemplate: isCount
-          ? "%{y}<br>%{x:.0f} proyectos<extra></extra>"
-          : "%{y}<br>%{x:.1f} MMU$<extra></extra>"
-      }];
+      // 1) Elegir dataset
+      let fuente;
+      if (def.dataset === "top10Aprobados") {
+        fuente = top10Aprobados || [];
+      } else {
+        fuente = proyectosEnRadio || [];
+      }
 
-      layout = {
-        ...layout,
-        margin: { t: 20, b: 60, l: 160, r: 20 },
-        xaxis: { title: xTitleDefault, automargin: true },
-        yaxis: { automargin: true }
+      if (!fuente.length) return;
+
+      // 2) Aplicar filtros simples (opcional)
+      if (def.filters) {
+        fuente = aplicarFiltros(fuente, def.filters);
+      }
+
+      // 3) Generar labels y data según groupBy/metric
+      const serie = construirSerie(def, fuente);
+      if (!serie || !serie.labels.length) return;
+
+      // 4) Crear contenedor visual + canvas
+      const card = document.createElement("div");
+      card.style.marginBottom = "1.5rem";
+
+      const titleEl = document.createElement("h3");
+      titleEl.textContent = def.title || "Gráfico";
+      titleEl.style.fontSize = "0.95rem";
+      titleEl.style.fontWeight = "600";
+      card.appendChild(titleEl);
+
+      if (def.subtitle) {
+        const subEl = document.createElement("p");
+        subEl.textContent = def.subtitle;
+        subEl.className = "small-text";
+        card.appendChild(subEl);
+      }
+
+      const canvasWrapper = document.createElement("div");
+      canvasWrapper.style.marginTop = "0.75rem";
+      canvasWrapper.style.height = def.type === "bar-horizontal" ? "320px" : "260px";
+
+      const canvas = document.createElement("canvas");
+      canvas.id = `chart_${def.id || Math.random().toString(36).slice(2)}`;
+
+      canvasWrapper.appendChild(canvas);
+      card.appendChild(canvasWrapper);
+      container.appendChild(card);
+
+      // 5) Crear el gráfico con Chart.js
+      const ctx = canvas.getContext("2d");
+      const chartType = def.type === "pie" ? "pie" : "bar";
+
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false
       };
-    } else {
-      const tickAngle = typeof cfg.xTickAngle === "number" ? cfg.xTickAngle : 0;
 
-      dataTraces = [{
-        type: "bar",
-        x: labels,
-        y: values,
-        marker: { color: colors },
-        text: textVals,
-        textposition: "auto",
-        cliponaxis: false,
-        hovertemplate: isCount
-          ? "%{x}<br>%{y:.0f} proyectos<extra></extra>"
-          : "%{x}<br>%{y:.1f} MMU$<extra></extra>"
-      }];
+      if (def.type === "bar-horizontal") {
+        options.indexAxis = "y";
+        options.scales = {
+          x: {
+            ticks: {
+              callback: v => Number(v).toLocaleString("es-CL")
+            }
+          }
+        };
+      } else if (chartType === "bar") {
+        options.scales = {
+          y: {
+            ticks: {
+              callback: v => Number(v).toLocaleString("es-CL")
+            }
+          }
+        };
+      }
 
-      layout = {
-        ...layout,
-        xaxis: {
-          title: cfg.dimension === "anio" ? "Año" : cfg.dimension,
-          automargin: true,
-          tickangle: tickAngle,
-          type: cfg.dimension === "anio" ? "category" : undefined
+      new Chart(ctx, {
+        type: chartType,
+        data: {
+          labels: serie.labels,
+          datasets: [{
+            label: def.legend || "",
+            data: serie.data
+          }]
         },
-        yaxis: { title: yTitleDefault, automargin: true }
-      };
-    }
-  }
-
-  Plotly.newPlot(container, dataTraces, layout, {
-    responsive: true,
-    displaylogo: false
-  });
-
-  // 5) Click → toggle filtro
-  container.removeAllListeners?.("plotly_click"); // por si se re-renderiza (evita duplicación)
-
-  container.on("plotly_click", (ev) => {
-    if (!ev.points || !ev.points.length) return;
-
-    // ✅ REQ: quitar filtro por sector
-    if (cfg.dimension === "sector") return;
-
-    const pt = ev.points[0];
-    let category;
-
-    if (cfg.chartType === "pie") {
-      category = pt.label?.toString();
-      if (!category || category === "Sin datos") return;
-    } else if (cfg.orientation === "h") {
-      category = pt.y?.toString();
-    } else {
-      category = pt.x?.toString();
+        options
+      });
     }
 
-    if (!category) return;
+    // Aplica filtros tipo { estado: ["Aprobado","Rechazado"], sector: ["Energía"] }
+    function aplicarFiltros(proyectos, filters) {
+      return proyectos.filter(p => {
+        if (filters.estado) {
+          const estadosPermitidos = new Set(filters.estado.map(e => e.toString()));
+          const estNorm = normalizarEstado(p.estado_actual);
+          if (!estadosPermitidos.has(estNorm)) return false;
+        }
 
-    const current = activeFilters[cfg.dimension] || null;
+        if (filters.sector) {
+          const sectoresPermitidos = new Set(
+            filters.sector.map(s => s.toString().toLowerCase())
+          );
+          const sec = (p.sector_productivo || "").toString().toLowerCase();
+          if (!sectoresPermitidos.has(sec)) return false;
+        }
 
-    if (current === category) delete activeFilters[cfg.dimension];
-    else activeFilters[cfg.dimension] = category;
+        return true;
+      });
+    }
 
-    renderAllCharts();
-    updateFilterIndicators();
-  });
-}
+    // Construye labels/data según groupBy y metric
+    function construirSerie(def, proyectos) {
+      const groupBy = def.groupBy || "estado";
+      const metric = def.metric || "count";
+
+      const mapa = new Map(); // clave -> valor agregado
+
+      for (const p of proyectos) {
+        let clave;
+
+        // --- AGRUPADORES ---
+        if (groupBy === "sector") {
+          clave = (p.sector_productivo || "Sin información").toString().trim();
+          if (!clave) clave = "Sin información";
+        }
+        else if (groupBy === "estado") {
+          clave = normalizarEstado(p.estado_actual);
+        }
+        else if (groupBy === "anio_aprobacion") {
+          const fa = p.fecha_aprobacion ? String(p.fecha_aprobacion) : "";
+          clave = fa && fa.length >= 4 ? fa.slice(0, 4) : "Sin año";
+        }
+        else {
+          clave = "Otros";
+        }
+
+        // --- MÉTRICAS ---
+        let delta = 0;
+        if (metric === "count") {
+          delta = 1;
+        } else if (metric === "sum_inversion_mmu") {
+          const raw = p.inversion_mmu || 0;
+          const num = Number(String(raw).replace(/\./g, "").replace(",", "."));
+          delta = isNaN(num) ? 0 : num;
+        }
+
+        mapa.set(clave, (mapa.get(clave) || 0) + delta);
+      }
+
+      // Convertir Map a arrays
+      let labels = [];
+      let data = [];
+
+      for (const [k, v] of mapa.entries()) {
+        labels.push(k);
+        data.push(v);
+      }
+
+      // --- FILTRO OMIT ---
+      if (def.omit && Array.isArray(def.omit)) {
+        const omitSet = new Set(def.omit.map(o => o.toString()));
+        const filtrados = [];
+        const filtradosData = [];
+
+        labels.forEach((lab, idx) => {
+          if (!omitSet.has(lab)) {
+            filtrados.push(lab);
+            filtradosData.push(data[idx]);
+          }
+        });
+
+        labels = filtrados;
+        data = filtradosData;
+      }
+
+      // --- ORDENAR ASC o DESC ---
+      if (def.sort === "asc" || def.sort === "desc") {
+        const zipped = labels.map((lab, i) => ({ lab, val: data[i] }));
+
+        zipped.sort((a, b) => {
+          const ka = isNaN(a.lab) ? a.lab : Number(a.lab);
+          const kb = isNaN(b.lab) ? b.lab : Number(b.lab);
+          return def.sort === "asc" ? ka - kb : kb - ka;
+        });
+
+        labels = zipped.map(z => z.lab);
+        data = zipped.map(z => z.val);
+      }
+
+      return { labels, data };
+    }
+
+    // ===============================
+    // Inicio
+    // ===============================
+    cargarDatos();
+  </script>
+</body>
+</html>
