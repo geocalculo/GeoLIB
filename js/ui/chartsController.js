@@ -1,36 +1,72 @@
 // js/ui/chartsController.js
-// Adaptador EXACTO para tu graficos.js (legacy)
-// - graficos.js espera: initCharts(Array<Row>)
-// - Row debe tener llaves: sector, estado, tipo, anio, inversion
+// VERSIÓN DEBUG para diagnosticar problema de meses
 
 export function updateCharts(model) {
-  if (typeof window.initCharts !== "function") return;
+  console.log("=== DEBUG chartsController ===");
+  console.log("model.projects:", model?.projects?.length);
+  
+  if (typeof window.initCharts !== "function") {
+    console.warn("window.initCharts no disponible - graficos.js no cargado?");
+    return;
+  }
 
-  const rows = (model?.projects || []).map((p) => ({
-    // ✅ claves EXACTAS que usa graficos.js
+  // Debug: ver primeros 3 proyectos RAW
+  console.log("Primeros 3 proyectos del modelo:");
+  (model?.projects || []).slice(0, 3).forEach((p, i) => {
+    console.log(`  Proyecto ${i}:`, {
+      nombre: p.nombre?.substring(0, 40),
+      estado: p.estado,
+      meses: p.meses,
+      plazoMeses: p.plazoMeses,
+      inversion: p.inversion,
+      inversionMm: p.inversionMm
+    });
+  });
+
+  const chartData = (model?.projects || []).map((p) => ({
     sector: (p.sector ?? "").toString().trim() || "Sin dato",
     estado: (p.estado ?? "").toString().trim() || "Sin dato",
-    tipo: (p.tipo ?? "").toString().trim() || "Sin dato",
-    anio:
-      p.anio != null && String(p.anio).trim() !== ""
-        ? String(parseInt(p.anio, 10))
-        : "Sin dato",
-    inversion: Number.isFinite(p.inversion) ? p.inversion : 0,
-
-    // (extras por si después los usas, no molestan)
+    anio: p.anio != null && String(p.anio).trim() !== ""
+      ? parseInt(p.anio, 10)
+      : null,
+    
+    inversionMm: Number.isFinite(p.inversionMm) 
+      ? p.inversionMm 
+      : (Number.isFinite(p.inversion) ? p.inversion : 0),
+    
+    meses: Number.isFinite(p.meses) 
+      ? p.meses 
+      : (Number.isFinite(p.plazoMeses) ? p.plazoMeses : null),
+    plazoMeses: Number.isFinite(p.meses) 
+      ? p.meses 
+      : (Number.isFinite(p.plazoMeses) ? p.plazoMeses : null),
+    
     nombre: p.nombre ?? "",
-    distKm: Number.isFinite(p.distKm) ? p.distKm : null,
     region: p.region ?? "",
+    distKm: Number.isFinite(p.distKm) ? p.distKm : null,
     id: p.id ?? null,
   }));
 
-  // ✅ graficos.js: initCharts(dataArray)
-  window.initCharts(rows);
+  console.log("Primeros 3 proyectos DESPUÉS de mapeo:");
+  chartData.slice(0, 3).forEach((p, i) => {
+    console.log(`  ChartData ${i}:`, {
+      nombre: p.nombre.substring(0, 40),
+      estado: p.estado,
+      meses: p.meses,
+      sector: p.sector
+    });
+  });
 
-  // Opcional: texto KMZ si tu graficos.js tiene helper
-  // (en tu graficos.js existe la sección "Salida texto simple para KMZ")
-  // Si allá expones algo como window.getKmzSummaryText, acá lo dejamos disponible.
-  if (typeof window.getKmzSummaryText === "function") {
-    window.__geoeva_kmz_summary = window.getKmzSummaryText(rows);
-  }
+  const conMeses = chartData.filter(p => 
+    Number.isFinite(p.meses) && p.meses > 0
+  ).length;
+  console.log(`[chartsController] Proyectos con meses válidos: ${conMeses}/${chartData.length}`);
+
+  const aprobadosConMeses = chartData.filter(p => {
+    const est = (p.estado || "").toLowerCase();
+    return est.includes("aprob") && Number.isFinite(p.meses) && p.meses > 0;
+  }).length;
+  console.log(`[chartsController] APROBADOS con meses válidos: ${aprobadosConMeses}`);
+
+  window.initCharts(chartData);
 }

@@ -1,126 +1,132 @@
 // js/core/dataLoader.js
-// Cargador XLSX para GeoEVA (sin Leaflet, sin DOM)
-// - Lee un XLSX desde URL (fetch)
-// - Mapea columnas a un modelo normalizado
-// - Soporta 2 perfiles: "index" y "mapainfo" (tu nacional.xlsx actual)
+// Cargador JSON para GeoEVA (sin dependencia de XLSX)
+// Lee nacional.compact.v2.json con formato {columns: [...], rows: [[...]]}
 
 import { parseCoord, parseNumber, stripInvalidXmlChars } from "./utils.js";
 
 /**
- * Perfiles predefinidos para nacional.xlsx (según tu código actual).
- * Si mañana cambia el Excel, ajustas aquí.
+ * Mapeo de campos del JSON compacto a estructura interna
+ * El JSON tiene formato: { columns: ["nombre", "web", ...], rows: [[val1, val2, ...], ...] }
  */
-export const DATA_PROFILES = {
-  // Usado en index-fullheight.js (resumen por BBOX)
-  index: {
-    name: "index",
-    sheetIndex: 0,
-    columns: {
-      nombre: 0,
-      region: 3,
-      estado: 11,
-      sector: 13,
-      lat: 14,
-      lon: 15,
-    },
-  },
-
-  // Usado en mapainfo.js (detalle + KMZ + charts)
-  mapainfo: {
-    name: "mapainfo",
-    sheetIndex: 0,
-    columns: {
-      nombre: 0,
-      web: 1,
-      tipo: 2,
-      region: 3,
-      inversion: 9,
-      fechaIngreso: 10,
-      estado: 11,
-      sector: 13,
-      lat: 14,
-      lon: 15,
-      anexos: 16,
-      anio: 17,
-    },
-  },
+const JSON_FIELD_MAPPING = {
+  nombre: "nombre",
+  web: "web",
+  tipo_presentacion: "tipo",
+  region: "region",
+  inversion_mmusd: "inversion",
+  fecha_presentacion: "fechaIngreso",
+  estado: "estado",
+  sector: "sector",
+  lat: "lat",
+  lon: "lon",
+  documentacion: "anexos",
+  anio: "anio",
+  meses: "meses",
 };
 
 /**
- * Carga un XLSX y retorna filas como matriz (header+rows)
+ * Carga un JSON compacto y retorna proyectos normalizados
+ * @param {string} url - URL del JSON (ej: "capas/nacional.compact.v2.json")
+ * @returns {Promise<Array<object>>}
  */
-async function fetchXlsxAsMatrix(url, sheetIndex = 0) {
-  if (!window.XLSX) {
-    throw new Error(
-      "SheetJS (XLSX) no está disponible. Carga xlsx.full.min.js antes de usar dataLoader."
-    );
-  }
-
+async function loadJsonCompact(url) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status} al cargar ${url}`);
 
-  const buf = await resp.arrayBuffer();
-  const wb = window.XLSX.read(buf, { type: "array" });
+  const data = await resp.json();
+  
+  if (!data.columns || !Array.isArray(data.columns)) {
+    throw new Error("JSON inválido: falta 'columns'");
+  }
+  if (!data.rows || !Array.isArray(data.rows)) {
+    throw new Error("JSON inválido: falta 'rows'");
+  }
 
-  const sheetName = wb.SheetNames[sheetIndex] || wb.SheetNames[0];
-  if (!sheetName) throw new Error("El XLSX no contiene hojas.");
+  // Crear índice de columnas para acceso rápido
+  const colIndex = {};
+  data.columns.forEach((col, idx) => {
+    colIndex[col] = idx;
+  });
 
-  const ws = wb.Sheets[sheetName];
-  const arr = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-  return arr || [];
+  return { rows: data.rows, colIndex };
 }
 
 /**
- * Normaliza una fila según un perfil (index/mapainfo) y devuelve un objeto proyecto.
- * Retorna null si no tiene coords válidas.
+ * Parsea el campo meses de forma robusta
+ * @param {any} raw - Valor del campo meses
+ * @returns {number|null} Meses como entero o null si inválido
  */
-function mapRowToProyecto(row, profile) {
-  const c = profile.columns;
+function parseMeses(raw) {
+  if (raw === null || raw === undefined || raw === "") return null;
+  
+  // Rechazar strings de error tipo "#VALUE!"
+  if (typeof raw === "string" && raw.includes("#")) return null;
+  
+  const num = parseNumber(raw);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  
+  return Math.round(num); // Retornar como entero
+}
 
-  const lat = parseCoord(row?.[c.lat]);
-  const lon = parseCoord(row?.[c.lon]);
+/**
+ * Normaliza una fila del JSON a objeto proyecto
+ * @param {Array} row - Fila del JSON (array de valores)
+ * @param {Object} colIndex - Mapeo de nombre_columna -> índice
+ * @returns {Object|null} Proyecto normalizado o null si coords inválidas
+ */
+function mapJsonRowToProyecto(row, colIndex) {
+  // Coordenadas (obligatorias)
+  const latIdx = colIndex[JSON_FIELD_MAPPING.lat] ?? colIndex["lat"];
+  const lonIdx = colIndex[JSON_FIELD_MAPPING.lon] ?? colIndex["lon"];
+  
+  const lat = parseCoord(row[latIdx]);
+  const lon = parseCoord(row[lonIdx]);
   if (lat === null || lon === null) return null;
 
-  // Campos base
-  const nombre = stripInvalidXmlChars(row?.[c.nombre] || "");
-  const region = stripInvalidXmlChars(row?.[c.region] || "");
-  const estado = stripInvalidXmlChars(row?.[c.estado] || "");
-  const sector = stripInvalidXmlChars(row?.[c.sector] || "");
+  // Campos base (obligatorios)
+  const nombreIdx = colIndex[JSON_FIELD_MAPPING.nombre] ?? colIndex["nombre"];
+  const regionIdx = colIndex[JSON_FIELD_MAPPING.region] ?? colIndex["region"];
+  const estadoIdx = colIndex[JSON_FIELD_MAPPING.estado] ?? colIndex["estado"];
+  const sectorIdx = colIndex[JSON_FIELD_MAPPING.sector] ?? colIndex["sector"];
 
-  // Campos opcionales (solo si están definidos en el perfil)
-  const web =
-    typeof c.web === "number"
-      ? stripInvalidXmlChars(row?.[c.web] || "")
-      : "";
+  const nombre = stripInvalidXmlChars(row[nombreIdx] || "");
+  const region = stripInvalidXmlChars(row[regionIdx] || "");
+  const estado = stripInvalidXmlChars(row[estadoIdx] || "");
+  const sector = stripInvalidXmlChars(row[sectorIdx] || "");
 
-  const tipo =
-    typeof c.tipo === "number"
-      ? stripInvalidXmlChars(row?.[c.tipo] || "")
-      : "";
+  // Campos opcionales
+  const webIdx = colIndex[JSON_FIELD_MAPPING.web] ?? colIndex["web"];
+  const web = webIdx !== undefined ? stripInvalidXmlChars(row[webIdx] || "") : "";
 
-  const anexos =
-    typeof c.anexos === "number"
-      ? stripInvalidXmlChars(row?.[c.anexos] || "")
-      : "";
+  const tipoIdx = colIndex[JSON_FIELD_MAPPING.tipo] ?? colIndex["tipo_presentacion"];
+  const tipo = tipoIdx !== undefined ? stripInvalidXmlChars(row[tipoIdx] || "") : "";
 
-  const fechaIngreso =
-    typeof c.fechaIngreso === "number"
-      ? stripInvalidXmlChars(row?.[c.fechaIngreso] || "")
-      : "";
+  const anexosIdx = colIndex[JSON_FIELD_MAPPING.anexos] ?? colIndex["documentacion"];
+  const anexos = anexosIdx !== undefined ? stripInvalidXmlChars(row[anexosIdx] || "") : "";
 
-  const inversion =
-    typeof c.inversion === "number" ? parseNumber(row?.[c.inversion]) : null;
+  const fechaIngresoIdx = colIndex[JSON_FIELD_MAPPING.fechaIngreso] ?? colIndex["fecha_presentacion"];
+  const fechaIngreso = fechaIngresoIdx !== undefined ? stripInvalidXmlChars(row[fechaIngresoIdx] || "") : "";
 
-  const anio =
-    typeof c.anio === "number"
-      ? (() => {
-          const v = row?.[c.anio];
-          if (v === null || v === undefined || v === "") return null;
-          const n = parseInt(String(v), 10);
-          return Number.isFinite(n) ? n : null;
-        })()
-      : null;
+  // Inversión (parseNumber maneja null/undefined/string)
+  const inversionIdx = colIndex[JSON_FIELD_MAPPING.inversion] ?? colIndex["inversion_mmusd"];
+  const inversion = inversionIdx !== undefined ? parseNumber(row[inversionIdx]) : null;
+
+  // Año
+  const anioIdx = colIndex[JSON_FIELD_MAPPING.anio] ?? colIndex["anio"];
+  let anio = null;
+  if (anioIdx !== undefined) {
+    const v = row[anioIdx];
+    if (v !== null && v !== undefined && v !== "") {
+      const n = parseInt(String(v), 10);
+      if (Number.isFinite(n) && n > 1900 && n < 2100) {
+        anio = n;
+      }
+    }
+  }
+
+  // Meses (plazo)
+  const mesesIdx = colIndex[JSON_FIELD_MAPPING.meses] ?? colIndex["meses"];
+  const meses = mesesIdx !== undefined ? parseMeses(row[mesesIdx]) : null;
 
   return {
     lat,
@@ -129,54 +135,56 @@ function mapRowToProyecto(row, profile) {
     region,
     estado,
     sector,
-    // opcionales
     web,
     tipo,
     anexos,
     fechaIngreso,
     inversion,
+    inversionMm: inversion, // Alias para compatibilidad con gráficos
     anio,
+    meses, // Para gráfico de plazo
+    plazoMeses: meses, // Alias
   };
 }
 
 /**
- * API principal
- * @param {string} url - URL del XLSX (ej: "capas/nacional.xlsx")
- * @param {object|string} profileOrName - "index" | "mapainfo" | objeto perfil custom
- * @returns {Promise<Array<object>>}
+ * API principal - Carga proyectos desde JSON
+ * @param {string} url - URL del JSON
+ * @returns {Promise<Array<object>>} Array de proyectos normalizados
  */
-export async function loadProyectosXlsx(url, profileOrName = "index") {
-  const profile =
-    typeof profileOrName === "string"
-      ? DATA_PROFILES[profileOrName]
-      : profileOrName;
-
-  if (!profile || !profile.columns) {
-    throw new Error(
-      `Perfil inválido para loadProyectosXlsx(). Usa "index", "mapainfo" o un perfil custom.`
-    );
-  }
-
-  const arr = await fetchXlsxAsMatrix(url, profile.sheetIndex ?? 0);
-  if (!arr.length) return [];
-
-  // arr[0] es header; filas desde 1
-  const rows = arr.slice(1);
+export async function loadProyectos(url) {
+  const { rows, colIndex } = await loadJsonCompact(url);
 
   const out = [];
   for (const row of rows) {
     if (!row || row.length === 0) continue;
-    const p = mapRowToProyecto(row, profile);
+    const p = mapJsonRowToProyecto(row, colIndex);
     if (p) out.push(p);
   }
+
   return out;
 }
 
 /**
- * Helper por si quieres detectar rápido si hay datos
+ * Wrapper para compatibilidad con código existente
+ * @deprecated Use loadProyectos() instead
  */
-export async function testLoad(url = "capas/nacional.xlsx") {
-  const a = await loadProyectosXlsx(url, "index");
-  return { count: a.length, sample: a[0] || null };
+export async function loadProyectosXlsx(url, profileOrName = "mapainfo") {
+  console.warn("loadProyectosXlsx() is deprecated. El sistema ahora usa JSON.");
+  
+  // Si la URL sigue siendo .xlsx, cambiarla a .json
+  const jsonUrl = url.replace(/\.xlsx?$/i, ".compact.v2.json");
+  return loadProyectos(jsonUrl);
 }
 
+/**
+ * Helper para testing rápido
+ */
+export async function testLoad(url = "capas/nacional.compact.v2.json") {
+  const proyectos = await loadProyectos(url);
+  return { 
+    count: proyectos.length, 
+    sample: proyectos[0] || null,
+    fields: proyectos[0] ? Object.keys(proyectos[0]) : []
+  };
+}

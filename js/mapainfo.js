@@ -1,7 +1,7 @@
-// js/mapainfo.js - VERSIÓN DEFINITIVA CON MAPA EN PDF
+// js/mapainfo.js - VERSIÓN JSON (sin dependencia XLSX)
 // PDF con jsPDF + captura de mapa con dom-to-image
 
-import { loadProyectosXlsx } from "./core/dataLoader.js";
+import { loadProyectos } from "./core/dataLoader.js";
 import { runProximityEngine } from "./features/proximity/proximityEngine.js";
 import { buildReportModel } from "./report/reportModel.js";
 import { createMapLayers } from "./ui/mapLayers.js";
@@ -12,7 +12,7 @@ import { getMapainfoParamsFromUrl } from "./app/router.js";
 import { renderInfoBar } from "./ui/infoBar.js";
 import { bindKmzButton } from "./ui/actions.js";
 
-const DATA_XLSX_URL = "capas/nacional.xlsx";
+const DATA_URL = "capas/nacional.compact.v2.json";
 
 let map = null;
 let mapLayers = null;
@@ -68,18 +68,10 @@ function enableTwoFingerZoomOnly(map) {
     const touchCount = e.touches ? e.touches.length : 0;
     
     if (touchCount >= 2) {
-      // 2+ dedos: habilitar mapa
       map.dragging.enable();
-      
-      // Ocultar hint
-      if (hint) {
-        hint.classList.remove('active');
-      }
+      if (hint) hint.classList.remove('active');
     } else {
-      // 1 dedo: deshabilitar mapa
       map.dragging.disable();
-      
-      // Mostrar hint brevemente
       if (hint) {
         hint.classList.add('active');
         clearTimeout(hintTimeout);
@@ -94,7 +86,6 @@ function enableTwoFingerZoomOnly(map) {
     map.dragging.disable();
   }, { passive: true });
   
-  // Mostrar hint inicial por 3 segundos
   if (hint) {
     hint.classList.add('active');
     setTimeout(() => {
@@ -215,44 +206,6 @@ function initMap({ lat, lng }) {
 }
 
 // =====================================================
-// FUNCIÓN DE ENCUADRE PROPORCIONAL
-// =====================================================
-/**
- * Encuadra el mapa para que el círculo ocupe una fracción específica del viewport.
- * Usa el lado menor del contenedor para calcular padding proporcional.
- * 
- * @param {L.Map} map - Instancia de Leaflet
- * @param {L.LatLngBounds} bounds - Bounds del círculo (de L.Circle.getBounds())
- * @param {number} fraction - Fracción del viewport que debe ocupar el círculo (0.60-0.70)
- */
-function fitCircleToViewport(map, bounds, fraction = 0.65) {
-  if (!map || !bounds) return;
-
-  // Validar fracción
-  const targetFraction = Math.max(0.5, Math.min(0.8, fraction));
-
-  // Obtener dimensiones del contenedor
-  const container = map.getContainer();
-  const containerWidth = container.offsetWidth;
-  const containerHeight = container.offsetHeight;
-
-  // Usar el lado MENOR para calcular padding proporcional
-  const minSide = Math.min(containerWidth, containerHeight);
-
-  // Calcular padding: si queremos que el círculo ocupe 65% del viewport,
-  // el padding total debe ser 35% del lado menor, dividido entre ambos lados
-  const paddingFraction = (1 - targetFraction) / 2;
-  const paddingPx = Math.round(minSide * paddingFraction);
-
-  // Aplicar fitBounds con padding uniforme
-  map.fitBounds(bounds, {
-    padding: [paddingPx, paddingPx],
-    animate: false,
-    maxZoom: 14 // Evitar zoom excesivo en círculos pequeños
-  });
-}
-
-// =====================================================
 // CAPTURA DE MAPA CON dom-to-image (NO DEPENDE DE CORS)
 // =====================================================
 async function captureMapPng() {
@@ -265,20 +218,21 @@ async function captureMapPng() {
   if (!mapDiv) return null;
 
   try {
-    // Ajustar zoom para que el círculo ocupe 60-70% del viewport
     const theMap = window.__leafletMap;
     const bounds = typeof mapLayers.getQueryCircleBounds === "function" 
       ? mapLayers.getQueryCircleBounds() 
       : null;
     
     if (theMap && bounds) {
-      fitCircleToViewport(theMap, bounds, 0.65); // ✅ Encuadre proporcional
+      theMap.fitBounds(bounds, { 
+        padding: [30, 30],
+        animate: false,
+        maxZoom: 14 
+      });
     }
 
-    // Esperar tiles (más tiempo para asegurar carga)
     await new Promise(r => setTimeout(r, 1000));
 
-    // Capturar DIV completo con aspect ratio del contenedor
     const dataUrl = await window.domtoimage.toPng(mapDiv, {
       quality: 0.92,
       width: mapDiv.offsetWidth,
@@ -310,7 +264,6 @@ async function downloadPDFDirect({ params, resumen, proyectos }) {
   const contentWidth = pageWidth - (margin * 2);
   let y = margin;
 
-  // Título
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text('GeoEVA – Informe de Proximidad', margin, y);
@@ -320,7 +273,6 @@ async function downloadPDFDirect({ params, resumen, proyectos }) {
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
 
-  // Info
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   
@@ -339,13 +291,11 @@ async function downloadPDFDirect({ params, resumen, proyectos }) {
 
   y += 5;
 
-  // MAPA
   console.log('📷 Capturando mapa...');
   const mapPng = await captureMapPng();
 
   if (mapPng) {
-    // Aspect ratio 1:1 (cuadrado)
-    const imgSize = Math.min(contentWidth, 100); // 100mm máximo
+    const imgSize = Math.min(contentWidth, 100);
     const imgW = imgSize;
     const imgH = imgSize;
 
@@ -369,7 +319,6 @@ async function downloadPDFDirect({ params, resumen, proyectos }) {
     y += 8;
   }
 
-  // Tabla
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('Proyectos Encontrados', margin, y);
@@ -406,7 +355,6 @@ async function downloadPDFDirect({ params, resumen, proyectos }) {
     y = doc.lastAutoTable.finalY + 10;
   }
 
-  // Footer
   if (y > 270) {
     doc.addPage();
     y = margin;
@@ -487,7 +435,7 @@ async function main() {
     },
   });
 
-  const proyectos = await loadProyectosXlsx(DATA_XLSX_URL, "mapainfo");
+  const proyectos = await loadProyectos(DATA_URL);
 
   const engineOutput = runProximityEngine({
     projects: proyectos,
@@ -499,7 +447,7 @@ async function main() {
 
   model = buildReportModel({
     engineOutput,
-    meta: { sourceXlsx: DATA_XLSX_URL, generatedAt: new Date().toISOString() },
+    meta: { sourceFile: DATA_URL, generatedAt: new Date().toISOString() },
   });
 
   window.__geoeva_model = model;
@@ -521,21 +469,12 @@ async function main() {
     },
   });
 
-  // ✅ ENCUADRE PROPORCIONAL DEL CÍRCULO
-  const bounds = typeof mapLayers.getQueryCircleBounds === "function" 
-    ? mapLayers.getQueryCircleBounds() 
-    : null;
-  
-  if (bounds) {
-    fitCircleToViewport(map, bounds, 0.65); // 65% del viewport
-  } else {
-    map.setView([model.query.lat, model.query.lng], 12);
-  }
+  const bounds = typeof mapLayers.getQueryCircleBounds === "function" ? mapLayers.getQueryCircleBounds() : null;
+  if (bounds) map.fitBounds(bounds, { padding: [40, 40] });
+  else map.setView([model.query.lat, model.query.lng], 12);
 
-  // ✅ CAMBIO: Renderizar panel SIEMPRE (en móvil y desktop)
   panel.render(model.projects);
   
-  // ✅ Gráficos solo en desktop
   if (!isMobile()) updateCharts(model);
 
   bindKmzButton({
@@ -552,6 +491,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initMobileSheet();
   main().catch((err) => {
     console.error("❌ Error:", err);
-    alert("Error fatal.");
+    alert("Error fatal al cargar datos.");
   });
 });
