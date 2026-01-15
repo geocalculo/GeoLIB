@@ -130,6 +130,10 @@ function initMap() {
     zoomControl: true,
   });
 
+// --- Onboarding: avisar que el mapa ya está listo ---
+window.map = map; // fallback útil (opcional)
+window.dispatchEvent(new CustomEvent("geoeva:map-ready", { detail: { map } }));
+
   const capaOSM = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     opacity: 1.0,
     maxZoom: 19,

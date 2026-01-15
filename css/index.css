@@ -783,85 +783,112 @@ button:focus {
   border-width: 0;
 }
 
+
 /* ===============================
-   GeoEVA – Onboarding corregido
+   ONBOARDING - FIX CRÍTICO
    =============================== */
 
-.onboarding {
+/* Por defecto OCULTO */
+#geoeva-onboarding {
   position: fixed;
   inset: 0;
-  background: rgba(79, 70, 229, 0.85); /* morado suave */
-  z-index: 9999;
-  display: flex;
+  z-index: 10000;
+  display: none; /* ← CLAVE: empieza oculto */
   align-items: center;
   justify-content: center;
+  background: rgba(79, 70, 229, 0.9);
+  backdrop-filter: blur(8px);
 }
 
-.onboarding-box {
+/* Cuando está activo */
+#geoeva-onboarding:not([aria-hidden="true"]) {
+  display: flex !important;
+}
+
+.geoeva-onboarding__box {
   background: white;
-  max-width: 560px;
-  width: 92%;
-  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  padding: 2rem;
   border-radius: 16px;
-  text-align: center;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
 
-.slide {
+.geoeva-onboarding__slide {
   display: none;
 }
 
-.slide.active {
+.geoeva-onboarding__slide.is-active {
   display: block;
 }
 
-.slide img {
-  max-width: 100%;
+.geoeva-onboarding__slide img {
+  width: 100%;
   border-radius: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 1rem;
 }
 
-.slide h1 {
+.geoeva-onboarding__slide h2 {
   font-size: 1.5rem;
-  margin-bottom: 6px;
+  margin: 0.5rem 0;
   color: #111827;
 }
 
-.slide p {
-  font-size: 1.05rem;
+.geoeva-onboarding__slide p {
+  font-size: 1rem;
+  color: #4b5563;
+  margin: 0.5rem 0 1rem;
+}
+
+.geoeva-onboarding__nav {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.geoeva-onboarding__skip {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(0,0,0,0.1);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #6b7280;
+}
+
+.geoeva-onboarding__skip:hover {
+  background: rgba(0,0,0,0.2);
+}
+
+button[data-onboard-next],
+button[data-onboard-prev],
+.geoeva-onboarding__cta {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button[data-onboard-next],
+.geoeva-onboarding__cta {
+  background: #4f46e5;
+  color: white;
+}
+
+button[data-onboard-prev] {
+  background: #e5e7eb;
   color: #374151;
 }
 
-.controls {
-  margin-top: 12px;
-}
-
-.controls button {
-  font-size: 1.2rem;
-  padding: 6px 14px;
-  margin: 0 6px;
-  border-radius: 8px;
-  border: none;
-  background: #4f46e5;
-  color: white;
-  cursor: pointer;
-}
-
-.controls button:hover {
-  background: #4338ca;
-}
-
-.cta {
-  margin-top: 14px;
-  padding: 10px 22px;
-  font-size: 1rem;
-  border-radius: 10px;
-  border: none;
-  background: #16a34a;
-  color: white;
-  cursor: pointer;
-}
-
-.cta:hover {
-  background: #15803d;
+.geoeva-onboarding__hint {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #6b7280;
 }

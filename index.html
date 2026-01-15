@@ -4,16 +4,14 @@
   <meta charset="UTF-8" />
 
   <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-R24P022W8T"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-R24P022W8T"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-R24P022W8T');
+  </script>
 
-  gtag('config', 'G-R24P022W8T');
-</script>
-
-  
   <title>SEA Mining - Explorador de proyectos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -30,157 +28,169 @@
 </head>
 
 <body>
-<div id="onboarding" class="onboarding">
-  <div class="onboarding-box">
 
-    <div class="slide active">
-      <img src="assets/introeva/introeva1.png" />
-      <h1>🔍 Busca un lugar de interés</h1>
-      <p>Escribe una dirección, comuna o navega el mapa.</p>
-    </div>
+  <!-- =========================
+       ONBOARDING (overlay fijo)
+       (fuera del layout del sitio)
+       ========================= -->
+  <div id="geoeva-onboarding" class="geoeva-onboarding" aria-label="Guía de inicio" aria-hidden="true">
+    <div class="geoeva-onboarding__box" role="dialog" aria-modal="true">
 
-    <div class="slide">
-      <img src="assets/introeva/introeva2.png" />
-      <h1>🖱️ Haz clic en el mapa</h1>
-      <p>Selecciona un punto y GeoEVA analiza los proyectos.</p>
-    </div>
-
-    <div class="slide">
-      <img src="assets/introeva/introeva3.png" />
-      <h1>📊 Revisa y descarga</h1>
-      <p>Analiza resultados y descarga KMZ o PDF.</p>
-      <button class="cta" onclick="closeOnboarding()">Comenzar</button>
-    </div>
-
-    <div class="controls">
-      <button onclick="prevSlide()">◀</button>
-      <button onclick="nextSlide()">▶</button>
-    </div>
-
-  </div>
-</div>
-
-
-<div class="app-wrapper">
-
-  <!-- ================================================= -->
-  <!-- HEADER -->
-  <!-- ================================================= -->
-  <header class="app-header">
-    <div class="app-header-inner">
-      <h1>Explora Proyectos evaluados en tu área de Influencia</h1>
-
-      <div class="region-selector-container">
-        <label for="region-select" class="region-label">📍 Región:</label>
-        <select id="region-select" class="region-select">
-          <option value="">Cargando regiones...</option>
-        </select>
+      <div class="geoeva-onboarding__slide is-active">
+        <img src="assets/introeva/introeva1.png" alt="Paso 1: buscar lugar" />
+        <h2>🔍 Busca un lugar de interés</h2>
+        <p>Escribe una dirección, comuna o navega el mapa hasta tu zona.</p>
       </div>
+
+      <div class="geoeva-onboarding__slide">
+        <img src="assets/introeva/introeva2.png" alt="Paso 2: clic en el mapa" />
+        <h2>🖱️ Haz clic en el mapa</h2>
+        <p>Selecciona un punto y GeoEVA analizará los proyectos cercanos.</p>
+      </div>
+
+      <div class="geoeva-onboarding__slide">
+        <img src="assets/introeva/introeva3.png" alt="Paso 3: revisar y descargar" />
+        <h2>📊 Revisa y descarga</h2>
+        <p>Analiza resultados y descarga el reporte en KMZ o PDF.</p>
+      </div>
+
+      <div class="geoeva-onboarding__controls">
+        <button type="button" class="geoeva-onboarding__nav" data-onboard-prev>◀</button>
+        <button type="button" class="geoeva-onboarding__nav" data-onboard-next>▶</button>
+
+        <button type="button" class="geoeva-onboarding__skip">Saltar</button>
+        <button type="button" class="geoeva-onboarding__cta">Comenzar</button>
+      </div>
+
+      <div class="geoeva-onboarding__hint">
+        Tip: también puedes cerrar tocando el mapa o con ESC.
+      </div>
+
     </div>
-    <!-- ===== RESUMEN MOVIL (solo mobile por CSS) ===== -->
-     
-    <div class="mobile-summary" id="mobileSummary" aria-label="Resumen por estado">
-      <button class="ms-card ms-aprobados" type="button">
-        <div class="ms-label">🟢 Aprobados</div>
-        <div class="ms-value" data-key="aprobados">—</div>
-      </button>
+  </div>
 
-      <button class="ms-card ms-calificacion" type="button">
-        <div class="ms-label">🟡 En calificación</div>
-        <div class="ms-value" data-key="calificacion">—</div>
-      </button>
+  <!-- =========================
+       APP WRAPPER (layout)
+       ========================= -->
+  <div class="app-wrapper">
 
-      <button class="ms-card ms-rechazados" type="button">
-        <div class="ms-label">🔴 Rechazados</div>
-        <div class="ms-value" data-key="rechazados">—</div>
-      </button>
-    </div>
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="app-header-inner">
+        <h1>Explora Proyectos evaluados en tu área de Influencia</h1>
 
-
-    <button
-      id="togglePanelBtn"
-      class="panel-toggle-btn"
-      type="button"
-      aria-label="Abrir configuración"
-    >
-      ☰ Configuración
-    </button>
-  </header>
-
-  <!-- ================================================= -->
-  <!-- MAIN -->
-  <!-- ================================================= -->
-  <main>
-    <div class="layout">
-
-      <!-- PANEL -->
-      <section class="panel" id="configPanel">
-        <div class="panel-scroll">
-
-          <div class="panel-section">
-            <div class="badge badge-resumen">📊 RESUMEN</div>
-
-            <div id="bboxInfo" class="bbox-info">
-              Proyectos en pantalla: —
-            </div>
-
-            <div id="summaryTableContainer" class="summary-table-container"></div>
-            <div id="sectorTableContainer" class="summary-table-container"></div>
-          </div>
-
-          <div class="panel-section">
-
-            <div class="field-block">
-              <label class="field-label">Modo de selección</label>
-              <div class="radio-group">
-                <label class="chip">
-                  <input type="radio" checked />
-                  <span>Por Proximidad</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="field-block">
-              <label class="field-label">Proyectos más cercanos</label>
-              <input
-                type="range"
-                id="nSlider"
-                min="5"
-                max="20"
-                step="1"
-                value="10"
-                class="range-input"
-              />
-              <div class="hint">
-                N aprobados: <strong><span id="nValue">10</span></strong>
-              </div>
-            </div>
-
-            <span class="hint">
-              El detalle se abre tocando el mapa.
-            </span>
-
-          </div>
+        <div class="region-selector-container">
+          <label for="region-select" class="region-label">📍 Región:</label>
+          <select id="region-select" class="region-select">
+            <option value="">Cargando regiones...</option>
+          </select>
         </div>
-      </section>
+      </div>
 
-      <div id="panelBackdrop" class="panel-backdrop"></div>
+      <!-- RESUMEN MOVIL -->
+      <div class="mobile-summary" id="mobileSummary" aria-label="Resumen por estado">
+        <button class="ms-card ms-aprobados" type="button">
+          <div class="ms-label">🟢 Aprobados</div>
+          <div class="ms-value" data-key="aprobados">—</div>
+        </button>
 
-      <!-- MAPA -->
-      <section class="map-section">
-        <div id="map" class="map-main"></div>
-      </section>
+        <button class="ms-card ms-calificacion" type="button">
+          <div class="ms-label">🟡 En calificación</div>
+          <div class="ms-value" data-key="calificacion">—</div>
+        </button>
 
-    </div>
-  </main>
+        <button class="ms-card ms-rechazados" type="button">
+          <div class="ms-label">🔴 Rechazados</div>
+          <div class="ms-value" data-key="rechazados">—</div>
+        </button>
+      </div>
 
-  <!-- ================================================= -->
-  <!-- SCRIPTS -->
-  <!-- ================================================= -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="js/app/index.js"></script>
+      <button
+        id="togglePanelBtn"
+        class="panel-toggle-btn"
+        type="button"
+        aria-label="Abrir configuración"
+      >
+        ☰ Configuración
+      </button>
+    </header>
 
-</div>
+    <!-- MAIN -->
+    <main>
+      <div class="layout">
+
+        <!-- PANEL -->
+        <section class="panel" id="configPanel">
+          <div class="panel-scroll">
+
+            <div class="panel-section">
+              <div class="badge badge-resumen">📊 RESUMEN</div>
+
+              <div id="bboxInfo" class="bbox-info">
+                Proyectos en pantalla: —
+              </div>
+
+              <div id="summaryTableContainer" class="summary-table-container"></div>
+              <div id="sectorTableContainer" class="summary-table-container"></div>
+            </div>
+
+            <div class="panel-section">
+
+              <div class="field-block">
+                <label class="field-label">Modo de selección</label>
+                <div class="radio-group">
+                  <label class="chip">
+                    <input type="radio" checked />
+                    <span>Por Proximidad</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="field-block">
+                <label class="field-label">Proyectos más cercanos</label>
+                <input
+                  type="range"
+                  id="nSlider"
+                  min="5"
+                  max="20"
+                  step="1"
+                  value="10"
+                  class="range-input"
+                />
+                <div class="hint">
+                  N aprobados: <strong><span id="nValue">10</span></strong>
+                </div>
+              </div>
+
+              <span class="hint">
+                El detalle se abre tocando el mapa.
+              </span>
+
+            </div>
+          </div>
+        </section>
+
+        <div id="panelBackdrop" class="panel-backdrop"></div>
+
+        <!-- MAPA -->
+        <section class="map-section">
+          <div id="map" class="map-main"></div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- SCRIPTS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Onboarding (NO module) -->
+    <script src="js/onboarding.js?v=1"></script>
+
+    <!-- App principal -->
+    <script type="module" src="js/app/index.js"></script>
+
+  </div> <!-- /app-wrapper -->
+
 </body>
 </html>
