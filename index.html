@@ -18,6 +18,36 @@
 </head>
 
 <body>
+<div id="onboarding" class="onboarding">
+  <div class="onboarding-box">
+
+    <div class="slide active">
+      <img src="assets/introeva/introeva1.png" />
+      <h1>🔍 Busca un lugar de interés</h1>
+      <p>Escribe una dirección, comuna o navega el mapa hasta tu zona.</p>
+    </div>
+
+    <div class="slide">
+      <img src="assets/introeva/introeva2.png" />
+      <h1>🖱️ Haz clic en el mapa</h1>
+      <p>Selecciona un punto y GeoEVA analizará los proyectos cercanos.</p>
+    </div>
+
+    <div class="slide">
+      <img src="assets/introeva/introeva3.png" />
+      <h1>📊 Revisa y descarga</h1>
+      <p>Analiza resultados y descarga el reporte en KMZ o PDF.</p>
+      <button onclick="closeOnboarding()">Comenzar</button>
+    </div>
+
+    <div class="controls">
+      <button onclick="prevSlide()">◀</button>
+      <button onclick="nextSlide()">▶</button>
+    </div>
+
+  </div>
+</div>
+
 <div class="app-wrapper">
 
   <!-- ================================================= -->

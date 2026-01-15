@@ -782,3 +782,68 @@ button:focus {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ===============================
+   GeoEVA – Onboarding Carousel
+   =============================== */
+
+.onboarding {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-box {
+  max-width: 600px;
+  width: 90%;
+  text-align: center;
+}
+
+.slide {
+  display: none;
+}
+
+.slide.active {
+  display: block;
+}
+
+.slide img {
+  max-width: 100%;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.slide h1 {
+  font-size: 1.6rem;
+  margin-bottom: 0.4rem;
+  color: #1f2937;
+}
+
+.slide p {
+  font-size: 1.05rem;
+  color: #4b5563;
+}
+
+.controls {
+  margin-top: 1rem;
+}
+
+.controls button {
+  font-size: 1.2rem;
+  padding: 6px 14px;
+  margin: 0 6px;
+  border-radius: 8px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background: #1e40af;
+}
