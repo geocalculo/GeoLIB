@@ -13,6 +13,25 @@ let markersLayer;
 let proyectos = [];
 let filtros;
 
+document.addEventListener("DOMContentLoaded", () => {
+  if (window.gtag) {
+    gtag("event", "open_geoeva", {
+      event_category: "engagement",
+      event_label: "index"
+    });
+  }
+});
+
+document.getElementById("helpOnboardingBtn")?.addEventListener("click", () => {
+  if (window.gtag) {
+    gtag("event", "open_onboarding", {
+      event_category: "engagement",
+      event_label: "geoeva_help"
+    });
+  }
+});
+
+
 // ===============================
 // DEBUG RESUMEN MÓVIL (FORZADO)
 // ===============================
