@@ -130,6 +130,9 @@ function initMap() {
     zoomControl: true,
   });
 
+  window.__leafletMap = map;
+
+
 // --- Onboarding: avisar que el mapa ya está listo ---
 window.map = map; // fallback útil (opcional)
 window.dispatchEvent(new CustomEvent("geoeva:map-ready", { detail: { map } }));

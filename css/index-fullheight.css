@@ -1028,3 +1028,77 @@ button:focus {
 .geoeva-onboarding{ display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; }
 .geoeva-onboarding.is-open{ display:flex; }
 
+.geoeva-onboarding {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+
+.geoeva-onboarding.is-open {
+  display: flex;
+}
+.help-onboarding-btn {
+  background: transparent;
+  border: none;
+  color: #2563eb; /* azul discreto */
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.help-onboarding-btn:hover {
+  text-decoration: underline;
+}
+
+/* En móvil, que no estorbe */
+@media (max-width: 640px) {
+  .help-onboarding-btn {
+    font-size: 0.85rem;
+  }
+}
+
+/* =========================
+   GeoEVA Onboarding (overlay)
+   ========================= */
+
+/* OCULTO por defecto */
+.geoeva-onboarding{
+  position: fixed;
+  inset: 0;
+  display: none;              /* clave */
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 10, 20, 0.55);
+  z-index: 99999;             /* encima de TODO */
+}
+
+/* VISIBLE cuando está abierto */
+.geoeva-onboarding.is-open{
+  display: flex;              /* clave */
+}
+
+.geoeva-onboarding__box{
+  width: min(820px, 96vw);
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+}
+
+.geoeva-onboarding__slide{ display:none; }
+.geoeva-onboarding__slide.is-active{ display:block; }
+
+.geoeva-onboarding__controls{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:center;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}

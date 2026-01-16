@@ -1,29 +1,37 @@
 /* ===============================
-   GeoEVA – Onboarding (definitivo / SAFE)
+   GeoEVA – Onboarding (FINAL / SAFE)
    - CSS lo deja OCULTO por defecto
    - JS lo abre sólo 1 vez (localStorage)
+   - Reabrible con botón "Ayuda"
    - Cierra con: Comenzar / Saltar / ESC / click overlay / click mapa
+   - Al cerrar: invalidateSize Leaflet
    =============================== */
 
 document.addEventListener("DOMContentLoaded", () => {
   const KEY = "geoeva_intro_seen";
   const root = document.getElementById("geoeva-onboarding");
-  if (!root) return;
+  if (!root) { console.warn("[onboarding] root #geoeva-onboarding no existe"); return; }
 
   const slides = Array.from(root.querySelectorAll(".geoeva-onboarding__slide"));
-  if (!slides.length) return;
+  if (!slides.length) { console.warn("[onboarding] no hay slides"); return; }
 
   let i = 0;
   let closed = false;
 
+  const log = (...a) => console.log("[onboarding]", ...a);
+
   const show = (k) => {
     slides.forEach(s => s.classList.remove("is-active"));
-    slides[Math.max(0, Math.min(k, slides.length - 1))].classList.add("is-active");
+    const kk = Math.max(0, Math.min(k, slides.length - 1));
+    slides[kk].classList.add("is-active");
+    i = kk;
   };
 
-  const goHome = () => {
-    try { window.scrollTo({ top: 0, left: 0, behavior: "smooth" }); }
-    catch { window.scrollTo(0, 0); }
+  const invalidateLeaflet = () => {
+    try {
+      const map = window.__leafletMap;
+      if (map && typeof map.invalidateSize === "function") map.invalidateSize(true);
+    } catch (_) {}
   };
 
   const close = () => {
@@ -38,7 +46,31 @@ document.addEventListener("DOMContentLoaded", () => {
     document.removeEventListener("keydown", onKeyDown, true);
     root.removeEventListener("click", onRootClick, true);
 
-    goHome();
+    setTimeout(invalidateLeaflet, 120);
+    setTimeout(invalidateLeaflet, 450);
+
+    log("cerrado");
+  };
+
+  const open = (forceFirstSlide = true) => {
+    closed = false;
+
+    if (forceFirstSlide) show(0);
+
+    root.classList.add("is-open");
+    root.setAttribute("aria-hidden", "false");
+
+    // evita duplicar listeners si reabres desde "Ayuda"
+    document.removeEventListener("keydown", onKeyDown, true);
+    root.removeEventListener("click", onRootClick, true);
+
+    document.addEventListener("keydown", onKeyDown, true);
+    root.addEventListener("click", onRootClick, true);
+
+    setTimeout(invalidateLeaflet, 120);
+    setTimeout(invalidateLeaflet, 450);
+
+    log("abierto");
   };
 
   const onKeyDown = (ev) => {
@@ -49,49 +81,53 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const onRootClick = (ev) => {
-    // Click en el overlay (fuera del cuadro) => cerrar
+    // click fuera del cuadro (overlay) => cerrar
     if (ev.target === root) return close();
 
-    // CTA / Skip
+    // CTA / Skip => cerrar
     if (ev.target.closest(".geoeva-onboarding__cta")) return close();
     if (ev.target.closest(".geoeva-onboarding__skip")) return close();
 
-    // Navegación
+    // navegación
     if (ev.target.closest("[data-onboard-next]")) {
       ev.preventDefault();
-      i = Math.min(i + 1, slides.length - 1);
-      show(i);
+      show(i + 1);
       return;
     }
     if (ev.target.closest("[data-onboard-prev]")) {
       ev.preventDefault();
-      i = Math.max(i - 1, 0);
-      show(i);
+      show(i - 1);
       return;
     }
   };
 
-  // Si ya se vio, no abrir
-  try {
-    if (localStorage.getItem(KEY)) {
-      root.classList.remove("is-open");
-      root.setAttribute("aria-hidden", "true");
-      return;
-    }
-  } catch(_) {
-    // si localStorage falla, igual no bloqueamos nada; pero sí mostramos onboarding
+  // API pública: reabrir desde consola o botón
+  window.geoevaOpenOnboarding = () => open(true);
+  window.geoevaCloseOnboarding = () => close();
+
+  // Botón "Ayuda"
+  const helpBtn = document.getElementById("helpOnboardingBtn");
+  if (helpBtn) {
+    helpBtn.addEventListener("click", () => {
+      log("click Ayuda");
+      open(true);
+    });
+  } else {
+    console.warn("[onboarding] no existe #helpOnboardingBtn (si lo quieres, revisa el id en HTML)");
   }
 
-  // Abrir onboarding
-  show(0);
-  root.classList.add("is-open");
-  root.setAttribute("aria-hidden", "false");
+  // Mostrar SOLO la primera vez
+  let seen = false;
+  try { seen = !!localStorage.getItem(KEY); } catch(_) {}
 
-  // Listeners
-  document.addEventListener("keydown", onKeyDown, true);
-  root.addEventListener("click", onRootClick, true);
+  if (!seen) {
+    open(true);
+    log("primera visita: se muestra");
+  } else {
+    log("ya visto: no se muestra");
+  }
 
-  // Cerrar al primer click del mapa (tu app guarda window.__leafletMap)
+  // cerrar con primer click en el mapa cuando exista
   const attachMapOnce = () => {
     const map = window.__leafletMap;
     if (map && typeof map.once === "function") {
@@ -101,12 +137,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return false;
   };
 
-  // intenta ahora + reintentos cortos por si el mapa aún no está listo
   if (!attachMapOnce()) {
     let tries = 0;
     const t = setInterval(() => {
       tries++;
-      if (attachMapOnce() || tries >= 20) clearInterval(t); // ~2s
+      if (attachMapOnce() || tries >= 40) clearInterval(t); // ~4s
     }, 100);
   }
 });
