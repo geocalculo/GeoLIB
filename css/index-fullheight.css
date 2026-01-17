@@ -1102,3 +1102,34 @@ button:focus {
   margin-top: 14px;
   flex-wrap: wrap;
 }
+
+/* 🎈 Balloon hint inicial sobre el mapa */
+.map-section { 
+  position: relative; 
+}
+
+#map-balloon {
+  position: absolute;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  pointer-events: none;
+
+  opacity: 0;
+  animation: balloonFade 3s ease-out forwards;
+}
+
+@keyframes balloonFade {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  10%  { opacity: 1; }     /* aparece rápido */
+  85%  { opacity: 1; }     /* visible ~2.5s reales */
+  100% { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+}
+

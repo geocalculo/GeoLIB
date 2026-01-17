@@ -13,6 +13,21 @@
 import { loadProyectosXlsx } from "../core/dataLoader.js";
 import { escapeHtml } from "../core/utils.js";
 
+// 🎈 Balloon UX: pista inicial (1 segundo)
+function showMapBalloon() {
+  const balloon = document.getElementById("map-balloon");
+  if (!balloon) return;
+
+  // (opcional) por si el CSS aún no animó, lo hace visible
+  balloon.style.opacity = "1";
+
+  // remover del DOM luego de la animación
+  setTimeout(() => {
+    balloon.remove();
+  }, 3200);
+}
+
+
 const DATA_XLSX_URL = "capas/nacional.xlsx";
 const REGIONES_JSON_URL = "capas/regiones.json";
 
@@ -136,6 +151,9 @@ function initMap() {
 // --- Onboarding: avisar que el mapa ya está listo ---
 window.map = map; // fallback útil (opcional)
 window.dispatchEvent(new CustomEvent("geoeva:map-ready", { detail: { map } }));
+
+setTimeout(showMapBalloon, 100);
+
 
   const capaOSM = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     opacity: 1.0,
