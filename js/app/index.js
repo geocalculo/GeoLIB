@@ -124,8 +124,8 @@ function onRegionChange(e) {
 // ---------------------------
 function initMap() {
   const map = L.map("map", {
-    center: [-33.45, -70.65],
-    zoom: 10,
+    center: [-23.6509, -70.3975],
+    zoom: 9,
     minZoom: 4,
     zoomControl: true,
   });
