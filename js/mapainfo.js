@@ -569,7 +569,7 @@ function computeExecutiveInsights(projects = [], query = {}) {
   // 1) Inversión total
   if (invTotal > 0) {
     lines.push(
-      `En el área de influencia definida por el radio de consulta (${radioTxt}), los proyectos identificados concentran una inversión total estimada de ${fmtMMUS(invTotal)} MMU$.`
+      `En el área de influencia, los proyectos identificados concentran una inversión total estimada de ${fmtMMUS(invTotal)} MMU$.`
     );
   } else {
     lines.push(
