@@ -1,5 +1,16 @@
 // js/mapainfo.js - VERSIÓN JSON (sin dependencia XLSX)
 // PDF con jsPDF + captura de mapa con dom-to-image
+//
+// Fixes incluidos:
+// - ✅ computeExecutiveInsights(): se invoca con el OBJETO query (no con params.n)
+// - ✅ PDF: eliminado "const aiText" duplicado (SyntaxError fatal)
+// - ✅ Títulos canónicos iguales en PDF vs HTML (charts + executive title)
+// - ✅ Forzar que gráficos partan SIEMPRE en página 2 del PDF (una sola vez)
+// - ✅ renderExecutiveAnalysis(): título con radio + query correcto
+// - ✅ Robustez: normaliza estados/etiquetas para sumar inversión por estado
+// - ✅ (Opcional): lista PDF sigue mostrando top-N (no filtra aprobados; si quieres, te dejo un switch)
+//
+// Requiere en mapainfo.html: Leaflet, Plotly, dom-to-image, jsPDF, autotable, etc.
 
 import { loadProyectos } from "./core/dataLoader.js";
 import { runProximityEngine } from "./features/proximity/proximityEngine.js";
@@ -18,6 +29,19 @@ let map = null;
 let mapLayers = null;
 let panel = null;
 let model = null;
+
+const REPORT_TITLES = {
+  execTitle: (radioKm) =>
+    `Análisis técnico en el área de influencia (radio de ${Number.isFinite(radioKm) ? radioKm.toFixed(0) : "—"} km)`,
+
+  chartsTitle: "Análisis gráfico de la inversión",
+
+  // Deben coincidir EXACTO con mapainfo.html
+  chart1: "Inversión por sector (MMU$)",
+  chart2: "Inversión por año (MMU$)",
+  chart3: "Inversión por estado (MMU$)",
+  chart4: "Plazo promedio por sector (meses) – Solo Aprobados",
+};
 
 function isMobile() {
   return window.matchMedia("(max-width: 768px)").matches;
@@ -55,41 +79,53 @@ function enableTwoFingerZoomOnly(map) {
   if (map.tap) map.tap.enable();
 
   const container = map.getContainer();
-  const hint = document.getElementById('mapTouchHint');
+  const hint = document.getElementById("mapTouchHint");
   let hintTimeout;
-  
+
   container.style.touchAction = "pan-y";
 
-  container.addEventListener("touchmove", (e) => {
-    if (e.touches && e.touches.length >= 2) e.preventDefault();
-  }, { passive: false });
+  container.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches && e.touches.length >= 2) e.preventDefault();
+    },
+    { passive: false }
+  );
 
-  container.addEventListener("touchstart", (e) => {
-    const touchCount = e.touches ? e.touches.length : 0;
-    
-    if (touchCount >= 2) {
-      map.dragging.enable();
-      if (hint) hint.classList.remove('active');
-    } else {
-      map.dragging.disable();
-      if (hint) {
-        hint.classList.add('active');
-        clearTimeout(hintTimeout);
-        hintTimeout = setTimeout(() => {
-          hint.classList.remove('active');
-        }, 2000);
+  container.addEventListener(
+    "touchstart",
+    (e) => {
+      const touchCount = e.touches ? e.touches.length : 0;
+
+      if (touchCount >= 2) {
+        map.dragging.enable();
+        if (hint) hint.classList.remove("active");
+      } else {
+        map.dragging.disable();
+        if (hint) {
+          hint.classList.add("active");
+          clearTimeout(hintTimeout);
+          hintTimeout = setTimeout(() => {
+            hint.classList.remove("active");
+          }, 2000);
+        }
       }
-    }
-  }, { passive: true });
+    },
+    { passive: true }
+  );
 
-  container.addEventListener("touchend", () => {
-    map.dragging.disable();
-  }, { passive: true });
-  
+  container.addEventListener(
+    "touchend",
+    () => {
+      map.dragging.disable();
+    },
+    { passive: true }
+  );
+
   if (hint) {
-    hint.classList.add('active');
+    hint.classList.add("active");
     setTimeout(() => {
-      hint.classList.remove('active');
+      hint.classList.remove("active");
     }, 3000);
   }
 }
@@ -219,24 +255,23 @@ async function captureMapPng() {
 
   try {
     const theMap = window.__leafletMap;
-    const bounds = typeof mapLayers.getQueryCircleBounds === "function" 
-      ? mapLayers.getQueryCircleBounds() 
-      : null;
-    
+    const bounds =
+      typeof mapLayers?.getQueryCircleBounds === "function" ? mapLayers.getQueryCircleBounds() : null;
+
     if (theMap && bounds) {
-      theMap.fitBounds(bounds, { 
+      theMap.fitBounds(bounds, {
         padding: [30, 30],
         animate: false,
-        maxZoom: 14 
+        maxZoom: 14,
       });
     }
 
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000));
 
     const dataUrl = await window.domtoimage.toPng(mapDiv, {
       quality: 0.92,
       width: mapDiv.offsetWidth,
-      height: mapDiv.offsetHeight
+      height: mapDiv.offsetHeight,
     });
 
     return dataUrl;
@@ -248,7 +283,6 @@ async function captureMapPng() {
 
 // =====================================================
 // EXPORTAR GRAFICOS PLOTLY A IMAGEN (para PDF) - LIVIANO
-// - JPEG + menos resolución + override !important
 // =====================================================
 async function ensureChartsRenderedForPdf(model) {
   if (!window.Plotly) {
@@ -263,7 +297,6 @@ async function ensureChartsRenderedForPdf(model) {
     return [];
   }
 
-  // Guardar estilos inline (no los de CSS). Igual nos sirve para restaurar.
   const prev = {
     display: chartsSection.style.display,
     position: chartsSection.style.position,
@@ -273,63 +306,52 @@ async function ensureChartsRenderedForPdf(model) {
     visibility: chartsSection.style.visibility,
   };
 
-  // ⚠️ IMPORTANTE: ganar a display:none !important del CSS móvil
+  // ganar a display:none !important del CSS móvil
   chartsSection.style.setProperty("display", "block", "important");
   chartsSection.style.position = "absolute";
   chartsSection.style.left = "-10000px";
   chartsSection.style.top = "0";
-  chartsSection.style.width = "820px";        // más bajo = más liviano
-  chartsSection.style.visibility = "hidden";  // evita parpadeo
+  chartsSection.style.width = "820px";
+  chartsSection.style.visibility = "hidden";
 
   try {
-    // Render charts (tu controlador Plotly)
     await updateCharts(model);
   } catch (e) {
     console.warn("No se pudo ejecutar updateCharts(model):", e);
   }
 
-  // Espera corta para que Plotly pinte
-  await new Promise(r => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 250));
 
   const plotDivs = Array.from(chartsGrid.querySelectorAll(".js-plotly-plot"));
-  if (!plotDivs.length) {
-    console.warn("No se encontraron .js-plotly-plot dentro de chartsGrid.");
-  }
+  if (!plotDivs.length) console.warn("No se encontraron .js-plotly-plot dentro de chartsGrid.");
 
-  // Asegura layout válido antes de exportar (evita PNG/JPEG vacíos)
   try {
-    plotDivs.forEach(d => window.Plotly.Plots.resize(d));
+    plotDivs.forEach((d) => window.Plotly.Plots.resize(d));
   } catch {}
-  await new Promise(r => setTimeout(r, 120));
+  await new Promise((r) => setTimeout(r, 120));
 
   const images = [];
   for (let i = 0; i < plotDivs.length; i++) {
     const el = plotDivs[i];
 
-    const title =
-      el.getAttribute("data-title") ||
-      el.getAttribute("aria-label") ||
-      `Gráfico ${i + 1}`;
+    const title = el.getAttribute("data-title") || el.getAttribute("aria-label") || `Gráfico ${i + 1}`;
 
     try {
-      // ✅ JPEG liviano (clave para bajar de 30MB -> ~1MB)
       const dataUrl = await window.Plotly.toImage(el, {
         format: "jpeg",
         width: 620,
         height: 360,
-        scale: 1
+        scale: 1,
       });
-
       images.push({ title, dataUrl, kind: "JPEG" });
     } catch (e) {
       console.warn(`No se pudo exportar gráfico ${i + 1}:`, e);
     }
   }
 
-  // Restaurar estilos
+  // restaurar estilos
   if (prev.display) chartsSection.style.setProperty("display", prev.display, "important");
   else chartsSection.style.removeProperty("display");
-
   chartsSection.style.position = prev.position;
   chartsSection.style.left = prev.left;
   chartsSection.style.top = prev.top;
@@ -339,16 +361,20 @@ async function ensureChartsRenderedForPdf(model) {
   return images;
 }
 
-
 function addPlotImagesToPdf(doc, { images, margin, pageWidth, yStart }) {
-  const contentWidth = pageWidth - (margin * 2);
+  const contentWidth = pageWidth - margin * 2;
   if (!images || !images.length) return yStart;
 
   let y = yStart;
-
-  // Encabezado sección
   const titleH = 8;
   const pageBottom = 280;
+
+  const SECTION_TITLE = REPORT_TITLES?.chartsTitle || "Análisis gráfico de la inversión";
+  const CANON_TITLES = [REPORT_TITLES?.chart1, REPORT_TITLES?.chart2, REPORT_TITLES?.chart3, REPORT_TITLES?.chart4].filter(
+    Boolean
+  );
+
+  const canonTitleForIndex = (idx, fallback) => (CANON_TITLES[idx] ? CANON_TITLES[idx] : fallback || `Gráfico ${idx + 1}`);
 
   const newPageIfNeeded = (needH = 0) => {
     if (y + needH > pageBottom) {
@@ -360,61 +386,44 @@ function addPlotImagesToPdf(doc, { images, margin, pageWidth, yStart }) {
   newPageIfNeeded(20);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Gráficos (inversión y distribución)", margin, y);
+  doc.text(SECTION_TITLE, margin, y);
   y += titleH;
 
-  // ---- Layout 2x2 ----
   const gapX = 6;
   const gapY = 10;
-
   const colW = (contentWidth - gapX) / 2;
-
-  // Alto tile (más chico = más liviano y caben 2 filas)
   const tileH = 62;
 
-  // Cada página tiene 4 slots (2x2)
   let i = 0;
   while (i < images.length) {
-    // Si no caben 2 filas, nueva página y encabezado “cont.”
-    const needH = (tileH * 2) + gapY + 10;
+    const needH = tileH * 2 + gapY + 10;
     if (y + needH > pageBottom) {
       doc.addPage();
       y = margin;
 
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("Gráficos (inversión y distribución) (cont.)", margin, y);
+      doc.text(`${SECTION_TITLE} (cont.)`, margin, y);
       y += titleH;
     }
 
-    // Pintar 4 tiles
     for (let slot = 0; slot < 4 && i < images.length; slot++, i++) {
       const img = images[i];
 
-      const row = Math.floor(slot / 2); // 0-1
-      const col = slot % 2;             // 0-1
+      const row = Math.floor(slot / 2);
+      const col = slot % 2;
 
       const x = margin + col * (colW + gapX);
       const yImg = y + row * (tileH + gapY);
 
-      // Subtítulo corto arriba de cada tile (opcional)
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      const label = `${i + 1}. ${String(img.title || `Gráfico ${i + 1}`).slice(0, 38)}`;
+      const canonTitle = canonTitleForIndex(i, img?.title);
+      const label = `${i + 1}. ${String(canonTitle).slice(0, 60)}`;
       doc.text(label, x, yImg - 2);
 
       try {
-        // ✅ IMPORTANTE: insertar como JPEG y compresión FAST
-        doc.addImage(
-          img.dataUrl,
-          img.kind || "JPEG",
-          x,
-          yImg,
-          colW,
-          tileH,
-          undefined,
-          "FAST"
-        );
+        doc.addImage(img.dataUrl, img.kind || "JPEG", x, yImg, colW, tileH, undefined, "FAST");
       } catch (e) {
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
@@ -422,22 +431,30 @@ function addPlotImagesToPdf(doc, { images, margin, pageWidth, yStart }) {
       }
     }
 
-    y += (tileH * 2) + gapY + 12;
+    y += tileH * 2 + gapY + 12;
   }
 
   return y;
 }
 
+// =====================================================
+// PÁRRAFO “ORO” (coherente con gráficos)
+// - Gráficos: 3 estados (Aprobado/En Calificación/Rechazado)
+// - Duración: SOLO APROBADOS
+// =====================================================
 function computeExecutiveInsights(projects = [], query = {}) {
-  // =========================
-  // Helpers
-  // =========================
   const norm = (s) => String(s ?? "").trim().toLowerCase();
   const pretty = (s) => (String(s ?? "—").trim() || "—");
 
+  const normalizeEstadoLabel = (s) => {
+    const t = norm(s);
+    if (t === "aprobado") return "Aprobado";
+    if (t === "en calificación" || t === "en calificacion") return "En Calificación";
+    if (t === "rechazado") return "Rechazado";
+    return pretty(s);
+  };
+
   const isAprobado = (p) => norm(p?.estado) === "aprobado";
-  const isEnCalif = (p) => norm(p?.estado) === "en calificación" || norm(p?.estado) === "en calificacion";
-  const isRech = (p) => norm(p?.estado) === "rechazado";
 
   const getInv = (p) => {
     const v = Number(p?.inversion ?? p?.inv ?? p?.mmus ?? p?.inversion_mmus ?? p?.inversionMMUS);
@@ -466,66 +483,41 @@ function computeExecutiveInsights(projects = [], query = {}) {
     return out;
   };
 
-  const fmtMMUS = (v) => {
-    if (v == null || !Number.isFinite(v)) return "—";
-    // 1 decimal como tus gráficos
-    return v.toFixed(1);
-  };
+  const fmtMMUS = (v) => (v == null || !Number.isFinite(v) ? "—" : v.toFixed(1));
+  const fmtMes = (v) => (v == null || !Number.isFinite(v) ? "—" : String(Math.round(v)));
 
-  const fmtMes = (v) => {
-    if (v == null || !Number.isFinite(v)) return "—";
-    // meses redondeados a entero (más “informe”)
-    return String(Math.round(v));
-  };
-
-  // Regla: % entero normalmente; si es 0 pero >0 => 0.1 (un decimal); si es 0.0 exacto => se omite el comentario.
+  // % entero; si es pequeño, un decimal; si 0.0 => omitir
   const fmtPctSmart = (pct) => {
     if (pct == null || !Number.isFinite(pct)) return null;
-
-    if (pct <= 0) return "0.0"; // servirá para lógica de omisión
-    if (pct < 0.05) return "0.1"; // mínimo visible con 1 decimal
-    if (pct < 1) return pct.toFixed(1); // 0.x con 1 decimal
-    return String(Math.round(pct)); // >=1% entero
+    if (pct <= 0) return "0.0";
+    if (pct < 0.05) return "0.1";
+    if (pct < 1) return pct.toFixed(1);
+    return String(Math.round(pct));
   };
 
   const ratioText = (a, b) => {
     if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b) || b <= 0) return null;
-    const r = a / b;
-    // 1 decimal, con “×”
-    return r.toFixed(1);
+    return (a / b).toFixed(1);
   };
 
-  // =========================
-  // Universo del análisis
-  // - Los 4 gráficos se refieren a los 3 estados dentro del radio
-  // - Duración (meses) SOLO APROBADOS
-  // =========================
   const inRadius = Array.isArray(projects) ? projects : [];
   if (!inRadius.length) return "No se encontraron proyectos en el área de influencia para generar el análisis.";
 
-  // Radio (para título en UI/PDF se toma de afuera; acá solo texto)
   const radioKm = Number(query?.radioKmFinal ?? query?.radioKm ?? query?.radio);
   const radioTxt = Number.isFinite(radioKm) ? `${radioKm.toFixed(0)} km` : "—";
 
-  // =========================
-  // Agregados para texto (coherentes con los gráficos)
-  // =========================
-
-  // Totales y por estado (inversión)
-  const invByEstado = sumByKey(inRadius, p => pretty(p.estado), p => getInv(p));
+  // Inversión por estado (normalizando etiquetas)
+  const invByEstado = sumByKey(inRadius, (p) => normalizeEstadoLabel(p?.estado), (p) => getInv(p));
   const invTotal = Object.values(invByEstado).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) || 0;
 
-  const invAprob = invByEstado["Aprobado"] ?? invByEstado["aprobado"] ?? 0;
-  const invCalif = invByEstado["En Calificación"] ?? invByEstado["En Calificacion"] ?? invByEstado["en calificación"] ?? invByEstado["en calificacion"] ?? 0;
-  const invRech = invByEstado["Rechazado"] ?? invByEstado["rechazado"] ?? 0;
+  const invAprob = invByEstado["Aprobado"] ?? 0;
+  const invCalif = invByEstado["En Calificación"] ?? 0;
+  const invRech = invByEstado["Rechazado"] ?? 0;
 
-  // Inversión por sector (3 estados, dentro del radio)
-  const invBySector = sumByKey(inRadius, p => pretty(p.sector), p => getInv(p));
-  const sectorsSorted = Object.entries(invBySector)
-    .sort((a, b) => (b[1] || 0) - (a[1] || 0));
+  const invBySector = sumByKey(inRadius, (p) => pretty(p?.sector), (p) => getInv(p));
+  const sectorsSorted = Object.entries(invBySector).sort((a, b) => (b[1] || 0) - (a[1] || 0));
 
-  // Inversión por año (3 estados, dentro del radio)
-  const invByYear = sumByKey(inRadius, p => getAnio(p), p => getInv(p));
+  const invByYear = sumByKey(inRadius, (p) => getAnio(p), (p) => getInv(p));
   let maxYear = null;
   let maxYearInv = null;
   for (const [yStr, v] of Object.entries(invByYear)) {
@@ -538,46 +530,39 @@ function computeExecutiveInsights(projects = [], query = {}) {
     }
   }
 
-  // Duración (meses) SOLO APROBADOS
+  // Duración SOLO APROBADOS
   const aprobados = inRadius.filter(isAprobado);
-  const mesesAprob = aprobados.map(getMeses).filter(v => v != null);
-  const avgMeses = mesesAprob.length ? (mesesAprob.reduce((a, b) => a + b, 0) / mesesAprob.length) : null;
+  const mesesAprob = aprobados.map(getMeses).filter((v) => v != null);
+  const avgMeses = mesesAprob.length ? mesesAprob.reduce((a, b) => a + b, 0) / mesesAprob.length : null;
 
-  // Promedio por sector SOLO APROBADOS (para breve/extenso)
+  // Promedio por sector SOLO APROBADOS
   const mesesSumBySector = {};
   const mesesCntBySector = {};
   for (const p of aprobados) {
     const m = getMeses(p);
     if (m == null) continue;
-    const k = pretty(p.sector);
+    const k = pretty(p?.sector);
     mesesSumBySector[k] = (mesesSumBySector[k] || 0) + m;
     mesesCntBySector[k] = (mesesCntBySector[k] || 0) + 1;
   }
   const avgMesesBySector = Object.entries(mesesSumBySector)
     .map(([k, sum]) => [k, sum / (mesesCntBySector[k] || 1)])
     .filter(([, v]) => Number.isFinite(v))
-    .sort((a, b) => a[1] - b[1]); // asc: más breve primero
+    .sort((a, b) => a[1] - b[1]);
 
   const breve = avgMesesBySector.length ? avgMesesBySector[0] : null;
   const extenso = avgMesesBySector.length >= 2 ? avgMesesBySector[avgMesesBySector.length - 1] : null;
 
-  // =========================
-  // Construcción de párrafo (sin frases “colgando”)
-  // =========================
   const lines = [];
 
-  // 1) Inversión total
+  // 1) inversión total
   if (invTotal > 0) {
-    lines.push(
-      `En el área de influencia, los proyectos identificados concentran una inversión total estimada de ${fmtMMUS(invTotal)} MMU$.`
-    );
+    lines.push(`En el área de influencia, los proyectos identificados concentran una inversión total estimada de ${fmtMMUS(invTotal)} MMU$.`);
   } else {
-    lines.push(
-      `En el área de influencia definida por el radio de consulta (${radioTxt}), se identificaron proyectos, pero no hay información suficiente de inversión para cuantificar el total.`
-    );
+    lines.push(`En el área de influencia definida por el radio de consulta (${radioTxt}), se identificaron proyectos, pero no hay información suficiente de inversión para cuantificar el total.`);
   }
 
-  // 2) Estados (inversión) + relación calificación vs aprobado
+  // 2) por estado
   const estadoParts = [];
   const pushEstado = (label, val) => {
     if (!Number.isFinite(val) || val <= 0) return;
@@ -586,109 +571,58 @@ function computeExecutiveInsights(projects = [], query = {}) {
   pushEstado("Aprobado", invAprob);
   pushEstado("En Calificación", invCalif);
   pushEstado("Rechazado", invRech);
+  if (estadoParts.length) lines.push(`En términos de estado (inversión), se observa: ${estadoParts.join(", ")}.`);
 
-  if (estadoParts.length) {
-    lines.push(`En términos de estado (inversión), se observa: ${estadoParts.join(", ")}.`);
-  }
-
-  // Relación matemática calificación vs aprobada (si aplica)
+  // relación calif vs aprobado
   const rel = ratioText(invCalif, invAprob);
-  if (rel) {
-    lines.push(`La inversión en calificación equivale a ${rel}× la inversión aprobada en el radio.`);
-  }
+  if (rel) lines.push(`La inversión en calificación equivale a ${rel}× la inversión aprobada en el radio.`);
 
-  // % inversión aprobada del total (si hay total)
+  // % aprobada
   if (invTotal > 0 && Number.isFinite(invAprob)) {
     const pctAprob = (invAprob / invTotal) * 100;
     const pctTxt = fmtPctSmart(pctAprob);
-    if (pctTxt && pctTxt !== "0.0") {
-      lines.push(`El % de inversión aprobada corresponde a un ${pctTxt}% del total identificado.`);
-    }
+    if (pctTxt && pctTxt !== "0.0") lines.push(`El % de inversión aprobada corresponde a un ${pctTxt}% del total identificado.`);
   }
 
-  // 3) Sector (monto + %). Si % da 0.0 => se omite esa categoría.
+  // 3) por sector (monto + %), omite 0.0
   if (invTotal > 0 && sectorsSorted.length) {
-    const maxSectors = 6; // evita listados eternos
+    const maxSectors = 6;
     const sectorParts = [];
-
     for (const [sector, val] of sectorsSorted.slice(0, maxSectors)) {
       const v = Number(val);
       if (!Number.isFinite(v) || v <= 0) continue;
-
       const pct = (v / invTotal) * 100;
       const pctTxt = fmtPctSmart(pct);
-
-      // Regla solicitada:
-      // - si pctTxt === "0.0" => omitir comentario (no incluir ese sector)
       if (!pctTxt || pctTxt === "0.0") continue;
-
       sectorParts.push(`${sector} (${fmtMMUS(v)} MMU$, ${pctTxt}%)`);
     }
-
-    if (sectorParts.length) {
-      lines.push(`Por sector, destacan: ${sectorParts.join(", ")}.`);
-    }
+    if (sectorParts.length) lines.push(`Por sector, destacan: ${sectorParts.join(", ")}.`);
   }
 
-  // 4) Año con mayor inversión + % del total (si aplica)
+  // 4) año con mayor inversión
   if (invTotal > 0 && maxYear != null && maxYearInv != null && maxYearInv > 0) {
     const pct = (maxYearInv / invTotal) * 100;
     const pctTxt = fmtPctSmart(pct);
     if (pctTxt && pctTxt !== "0.0") {
-      lines.push(
-        `El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$, que corresponde al ${pctTxt}% del total identificado.`
-      );
+      lines.push(`El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$, que corresponde al ${pctTxt}% del total identificado.`);
     } else {
-      lines.push(
-        `El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$.`
-      );
+      lines.push(`El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$.`);
     }
   }
 
-  // 5) Duración (solo aprobados) + breve/extenso (si hay ≥2 sectores)
+  // 5) duración aprobados
   if (avgMeses != null) {
-    lines.push(
-      `Considerando únicamente los proyectos APROBADOS, la duración promedio del proceso de evaluación es de ${fmtMes(avgMeses)} meses.`
-    );
-
-    // Si hay solo 1 sector con meses, NO mencionar breve/extenso
+    lines.push(`Considerando únicamente los proyectos APROBADOS, la duración promedio del proceso de evaluación es de ${fmtMes(avgMeses)} meses.`);
     if (breve && extenso && breve[0] !== extenso[0]) {
-      lines.push(
-        `El sector que presenta el plazo más breve es ${breve[0]} (${fmtMes(breve[1])} meses), y el sector que presenta el plazo más extenso es ${extenso[0]} (${fmtMes(extenso[1])} meses).`
-      );
+      lines.push(`El sector que presenta el plazo más breve es ${breve[0]} (${fmtMes(breve[1])} meses), y el sector que presenta el plazo más extenso es ${extenso[0]} (${fmtMes(extenso[1])} meses).`);
     }
   }
 
   return lines.join("\n");
 }
 
-
-
-
-
-function placeExecutiveSectionForViewport() {
-  const section = document.getElementById("executiveAnalysisSection");
-  if (!section) return;
-
-  // Mobile: arriba (después de la info-bar)
-  if (isMobile()) {
-    const infoBar = document.querySelector(".info-bar");
-    if (infoBar) infoBar.insertAdjacentElement("afterend", section);
-    return;
-  }
-
-  // Desktop: después del mapa+lista y antes de charts
-  const mapContainer = document.querySelector(".map-container");
-  if (mapContainer) mapContainer.insertAdjacentElement("afterend", section);
-}
-
-
-
-
 // =====================================================
 // ANÁLISIS HUMANO/IA EN HTML (desktop + mobile)
-// - Desktop: va después del mapa+lista y antes de gráficos
-// - Mobile: va arriba, justo después de la info-bar
 // =====================================================
 function ensureExecutiveSectionExists() {
   let section = document.getElementById("executiveAnalysisSection");
@@ -701,12 +635,10 @@ function ensureExecutiveSectionExists() {
     <h2 class="executive-title">Lectura ejecutiva del entorno</h2>
     <p id="executiveText" class="executive-text"></p>
   `;
-
   return section;
 }
 
 function placeExecutiveSection(section) {
-  // En móvil: arriba (después de la info-bar)
   if (isMobile()) {
     const infoBar = document.querySelector(".info-bar");
     if (infoBar && infoBar.parentNode) {
@@ -715,7 +647,6 @@ function placeExecutiveSection(section) {
     }
   }
 
-  // En desktop: después del mapa+panel y antes de charts
   const mapContainer = document.querySelector(".map-container");
   const chartsSection = document.getElementById("chartsSection");
 
@@ -729,7 +660,6 @@ function placeExecutiveSection(section) {
     return;
   }
 
-  // Fallback: al final del wrapper
   const wrapper = document.querySelector(".page-wrapper") || document.body;
   wrapper.appendChild(section);
 }
@@ -739,19 +669,28 @@ function renderExecutiveAnalysis(model) {
     const section = ensureExecutiveSectionExists();
     placeExecutiveSection(section);
 
+    const h2 = section.querySelector(".executive-title");
+    const radioKm =
+      Number.isFinite(model?.query?.radioKmFinal) && model.query.radioKmFinal > 0
+        ? model.query.radioKmFinal
+        : Number.isFinite(model?.query?.radioKm)
+          ? model.query.radioKm
+          : Number.isFinite(model?.query?.radio)
+            ? model.query.radio
+            : null;
+
+    if (h2) h2.textContent = REPORT_TITLES.execTitle(radioKm);
+
     const p = section.querySelector("#executiveText");
     if (!p) return;
 
-    const txt = computeExecutiveInsights(model?.projects || [], model?.query?.n);
-
-    // Respeta saltos de línea del texto (si los hay)
+    const txt = computeExecutiveInsights(model?.projects || [], model?.query || {});
     p.innerHTML = escapeHtml(txt).replace(/\n/g, "<br>");
   } catch (e) {
     console.warn("No se pudo renderizar análisis ejecutivo:", e);
   }
 }
 
-// Reubica al rotar pantalla o cambiar tamaño
 function bindExecutiveReflow(modelGetter) {
   let t = null;
   window.addEventListener("resize", () => {
@@ -763,20 +702,16 @@ function bindExecutiveReflow(modelGetter) {
   });
 }
 
-
 function drawExecutiveAiBox(doc, { x, y, w, h, title, text }) {
-  // Caja
   doc.setDrawColor(210);
   doc.setFillColor(255, 255, 255);
   doc.roundedRect(x, y, w, h, 3, 3, "FD");
 
-  // Título
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(20);
   doc.text(title || "Análisis IA (resumen ejecutivo)", x + 4, y + 7);
 
-  // Texto
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(50);
@@ -784,13 +719,12 @@ function drawExecutiveAiBox(doc, { x, y, w, h, title, text }) {
   const maxTextWidth = w - 8;
   const lines = doc.splitTextToSize(String(text || ""), maxTextWidth);
 
-  // Control de alto
   const lineH = 4.2;
   const maxLines = Math.floor((h - 12) / lineH);
   const safeLines = lines.slice(0, Math.max(0, maxLines));
 
   let yy = y + 13;
-  safeLines.forEach(line => {
+  safeLines.forEach((line) => {
     doc.text(line, x + 4, yy);
     yy += lineH;
   });
@@ -804,24 +738,20 @@ function drawExecutiveAiBox(doc, { x, y, w, h, title, text }) {
   doc.setTextColor(0);
 }
 
-
 // =====================================================
 // PANEL RESUMEN (MAPA + LISTA) PARA PDF
 // =====================================================
 function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
-  // Fondo del panel
   doc.setDrawColor(220);
   doc.setFillColor(248, 248, 248);
   doc.roundedRect(x, y, w, h, 3, 3, "FD");
 
   let yy = y + 6;
 
-  // Título
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(20);
   doc.text("Lista de Proyectos", x + 4, yy);
-
   yy += 6;
 
   doc.setFont("helvetica", "normal");
@@ -830,12 +760,18 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
 
   const rowH = 6;
   const maxRows = Math.floor((h - 14) / rowH);
-  const rows = (projects || []).slice(0, maxRows);
+
+  // Si quieres que el panel muestre solo APROBADOS, cambia a true:
+  const ONLY_APPROVED = false;
+
+  const rows = (projects || [])
+    .filter((p) => (ONLY_APPROVED ? String(p?.estado || "").trim().toLowerCase() === "aprobado" : true))
+    .slice(0, maxRows);
 
   rows.forEach((p, i) => {
     const n = String(i + 1).padStart(2, "0");
     const name = (p.nombre || "Proyecto").toString().slice(0, 26);
-    const estado = (p.estado || "—").toString().slice(0, 10);
+    const estado = (p.estado || "—").toString().slice(0, 14);
     const dist = Number.isFinite(p.distKm) ? `${p.distKm.toFixed(1)} km` : "—";
 
     doc.setTextColor(30);
@@ -855,29 +791,27 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
   doc.setTextColor(0);
 }
 
-
 // =====================================================
 // PDF CON jsPDF + IMAGEN DE MAPA
 // =====================================================
 async function downloadPDFDirect({ params, resumen, proyectos, model }) {
+  console.log("📄 Generando PDF...");
 
-  console.log('📄 Generando PDF...');
-  
   if (!window.jspdf || !window.jspdf.jsPDF) {
-    throw new Error('jsPDF no disponible');
+    throw new Error("jsPDF no disponible");
   }
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   const margin = 15;
   const pageWidth = 210;
-  const contentWidth = pageWidth - (margin * 2);
+  const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
   doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('GeoEVA – Informe de Proximidad', margin, y);
+  doc.setFont("helvetica", "bold");
+  doc.text("GeoEVA – Informe de Proximidad", margin, y);
   y += 10;
 
   doc.setDrawColor(200, 200, 200);
@@ -885,16 +819,16 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   y += 8;
 
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  
+  doc.setFont("helvetica", "normal");
+
   const info = [
     `Punto: ${Number(params.lat).toFixed(6)}, ${Number(params.lng).toFixed(6)}`,
     `Modo: ${params.modo} | Radio: ${Number(params.radio).toFixed(2)} km | Proyectos: ${params.n}`,
-    `${resumen.texto || 'Sin datos'}`,
-    `${resumen.inversion || 'Sin datos'}`
+    `${resumen.texto || "Sin datos"}`,
+    `${resumen.inversion || "Sin datos"}`,
   ];
 
-  info.forEach(line => {
+  info.forEach((line) => {
     const lines = doc.splitTextToSize(line, contentWidth);
     doc.text(lines, margin, y);
     y += lines.length * 5;
@@ -902,108 +836,103 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
   y += 5;
 
-  console.log('📷 Capturando mapa...');
+  console.log("📷 Capturando mapa...");
   const mapPng = await captureMapPng();
 
-if (mapPng) {
-  // Si no cabe el bloque completo, salta página
-  const blockH = 95;      // alto del bloque mapa + panel
-  if (y + blockH > 270) {
+  if (mapPng) {
+    const blockH = 95;
+    if (y + blockH > 270) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Mapa de consulta", margin, y);
+    y += 6;
+
+    const gap = 6;
+    const panelW = 68;
+    const mapW = contentWidth - panelW - gap;
+    const mapH = blockH;
+
+    doc.addImage(mapPng, "PNG", margin, y, mapW, mapH);
+
+    drawSummaryListPanel(doc, {
+      x: margin + mapW + gap,
+      y,
+      w: panelW,
+      h: mapH,
+      projects: proyectos,
+    });
+
+    y += mapH + 10;
+
+    // ✅ Análisis técnico (título y texto canónicos)
+    const aiBoxH = 55;
+    if (y + aiBoxH > 270) {
+      doc.addPage();
+      y = margin;
+    }
+
+    // ✅ query debe ser OBJETO (params), no params.n
+    const aiText = computeExecutiveInsights(proyectos, params);
+
+    drawExecutiveAiBox(doc, {
+      x: margin,
+      y,
+      w: contentWidth,
+      h: aiBoxH,
+      title: REPORT_TITLES.execTitle(Number(params?.radio)),
+      text: aiText,
+    });
+
+    y += aiBoxH + 8;
+
+    // ✅ Forzar que gráficos partan en página 2
+    doc.addPage();
+    y = margin;
+
+    console.log("✅ Mapa + lista resumen + análisis agregados");
+  } else {
+    doc.setFontSize(9);
+    doc.text("⚠ No se pudo capturar mapa", margin, y);
+    y += 8;
+
+    // si no hay mapa, igual partimos gráficos en página 2
+    doc.addPage();
+    y = margin;
+  }
+
+  // ✅ Gráficos Plotly
+  console.log("📊 Exportando gráficos...");
+  const chartImages = await ensureChartsRenderedForPdf(model || window.__geoeva_model);
+  if (chartImages.length) {
+    y = addPlotImagesToPdf(doc, { images: chartImages, margin, pageWidth, yStart: y });
+    console.log(`✅ Gráficos agregados: ${chartImages.length}`);
+  } else {
+    console.log("⚠ No hay gráficos para agregar (Plotly / render / DOM).");
+  }
+
+  // Tabla final
+  if (y > 250) {
     doc.addPage();
     y = margin;
   }
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Mapa de consulta", margin, y);
-  y += 6;
-
-  // --- Layout: mapa izq + panel der ---
-  const gap = 6;
-  const panelW = 68;                 // ancho panel derecho (ajustable)
-  const mapW = contentWidth - panelW - gap;
-  const mapH = blockH;
-
-  // Mapa a la izquierda (llenando altura del bloque)
-  doc.addImage(mapPng, "PNG", margin, y, mapW, mapH);
-
-  // Panel resumen a la derecha (Top proyectos)
-  drawSummaryListPanel(doc, {
-    x: margin + mapW + gap,
-    y,
-    w: panelW,
-    h: mapH,
-    projects: proyectos
-  });
-
-  y += mapH + 10;
-
-  // =====================================================
-// ✅ Análisis IA en la mitad inferior de la página 1
-// =====================================================
-const aiText = computeExecutiveInsights(proyectos, params?.n);
-
-
-// Altura del box (ajusta a gusto)
-const aiBoxH = 55;
-
-// Si no cabe en la página 1, lo saltamos a página 2 (pero normalmente cabe)
-if (y + aiBoxH > 270) {
-  doc.addPage();
-  y = margin;
-}
-
-drawExecutiveAiBox(doc, {
-  x: margin,
-  y,
-  w: contentWidth,
-  h: aiBoxH,
-  title: "Análisis IA (resumen ejecutivo)",
-  text: aiText
-});
-
-y += aiBoxH + 8;
-
-
-  console.log("✅ Mapa + lista resumen agregados");
-} else {
-  doc.setFontSize(9);
-  doc.text("⚠ No se pudo capturar mapa", margin, y);
-  y += 8;
-}
-
-
-  // =====================================================
-  // ✅ Agregar gráficos Plotly al PDF (canónico desktop/móvil)
-  // =====================================================
-  console.log("📊 Exportando gráficos...");
-  const chartImages = await ensureChartsRenderedForPdf(model || window.__geoeva_model);
-  if (chartImages.length) {
-    y = addPlotImagesToPdf(doc, {
-      images: chartImages,
-      margin,
-      pageWidth,
-      yStart: y
-    });
-    console.log(`✅ Gráficos agregados: ${chartImages.length}`);
-  } else {
-    console.log("⚠ No hay gráficos para agregar (Plotly / render / DOM).");
-  }
-
-
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Proyectos Encontrados', margin, y);
+  doc.text("Proyectos Encontrados", margin, y);
   y += 8;
 
-  const headers = [['#', 'Proyecto', 'Estado', 'Sector', 'Región', 'Dist. (km)']];
-  const data = proyectos.map((p, i) => [
+  const headers = [["#", "Proyecto", "Estado", "Sector", "Región", "Dist. (km)"]];
+  const data = (proyectos || []).map((p, i) => [
     String(i + 1),
-    (p.nombre || '').substring(0, 40),
-    p.estado || '—',
-    p.sector || '—',
-    p.region || '—',
-    Number.isFinite(p.distKm) ? p.distKm.toFixed(2) : '—'
+    (p.nombre || "").substring(0, 40),
+    p.estado || "—",
+    p.sector || "—",
+    p.region || "—",
+    Number.isFinite(p.distKm) ? p.distKm.toFixed(2) : "—",
   ]);
 
   if (doc.autoTable) {
@@ -1013,7 +942,7 @@ y += aiBoxH + 8;
       startY: y,
       margin: { left: margin, right: margin },
       styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: {
         0: { cellWidth: 10 },
@@ -1021,8 +950,8 @@ y += aiBoxH + 8;
         2: { cellWidth: 25 },
         3: { cellWidth: 25 },
         4: { cellWidth: 20 },
-        5: { cellWidth: 20, halign: 'right' }
-      }
+        5: { cellWidth: 20, halign: "right" },
+      },
     });
     y = doc.lastAutoTable.finalY + 10;
   }
@@ -1031,14 +960,14 @@ y += aiBoxH + 8;
     doc.addPage();
     y = margin;
   }
-  
+
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text(`Generado: ${new Date().toLocaleString('es-CL')}`, margin, y);
+  doc.text(`Generado: ${new Date().toLocaleString("es-CL")}`, margin, y);
 
   const filename = `GeoEVA_informe_${Date.now()}.pdf`;
   doc.save(filename);
-  console.log('✅ PDF:', filename);
+  console.log("✅ PDF:", filename);
 }
 
 function bindPdfButtonOnce() {
@@ -1061,9 +990,7 @@ function bindPdfButtonOnce() {
       const resumenTexto = document.getElementById("countLabel")?.textContent || "";
       const invTexto = document.getElementById("invLabel")?.textContent || "";
 
-      const radio = Number(
-        model?.query?.radioKmFinal ?? model?.query?.radioKm ?? model?.query?.radio ?? NaN
-      );
+      const radio = Number(model?.query?.radioKmFinal ?? model?.query?.radioKm ?? model?.query?.radio ?? NaN);
 
       await downloadPDFDirect({
         params: {
@@ -1075,15 +1002,14 @@ function bindPdfButtonOnce() {
         },
         resumen: { texto: resumenTexto, inversion: invTexto },
         proyectos: Array.isArray(model.projects) ? model.projects : [],
-        model
+        model,
       });
-      
+
       btn.textContent = "✅ Listo";
       setTimeout(() => {
         btn.textContent = originalText;
         btn.disabled = false;
       }, 2000);
-      
     } catch (err) {
       console.error("❌ Error:", err);
       alert(`Error: ${err.message}`);
@@ -1127,18 +1053,12 @@ async function main() {
 
   renderInfoBar(model);
 
-
-
-
   // ✅ Párrafo “oro” en HTML (desktop y móvil)
   renderExecutiveAnalysis(model);
   bindExecutiveReflow(() => model);
 
-
   const radioFinal =
-    Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0
-      ? model.query.radioKmFinal
-      : params.radio;
+    Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0 ? model.query.radioKmFinal : params.radio;
 
   mapLayers.setQueryPoint(model.query.lat, model.query.lng);
   mapLayers.setQueryCircle(model.query.lat, model.query.lng, radioFinal);
@@ -1155,7 +1075,8 @@ async function main() {
   else map.setView([model.query.lat, model.query.lng], 12);
 
   panel.render(model.projects);
-  
+
+  // Desktop: gráficos visibles. Mobile: gráficos ocultos por CSS (se exportan en PDF igual).
   if (!isMobile()) updateCharts(model);
 
   bindKmzButton({
