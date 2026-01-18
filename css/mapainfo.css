@@ -17,6 +17,9 @@ margin: 0 auto 2rem auto;
 
 @media (max-width: 900px) {
 .page-wrapper { width: 95%; }
+
+
+
 }
 
 header {
@@ -441,6 +444,31 @@ font-weight: 700; text-decoration: none;
 .mobile-backdrop, .mobile-sheet { display: none !important; }
 }
 
+/* ==============================
+   ANÁLISIS HUMANO (card)
+============================== */
+.executive-analysis{
+  margin-top: 1rem;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
+  border-left: 6px solid #1d4ed8;
+}
+
+.executive-title{
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+  color: #0f172a;
+}
+
+.executive-text{
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #111827;
+}
+
+
 /* ===========================
    RESPONSIVE: MÓVIL
    UN SOLO MEDIA QUERY CONSOLIDADO
@@ -452,9 +480,12 @@ font-weight: 700; text-decoration: none;
     overflow-y: auto !important;
   }
   
-  .page-wrapper {
+  .page-wrapper{
     height: auto !important;
+    width: 95%;
+    margin: 0 auto 1.5rem auto;
   }
+
   
   .map-container {
     flex-direction: column !important;
@@ -501,10 +532,22 @@ font-weight: 700; text-decoration: none;
     overflow-y: auto !important;
   }
   
-  /* ========== GRÁFICOS: OCULTOS EN MÓVIL ========== */
-  #chartsSection {
-    display: none !important;
-  }
+/* ========== GRÁFICOS: VISIBLES EN MÓVIL ========== */
+#chartsSection{
+  display: block !important;
+  margin-top: 1rem;
+}
+
+.charts-grid{
+  grid-template-columns: 1fr !important; /* 1 columna en móvil */
+  gap: 1rem !important;
+}
+
+.plotly-chart{
+  width: 100% !important;
+  height: 280px !important; /* alto razonable */
+}
+
   
   /* ========== INFO BAR ========== */
   .info-actions {
@@ -517,10 +560,7 @@ font-weight: 700; text-decoration: none;
     justify-content: center;
   }
   
-  /* ========== CHARTS GRID ========== */
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
+ 
   
   /* ========== ETIQUETAS EN MAPA ========== */
   .leaflet-tooltip.project-id-label {
@@ -528,4 +568,14 @@ font-weight: 700; text-decoration: none;
     padding: 1px 4px !important;
   }
   
+/* ========== ANÁLISIS HUMANO: MÁS COMPACTO EN MÓVIL ========== */
+.executive-analysis{
+  margin: 1rem 0.25rem 0.5rem 0.25rem;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+}
+.executive-title{ font-size: 1rem; }
+.executive-text{ font-size: 0.92rem; }
+
+
 }

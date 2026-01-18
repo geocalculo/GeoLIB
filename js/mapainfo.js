@@ -247,9 +247,620 @@ async function captureMapPng() {
 }
 
 // =====================================================
+// EXPORTAR GRAFICOS PLOTLY A IMAGEN (para PDF) - LIVIANO
+// - JPEG + menos resolución + override !important
+// =====================================================
+async function ensureChartsRenderedForPdf(model) {
+  if (!window.Plotly) {
+    console.warn("Plotly no está cargado; no se exportarán gráficos.");
+    return [];
+  }
+
+  const chartsSection = document.getElementById("chartsSection");
+  const chartsGrid = document.getElementById("chartsGrid");
+  if (!chartsSection || !chartsGrid) {
+    console.warn("No existe chartsSection/chartsGrid en el DOM.");
+    return [];
+  }
+
+  // Guardar estilos inline (no los de CSS). Igual nos sirve para restaurar.
+  const prev = {
+    display: chartsSection.style.display,
+    position: chartsSection.style.position,
+    left: chartsSection.style.left,
+    top: chartsSection.style.top,
+    width: chartsSection.style.width,
+    visibility: chartsSection.style.visibility,
+  };
+
+  // ⚠️ IMPORTANTE: ganar a display:none !important del CSS móvil
+  chartsSection.style.setProperty("display", "block", "important");
+  chartsSection.style.position = "absolute";
+  chartsSection.style.left = "-10000px";
+  chartsSection.style.top = "0";
+  chartsSection.style.width = "820px";        // más bajo = más liviano
+  chartsSection.style.visibility = "hidden";  // evita parpadeo
+
+  try {
+    // Render charts (tu controlador Plotly)
+    await updateCharts(model);
+  } catch (e) {
+    console.warn("No se pudo ejecutar updateCharts(model):", e);
+  }
+
+  // Espera corta para que Plotly pinte
+  await new Promise(r => setTimeout(r, 250));
+
+  const plotDivs = Array.from(chartsGrid.querySelectorAll(".js-plotly-plot"));
+  if (!plotDivs.length) {
+    console.warn("No se encontraron .js-plotly-plot dentro de chartsGrid.");
+  }
+
+  // Asegura layout válido antes de exportar (evita PNG/JPEG vacíos)
+  try {
+    plotDivs.forEach(d => window.Plotly.Plots.resize(d));
+  } catch {}
+  await new Promise(r => setTimeout(r, 120));
+
+  const images = [];
+  for (let i = 0; i < plotDivs.length; i++) {
+    const el = plotDivs[i];
+
+    const title =
+      el.getAttribute("data-title") ||
+      el.getAttribute("aria-label") ||
+      `Gráfico ${i + 1}`;
+
+    try {
+      // ✅ JPEG liviano (clave para bajar de 30MB -> ~1MB)
+      const dataUrl = await window.Plotly.toImage(el, {
+        format: "jpeg",
+        width: 620,
+        height: 360,
+        scale: 1
+      });
+
+      images.push({ title, dataUrl, kind: "JPEG" });
+    } catch (e) {
+      console.warn(`No se pudo exportar gráfico ${i + 1}:`, e);
+    }
+  }
+
+  // Restaurar estilos
+  if (prev.display) chartsSection.style.setProperty("display", prev.display, "important");
+  else chartsSection.style.removeProperty("display");
+
+  chartsSection.style.position = prev.position;
+  chartsSection.style.left = prev.left;
+  chartsSection.style.top = prev.top;
+  chartsSection.style.width = prev.width;
+  chartsSection.style.visibility = prev.visibility;
+
+  return images;
+}
+
+
+function addPlotImagesToPdf(doc, { images, margin, pageWidth, yStart }) {
+  const contentWidth = pageWidth - (margin * 2);
+  if (!images || !images.length) return yStart;
+
+  let y = yStart;
+
+  // Encabezado sección
+  const titleH = 8;
+  const pageBottom = 280;
+
+  const newPageIfNeeded = (needH = 0) => {
+    if (y + needH > pageBottom) {
+      doc.addPage();
+      y = margin;
+    }
+  };
+
+  newPageIfNeeded(20);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Gráficos (inversión y distribución)", margin, y);
+  y += titleH;
+
+  // ---- Layout 2x2 ----
+  const gapX = 6;
+  const gapY = 10;
+
+  const colW = (contentWidth - gapX) / 2;
+
+  // Alto tile (más chico = más liviano y caben 2 filas)
+  const tileH = 62;
+
+  // Cada página tiene 4 slots (2x2)
+  let i = 0;
+  while (i < images.length) {
+    // Si no caben 2 filas, nueva página y encabezado “cont.”
+    const needH = (tileH * 2) + gapY + 10;
+    if (y + needH > pageBottom) {
+      doc.addPage();
+      y = margin;
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Gráficos (inversión y distribución) (cont.)", margin, y);
+      y += titleH;
+    }
+
+    // Pintar 4 tiles
+    for (let slot = 0; slot < 4 && i < images.length; slot++, i++) {
+      const img = images[i];
+
+      const row = Math.floor(slot / 2); // 0-1
+      const col = slot % 2;             // 0-1
+
+      const x = margin + col * (colW + gapX);
+      const yImg = y + row * (tileH + gapY);
+
+      // Subtítulo corto arriba de cada tile (opcional)
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      const label = `${i + 1}. ${String(img.title || `Gráfico ${i + 1}`).slice(0, 38)}`;
+      doc.text(label, x, yImg - 2);
+
+      try {
+        // ✅ IMPORTANTE: insertar como JPEG y compresión FAST
+        doc.addImage(
+          img.dataUrl,
+          img.kind || "JPEG",
+          x,
+          yImg,
+          colW,
+          tileH,
+          undefined,
+          "FAST"
+        );
+      } catch (e) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text("⚠ No se pudo insertar este gráfico.", x, yImg + 10);
+      }
+    }
+
+    y += (tileH * 2) + gapY + 12;
+  }
+
+  return y;
+}
+
+function computeExecutiveInsights(projects = [], query = {}) {
+  // =========================
+  // Helpers
+  // =========================
+  const norm = (s) => String(s ?? "").trim().toLowerCase();
+  const pretty = (s) => (String(s ?? "—").trim() || "—");
+
+  const isAprobado = (p) => norm(p?.estado) === "aprobado";
+  const isEnCalif = (p) => norm(p?.estado) === "en calificación" || norm(p?.estado) === "en calificacion";
+  const isRech = (p) => norm(p?.estado) === "rechazado";
+
+  const getInv = (p) => {
+    const v = Number(p?.inversion ?? p?.inv ?? p?.mmus ?? p?.inversion_mmus ?? p?.inversionMMUS);
+    return Number.isFinite(v) ? v : null;
+  };
+
+  const getMeses = (p) => {
+    const v = Number(p?.meses ?? p?.plazo_meses ?? p?.plazoMeses ?? p?.meses_aprobacion ?? p?.duracion_meses);
+    return Number.isFinite(v) ? v : null;
+  };
+
+  const getAnio = (p) => {
+    const v = p?.anio ?? p?.año ?? p?.year ?? p?.anio_ingreso ?? p?.anio_calificacion ?? p?.anioResolucion;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const sumByKey = (arr, keyFn, valFn) => {
+    const out = {};
+    for (const it of arr) {
+      const k = keyFn(it);
+      const v = valFn(it);
+      if (k == null || k === "" || v == null) continue;
+      out[k] = (out[k] || 0) + v;
+    }
+    return out;
+  };
+
+  const fmtMMUS = (v) => {
+    if (v == null || !Number.isFinite(v)) return "—";
+    // 1 decimal como tus gráficos
+    return v.toFixed(1);
+  };
+
+  const fmtMes = (v) => {
+    if (v == null || !Number.isFinite(v)) return "—";
+    // meses redondeados a entero (más “informe”)
+    return String(Math.round(v));
+  };
+
+  // Regla: % entero normalmente; si es 0 pero >0 => 0.1 (un decimal); si es 0.0 exacto => se omite el comentario.
+  const fmtPctSmart = (pct) => {
+    if (pct == null || !Number.isFinite(pct)) return null;
+
+    if (pct <= 0) return "0.0"; // servirá para lógica de omisión
+    if (pct < 0.05) return "0.1"; // mínimo visible con 1 decimal
+    if (pct < 1) return pct.toFixed(1); // 0.x con 1 decimal
+    return String(Math.round(pct)); // >=1% entero
+  };
+
+  const ratioText = (a, b) => {
+    if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b) || b <= 0) return null;
+    const r = a / b;
+    // 1 decimal, con “×”
+    return r.toFixed(1);
+  };
+
+  // =========================
+  // Universo del análisis
+  // - Los 4 gráficos se refieren a los 3 estados dentro del radio
+  // - Duración (meses) SOLO APROBADOS
+  // =========================
+  const inRadius = Array.isArray(projects) ? projects : [];
+  if (!inRadius.length) return "No se encontraron proyectos en el área de influencia para generar el análisis.";
+
+  // Radio (para título en UI/PDF se toma de afuera; acá solo texto)
+  const radioKm = Number(query?.radioKmFinal ?? query?.radioKm ?? query?.radio);
+  const radioTxt = Number.isFinite(radioKm) ? `${radioKm.toFixed(0)} km` : "—";
+
+  // =========================
+  // Agregados para texto (coherentes con los gráficos)
+  // =========================
+
+  // Totales y por estado (inversión)
+  const invByEstado = sumByKey(inRadius, p => pretty(p.estado), p => getInv(p));
+  const invTotal = Object.values(invByEstado).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) || 0;
+
+  const invAprob = invByEstado["Aprobado"] ?? invByEstado["aprobado"] ?? 0;
+  const invCalif = invByEstado["En Calificación"] ?? invByEstado["En Calificacion"] ?? invByEstado["en calificación"] ?? invByEstado["en calificacion"] ?? 0;
+  const invRech = invByEstado["Rechazado"] ?? invByEstado["rechazado"] ?? 0;
+
+  // Inversión por sector (3 estados, dentro del radio)
+  const invBySector = sumByKey(inRadius, p => pretty(p.sector), p => getInv(p));
+  const sectorsSorted = Object.entries(invBySector)
+    .sort((a, b) => (b[1] || 0) - (a[1] || 0));
+
+  // Inversión por año (3 estados, dentro del radio)
+  const invByYear = sumByKey(inRadius, p => getAnio(p), p => getInv(p));
+  let maxYear = null;
+  let maxYearInv = null;
+  for (const [yStr, v] of Object.entries(invByYear)) {
+    const y = Number(yStr);
+    const val = Number(v);
+    if (!Number.isFinite(y) || !Number.isFinite(val)) continue;
+    if (maxYearInv == null || val > maxYearInv) {
+      maxYearInv = val;
+      maxYear = y;
+    }
+  }
+
+  // Duración (meses) SOLO APROBADOS
+  const aprobados = inRadius.filter(isAprobado);
+  const mesesAprob = aprobados.map(getMeses).filter(v => v != null);
+  const avgMeses = mesesAprob.length ? (mesesAprob.reduce((a, b) => a + b, 0) / mesesAprob.length) : null;
+
+  // Promedio por sector SOLO APROBADOS (para breve/extenso)
+  const mesesSumBySector = {};
+  const mesesCntBySector = {};
+  for (const p of aprobados) {
+    const m = getMeses(p);
+    if (m == null) continue;
+    const k = pretty(p.sector);
+    mesesSumBySector[k] = (mesesSumBySector[k] || 0) + m;
+    mesesCntBySector[k] = (mesesCntBySector[k] || 0) + 1;
+  }
+  const avgMesesBySector = Object.entries(mesesSumBySector)
+    .map(([k, sum]) => [k, sum / (mesesCntBySector[k] || 1)])
+    .filter(([, v]) => Number.isFinite(v))
+    .sort((a, b) => a[1] - b[1]); // asc: más breve primero
+
+  const breve = avgMesesBySector.length ? avgMesesBySector[0] : null;
+  const extenso = avgMesesBySector.length >= 2 ? avgMesesBySector[avgMesesBySector.length - 1] : null;
+
+  // =========================
+  // Construcción de párrafo (sin frases “colgando”)
+  // =========================
+  const lines = [];
+
+  // 1) Inversión total
+  if (invTotal > 0) {
+    lines.push(
+      `En el área de influencia definida por el radio de consulta (${radioTxt}), los proyectos identificados concentran una inversión total estimada de ${fmtMMUS(invTotal)} MMU$.`
+    );
+  } else {
+    lines.push(
+      `En el área de influencia definida por el radio de consulta (${radioTxt}), se identificaron proyectos, pero no hay información suficiente de inversión para cuantificar el total.`
+    );
+  }
+
+  // 2) Estados (inversión) + relación calificación vs aprobado
+  const estadoParts = [];
+  const pushEstado = (label, val) => {
+    if (!Number.isFinite(val) || val <= 0) return;
+    estadoParts.push(`${label} (${fmtMMUS(val)} MMU$)`);
+  };
+  pushEstado("Aprobado", invAprob);
+  pushEstado("En Calificación", invCalif);
+  pushEstado("Rechazado", invRech);
+
+  if (estadoParts.length) {
+    lines.push(`En términos de estado (inversión), se observa: ${estadoParts.join(", ")}.`);
+  }
+
+  // Relación matemática calificación vs aprobada (si aplica)
+  const rel = ratioText(invCalif, invAprob);
+  if (rel) {
+    lines.push(`La inversión en calificación equivale a ${rel}× la inversión aprobada en el radio.`);
+  }
+
+  // % inversión aprobada del total (si hay total)
+  if (invTotal > 0 && Number.isFinite(invAprob)) {
+    const pctAprob = (invAprob / invTotal) * 100;
+    const pctTxt = fmtPctSmart(pctAprob);
+    if (pctTxt && pctTxt !== "0.0") {
+      lines.push(`El % de inversión aprobada corresponde a un ${pctTxt}% del total identificado.`);
+    }
+  }
+
+  // 3) Sector (monto + %). Si % da 0.0 => se omite esa categoría.
+  if (invTotal > 0 && sectorsSorted.length) {
+    const maxSectors = 6; // evita listados eternos
+    const sectorParts = [];
+
+    for (const [sector, val] of sectorsSorted.slice(0, maxSectors)) {
+      const v = Number(val);
+      if (!Number.isFinite(v) || v <= 0) continue;
+
+      const pct = (v / invTotal) * 100;
+      const pctTxt = fmtPctSmart(pct);
+
+      // Regla solicitada:
+      // - si pctTxt === "0.0" => omitir comentario (no incluir ese sector)
+      if (!pctTxt || pctTxt === "0.0") continue;
+
+      sectorParts.push(`${sector} (${fmtMMUS(v)} MMU$, ${pctTxt}%)`);
+    }
+
+    if (sectorParts.length) {
+      lines.push(`Por sector, destacan: ${sectorParts.join(", ")}.`);
+    }
+  }
+
+  // 4) Año con mayor inversión + % del total (si aplica)
+  if (invTotal > 0 && maxYear != null && maxYearInv != null && maxYearInv > 0) {
+    const pct = (maxYearInv / invTotal) * 100;
+    const pctTxt = fmtPctSmart(pct);
+    if (pctTxt && pctTxt !== "0.0") {
+      lines.push(
+        `El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$, que corresponde al ${pctTxt}% del total identificado.`
+      );
+    } else {
+      lines.push(
+        `El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$.`
+      );
+    }
+  }
+
+  // 5) Duración (solo aprobados) + breve/extenso (si hay ≥2 sectores)
+  if (avgMeses != null) {
+    lines.push(
+      `Considerando únicamente los proyectos APROBADOS, la duración promedio del proceso de evaluación es de ${fmtMes(avgMeses)} meses.`
+    );
+
+    // Si hay solo 1 sector con meses, NO mencionar breve/extenso
+    if (breve && extenso && breve[0] !== extenso[0]) {
+      lines.push(
+        `El sector que presenta el plazo más breve es ${breve[0]} (${fmtMes(breve[1])} meses), y el sector que presenta el plazo más extenso es ${extenso[0]} (${fmtMes(extenso[1])} meses).`
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
+
+
+
+
+function placeExecutiveSectionForViewport() {
+  const section = document.getElementById("executiveAnalysisSection");
+  if (!section) return;
+
+  // Mobile: arriba (después de la info-bar)
+  if (isMobile()) {
+    const infoBar = document.querySelector(".info-bar");
+    if (infoBar) infoBar.insertAdjacentElement("afterend", section);
+    return;
+  }
+
+  // Desktop: después del mapa+lista y antes de charts
+  const mapContainer = document.querySelector(".map-container");
+  if (mapContainer) mapContainer.insertAdjacentElement("afterend", section);
+}
+
+
+
+
+// =====================================================
+// ANÁLISIS HUMANO/IA EN HTML (desktop + mobile)
+// - Desktop: va después del mapa+lista y antes de gráficos
+// - Mobile: va arriba, justo después de la info-bar
+// =====================================================
+function ensureExecutiveSectionExists() {
+  let section = document.getElementById("executiveAnalysisSection");
+  if (section) return section;
+
+  section = document.createElement("section");
+  section.id = "executiveAnalysisSection";
+  section.className = "executive-analysis";
+  section.innerHTML = `
+    <h2 class="executive-title">Lectura ejecutiva del entorno</h2>
+    <p id="executiveText" class="executive-text"></p>
+  `;
+
+  return section;
+}
+
+function placeExecutiveSection(section) {
+  // En móvil: arriba (después de la info-bar)
+  if (isMobile()) {
+    const infoBar = document.querySelector(".info-bar");
+    if (infoBar && infoBar.parentNode) {
+      infoBar.insertAdjacentElement("afterend", section);
+      return;
+    }
+  }
+
+  // En desktop: después del mapa+panel y antes de charts
+  const mapContainer = document.querySelector(".map-container");
+  const chartsSection = document.getElementById("chartsSection");
+
+  if (mapContainer) {
+    mapContainer.insertAdjacentElement("afterend", section);
+    return;
+  }
+
+  if (chartsSection) {
+    chartsSection.insertAdjacentElement("beforebegin", section);
+    return;
+  }
+
+  // Fallback: al final del wrapper
+  const wrapper = document.querySelector(".page-wrapper") || document.body;
+  wrapper.appendChild(section);
+}
+
+function renderExecutiveAnalysis(model) {
+  try {
+    const section = ensureExecutiveSectionExists();
+    placeExecutiveSection(section);
+
+    const p = section.querySelector("#executiveText");
+    if (!p) return;
+
+    const txt = computeExecutiveInsights(model?.projects || [], model?.query?.n);
+
+    // Respeta saltos de línea del texto (si los hay)
+    p.innerHTML = escapeHtml(txt).replace(/\n/g, "<br>");
+  } catch (e) {
+    console.warn("No se pudo renderizar análisis ejecutivo:", e);
+  }
+}
+
+// Reubica al rotar pantalla o cambiar tamaño
+function bindExecutiveReflow(modelGetter) {
+  let t = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const m = modelGetter?.();
+      if (m) renderExecutiveAnalysis(m);
+    }, 150);
+  });
+}
+
+
+function drawExecutiveAiBox(doc, { x, y, w, h, title, text }) {
+  // Caja
+  doc.setDrawColor(210);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(x, y, w, h, 3, 3, "FD");
+
+  // Título
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(20);
+  doc.text(title || "Análisis IA (resumen ejecutivo)", x + 4, y + 7);
+
+  // Texto
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(50);
+
+  const maxTextWidth = w - 8;
+  const lines = doc.splitTextToSize(String(text || ""), maxTextWidth);
+
+  // Control de alto
+  const lineH = 4.2;
+  const maxLines = Math.floor((h - 12) / lineH);
+  const safeLines = lines.slice(0, Math.max(0, maxLines));
+
+  let yy = y + 13;
+  safeLines.forEach(line => {
+    doc.text(line, x + 4, yy);
+    yy += lineH;
+  });
+
+  if (lines.length > safeLines.length) {
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.text("…(continúa en la siguiente página)", x + 4, y + h - 4);
+  }
+
+  doc.setTextColor(0);
+}
+
+
+// =====================================================
+// PANEL RESUMEN (MAPA + LISTA) PARA PDF
+// =====================================================
+function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
+  // Fondo del panel
+  doc.setDrawColor(220);
+  doc.setFillColor(248, 248, 248);
+  doc.roundedRect(x, y, w, h, 3, 3, "FD");
+
+  let yy = y + 6;
+
+  // Título
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(20);
+  doc.text("Lista de Proyectos", x + 4, yy);
+
+  yy += 6;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(60);
+
+  const rowH = 6;
+  const maxRows = Math.floor((h - 14) / rowH);
+  const rows = (projects || []).slice(0, maxRows);
+
+  rows.forEach((p, i) => {
+    const n = String(i + 1).padStart(2, "0");
+    const name = (p.nombre || "Proyecto").toString().slice(0, 26);
+    const estado = (p.estado || "—").toString().slice(0, 10);
+    const dist = Number.isFinite(p.distKm) ? `${p.distKm.toFixed(1)} km` : "—";
+
+    doc.setTextColor(30);
+    doc.text(`${n}  ${name}`, x + 4, yy);
+
+    doc.setTextColor(110);
+    doc.text(`${estado} · ${dist}`, x + 4, yy + 3.5);
+
+    yy += rowH;
+
+    if (i < rows.length - 1) {
+      doc.setDrawColor(235);
+      doc.line(x + 4, yy - 1.2, x + w - 4, yy - 1.2);
+    }
+  });
+
+  doc.setTextColor(0);
+}
+
+
+// =====================================================
 // PDF CON jsPDF + IMAGEN DE MAPA
 // =====================================================
-async function downloadPDFDirect({ params, resumen, proyectos }) {
+async function downloadPDFDirect({ params, resumen, proyectos, model }) {
+
   console.log('📄 Generando PDF...');
   
   if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -294,30 +905,91 @@ async function downloadPDFDirect({ params, resumen, proyectos }) {
   console.log('📷 Capturando mapa...');
   const mapPng = await captureMapPng();
 
-  if (mapPng) {
-    const imgSize = Math.min(contentWidth, 100);
-    const imgW = imgSize;
-    const imgH = imgSize;
-
-    if (y + imgH > 270) {
-      doc.addPage();
-      y = margin;
-    }
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Mapa de consulta", margin, y);
-    y += 6;
-
-    doc.addImage(mapPng, "PNG", margin, y, imgW, imgH);
-    y += imgH + 8;
-
-    console.log('✅ Mapa agregado');
-  } else {
-    doc.setFontSize(9);
-    doc.text("⚠ No se pudo capturar mapa", margin, y);
-    y += 8;
+if (mapPng) {
+  // Si no cabe el bloque completo, salta página
+  const blockH = 95;      // alto del bloque mapa + panel
+  if (y + blockH > 270) {
+    doc.addPage();
+    y = margin;
   }
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Mapa de consulta", margin, y);
+  y += 6;
+
+  // --- Layout: mapa izq + panel der ---
+  const gap = 6;
+  const panelW = 68;                 // ancho panel derecho (ajustable)
+  const mapW = contentWidth - panelW - gap;
+  const mapH = blockH;
+
+  // Mapa a la izquierda (llenando altura del bloque)
+  doc.addImage(mapPng, "PNG", margin, y, mapW, mapH);
+
+  // Panel resumen a la derecha (Top proyectos)
+  drawSummaryListPanel(doc, {
+    x: margin + mapW + gap,
+    y,
+    w: panelW,
+    h: mapH,
+    projects: proyectos
+  });
+
+  y += mapH + 10;
+
+  // =====================================================
+// ✅ Análisis IA en la mitad inferior de la página 1
+// =====================================================
+const aiText = computeExecutiveInsights(proyectos, params?.n);
+
+
+// Altura del box (ajusta a gusto)
+const aiBoxH = 55;
+
+// Si no cabe en la página 1, lo saltamos a página 2 (pero normalmente cabe)
+if (y + aiBoxH > 270) {
+  doc.addPage();
+  y = margin;
+}
+
+drawExecutiveAiBox(doc, {
+  x: margin,
+  y,
+  w: contentWidth,
+  h: aiBoxH,
+  title: "Análisis IA (resumen ejecutivo)",
+  text: aiText
+});
+
+y += aiBoxH + 8;
+
+
+  console.log("✅ Mapa + lista resumen agregados");
+} else {
+  doc.setFontSize(9);
+  doc.text("⚠ No se pudo capturar mapa", margin, y);
+  y += 8;
+}
+
+
+  // =====================================================
+  // ✅ Agregar gráficos Plotly al PDF (canónico desktop/móvil)
+  // =====================================================
+  console.log("📊 Exportando gráficos...");
+  const chartImages = await ensureChartsRenderedForPdf(model || window.__geoeva_model);
+  if (chartImages.length) {
+    y = addPlotImagesToPdf(doc, {
+      images: chartImages,
+      margin,
+      pageWidth,
+      yStart: y
+    });
+    console.log(`✅ Gráficos agregados: ${chartImages.length}`);
+  } else {
+    console.log("⚠ No hay gráficos para agregar (Plotly / render / DOM).");
+  }
+
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -403,6 +1075,7 @@ function bindPdfButtonOnce() {
         },
         resumen: { texto: resumenTexto, inversion: invTexto },
         proyectos: Array.isArray(model.projects) ? model.projects : [],
+        model
       });
       
       btn.textContent = "✅ Listo";
@@ -453,6 +1126,14 @@ async function main() {
   window.__geoeva_model = model;
 
   renderInfoBar(model);
+
+
+
+
+  // ✅ Párrafo “oro” en HTML (desktop y móvil)
+  renderExecutiveAnalysis(model);
+  bindExecutiveReflow(() => model);
+
 
   const radioFinal =
     Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0
