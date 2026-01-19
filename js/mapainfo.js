@@ -43,6 +43,17 @@ const REPORT_TITLES = {
   chart4: "Plazo promedio por sector (meses) – Solo Aprobados",
 };
 
+function trackEvent(name, params = {}) {
+  try {
+    if (typeof window.gtag === "function") {
+      window.gtag("event", name, params);
+    }
+  } catch (e) {
+    // No romper por tracking
+  }
+}
+
+
 function isMobile() {
   return window.matchMedia("(max-width: 768px)").matches;
 }
@@ -992,6 +1003,18 @@ function bindPdfButtonOnce() {
 
       const radio = Number(model?.query?.radioKmFinal ?? model?.query?.radioKm ?? model?.query?.radio ?? NaN);
 
+      // ✅ GA4: click en PDF (entregable principal)
+      trackEvent("download_pdf", {
+        event_category: "entregables",
+        event_label: "mapainfo_pdf",
+        radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
+        modo: model?.query?.modo || null,
+        proyectos: Array.isArray(model?.projects) ? model.projects.length : null,
+        non_interaction: true
+
+      });
+
+
       await downloadPDFDirect({
         params: {
           lat: model.query.lat,
@@ -1004,6 +1027,19 @@ function bindPdfButtonOnce() {
         proyectos: Array.isArray(model.projects) ? model.projects : [],
         model,
       });
+
+      // ✅ GA4: PDF generado OK (conversión “real”)
+      trackEvent("download_pdf_success", {
+        event_category: "entregables",
+        event_label: "mapainfo_pdf",
+        radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
+        modo: model?.query?.modo || null,
+        proyectos: Array.isArray(model?.projects) ? model.projects.length : null,
+        non_interaction: true
+      });
+
+
+
 
       btn.textContent = "✅ Listo";
       setTimeout(() => {
