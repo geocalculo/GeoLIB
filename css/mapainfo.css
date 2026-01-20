@@ -579,3 +579,17 @@ font-weight: 700; text-decoration: none;
 
 
 }
+
+/* ==============================
+   Plotly: gráficos como FOTO (sin interacción)
+============================== */
+.plotly-chart,
+.plotly-chart * {
+  pointer-events: none !important;   /* bloquea click/drag/zoom */
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  touch-action: none !important;     /* bloquea pinch/gestos */
+}
+
+.chart-card { cursor: default !important; }

@@ -584,42 +584,22 @@ function renderChart(cfg) {
     };
   }
 
-  // Renderizar con Plotly
+  // ---- Bloquear interacción: que se comporte como "foto" ----
+  layout.dragmode = false;      // sin pan/zoom/selección
+  layout.hovermode = false;     // sin hover que captura mouse/touch
+  layout.uirevision = "locked"; // estado estable entre renders
+
+
   Plotly.newPlot(container, dataTraces, layout, {
     responsive: true,
-    displaylogo: false
+    displaylogo: false,
+    displayModeBar: false, // sin barra
+    scrollZoom: false,     // sin zoom con scroll/trackpad
+    doubleClick: false,    // sin reset/zoom con doble click
+    editable: false,       // no editable
+    staticPlot: true       // 🔒 CLAVE: se comporta como imagen
   });
 
-  // Eventos de click para filtrar (excepto sector)
-  container.removeAllListeners?.("plotly_click");
 
-  container.on("plotly_click", (ev) => {
-    if (!ev.points || !ev.points.length) return;
-
-    // No filtrar por sector
-    if (cfg.dimension === "sector") return;
-
-    const pt = ev.points[0];
-    let category;
-
-    if (cfg.orientation === "h") {
-      category = pt.y?.toString();
-    } else {
-      category = pt.x?.toString();
-    }
-
-    if (!category) return;
-
-    const current = activeFilters[cfg.dimension] || null;
-
-    // Toggle filtro
-    if (current === category) {
-      delete activeFilters[cfg.dimension];
-    } else {
-      activeFilters[cfg.dimension] = category;
-    }
-
-    renderAllCharts();
-    updateFilterIndicators();
-  });
+ 
 }

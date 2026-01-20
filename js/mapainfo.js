@@ -453,6 +453,14 @@ function addPlotImagesToPdf(doc, { images, margin, pageWidth, yStart }) {
 // - Gráficos: 3 estados (Aprobado/En Calificación/Rechazado)
 // - Duración: SOLO APROBADOS
 // =====================================================
+/**
+ * computeExecutiveInsights(projects, query)
+ * GeoEVA – Resumen ejecutivo técnico (estable / determinístico / sin random)
+ * - Sin juicios subjetivos ("moderado", "importante", etc.)
+ * - Unidades consistentes: MMU$ (millones de US$) como en gráficos
+ * - Robusto a distintos nombres de campos
+ * - Narrativa fluida en párrafos (con saltos suaves)
+ */
 function computeExecutiveInsights(projects = [], query = {}) {
   const norm = (s) => String(s ?? "").trim().toLowerCase();
   const pretty = (s) => (String(s ?? "—").trim() || "—");
@@ -468,17 +476,36 @@ function computeExecutiveInsights(projects = [], query = {}) {
   const isAprobado = (p) => norm(p?.estado) === "aprobado";
 
   const getInv = (p) => {
-    const v = Number(p?.inversion ?? p?.inv ?? p?.mmus ?? p?.inversion_mmus ?? p?.inversionMMUS);
+    const v = Number(
+      p?.inversion ??
+      p?.inversionMm ??
+      p?.inv ??
+      p?.mmus ??
+      p?.inversion_mmus ??
+      p?.inversionMMUS
+    );
     return Number.isFinite(v) ? v : null;
   };
 
   const getMeses = (p) => {
-    const v = Number(p?.meses ?? p?.plazo_meses ?? p?.plazoMeses ?? p?.meses_aprobacion ?? p?.duracion_meses);
-    return Number.isFinite(v) ? v : null;
+    const v = Number(
+      p?.meses ??
+      p?.plazo_meses ??
+      p?.plazoMeses ??
+      p?.meses_aprobacion ??
+      p?.duracion_meses
+    );
+    return Number.isFinite(v) && v > 0 ? v : null;
   };
 
   const getAnio = (p) => {
-    const v = p?.anio ?? p?.año ?? p?.year ?? p?.anio_ingreso ?? p?.anio_calificacion ?? p?.anioResolucion;
+    const v =
+      p?.anio ??
+      p?.año ??
+      p?.year ??
+      p?.anio_ingreso ??
+      p?.anio_calificacion ??
+      p?.anioResolucion;
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
@@ -495,29 +522,24 @@ function computeExecutiveInsights(projects = [], query = {}) {
   };
 
   const fmtMMUS = (v) => (v == null || !Number.isFinite(v) ? "—" : v.toFixed(1));
+  const fmtInv = (v) => `${fmtMMUS(v)} MMU$`;
   const fmtMes = (v) => (v == null || !Number.isFinite(v) ? "—" : String(Math.round(v)));
 
-  // % entero; si es pequeño, un decimal; si 0.0 => omitir
-  const fmtPctSmart = (pct) => {
-    if (pct == null || !Number.isFinite(pct)) return null;
-    if (pct <= 0) return "0.0";
-    if (pct < 0.05) return "0.1";
-    if (pct < 1) return pct.toFixed(1);
-    return String(Math.round(pct));
-  };
-
-  const ratioText = (a, b) => {
-    if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b) || b <= 0) return null;
-    return (a / b).toFixed(1);
+  const fmtRadioTxt = () => {
+    const radioKm = Number(query?.radioKmFinal ?? query?.radioKm ?? query?.radio);
+    return Number.isFinite(radioKm) ? `${radioKm.toFixed(0)} km` : "el radio definido";
   };
 
   const inRadius = Array.isArray(projects) ? projects : [];
-  if (!inRadius.length) return "No se encontraron proyectos en el área de influencia para generar el análisis.";
+  if (!inRadius.length) {
+    return "No se identificaron proyectos en el área de influencia consultada.";
+  }
 
-  const radioKm = Number(query?.radioKmFinal ?? query?.radioKm ?? query?.radio);
-  const radioTxt = Number.isFinite(radioKm) ? `${radioKm.toFixed(0)} km` : "—";
+  const radioTxt = fmtRadioTxt();
 
-  // Inversión por estado (normalizando etiquetas)
+  // ============================
+  // CÁLCULOS
+  // ============================
   const invByEstado = sumByKey(inRadius, (p) => normalizeEstadoLabel(p?.estado), (p) => getInv(p));
   const invTotal = Object.values(invByEstado).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) || 0;
 
@@ -541,12 +563,12 @@ function computeExecutiveInsights(projects = [], query = {}) {
     }
   }
 
-  // Duración SOLO APROBADOS
   const aprobados = inRadius.filter(isAprobado);
   const mesesAprob = aprobados.map(getMeses).filter((v) => v != null);
-  const avgMeses = mesesAprob.length ? mesesAprob.reduce((a, b) => a + b, 0) / mesesAprob.length : null;
+  const avgMeses = mesesAprob.length
+    ? mesesAprob.reduce((a, b) => a + b, 0) / mesesAprob.length
+    : null;
 
-  // Promedio por sector SOLO APROBADOS
   const mesesSumBySector = {};
   const mesesCntBySector = {};
   for (const p of aprobados) {
@@ -556,6 +578,7 @@ function computeExecutiveInsights(projects = [], query = {}) {
     mesesSumBySector[k] = (mesesSumBySector[k] || 0) + m;
     mesesCntBySector[k] = (mesesCntBySector[k] || 0) + 1;
   }
+
   const avgMesesBySector = Object.entries(mesesSumBySector)
     .map(([k, sum]) => [k, sum / (mesesCntBySector[k] || 1)])
     .filter(([, v]) => Number.isFinite(v))
@@ -564,73 +587,139 @@ function computeExecutiveInsights(projects = [], query = {}) {
   const breve = avgMesesBySector.length ? avgMesesBySector[0] : null;
   const extenso = avgMesesBySector.length >= 2 ? avgMesesBySector[avgMesesBySector.length - 1] : null;
 
-  const lines = [];
+  // ============================
+  // NARRATIVA
+  // ============================
+  const parts = [];
 
-  // 1) inversión total
+  // 1) Apertura
   if (invTotal > 0) {
-    lines.push(`En el área de influencia, los proyectos identificados concentran una inversión total estimada de ${fmtMMUS(invTotal)} MMU$.`);
+    const numProyectos = inRadius.length;
+    const invProm = numProyectos > 0 ? invTotal / numProyectos : null;
+    parts.push(
+      `En un radio de ${radioTxt} se identificaron ${numProyectos} proyectos que suman una inversión total estimada de ${fmtInv(invTotal)}.` +
+      (invProm != null ? ` La inversión promedio estimada por proyecto es ${fmtInv(invProm)}.` : "")
+    );
   } else {
-    lines.push(`En el área de influencia definida por el radio de consulta (${radioTxt}), se identificaron proyectos, pero no hay información suficiente de inversión para cuantificar el total.`);
+    parts.push(
+      `En un radio de ${radioTxt} se identificaron ${inRadius.length} proyectos, pero la información disponible no permite cuantificar la inversión total asociada.`
+    );
   }
 
-  // 2) por estado
-  const estadoParts = [];
-  const pushEstado = (label, val) => {
-    if (!Number.isFinite(val) || val <= 0) return;
-    estadoParts.push(`${label} (${fmtMMUS(val)} MMU$)`);
-  };
-  pushEstado("Aprobado", invAprob);
-  pushEstado("En Calificación", invCalif);
-  pushEstado("Rechazado", invRech);
-  if (estadoParts.length) lines.push(`En términos de estado (inversión), se observa: ${estadoParts.join(", ")}.`);
+  // 2) Por estado (ENTEROS, ajuste en el mayor)
+  if (invTotal > 0 && (invAprob > 0 || invCalif > 0 || invRech > 0)) {
 
-  // relación calif vs aprobado
-  const rel = ratioText(invCalif, invAprob);
-  if (rel) lines.push(`La inversión en calificación equivale a ${rel}× la inversión aprobada en el radio.`);
+    const estados = [
+      { label: "Aprobado", val: invAprob },
+      { label: "En Calificación", val: invCalif },
+      { label: "Rechazado", val: invRech }
+    ].filter(e => e.val > 0);
 
-  // % aprobada
-  if (invTotal > 0 && Number.isFinite(invAprob)) {
-    const pctAprob = (invAprob / invTotal) * 100;
-    const pctTxt = fmtPctSmart(pctAprob);
-    if (pctTxt && pctTxt !== "0.0") lines.push(`El % de inversión aprobada corresponde a un ${pctTxt}% del total identificado.`);
-  }
-
-  // 3) por sector (monto + %), omite 0.0
-  if (invTotal > 0 && sectorsSorted.length) {
-    const maxSectors = 6;
-    const sectorParts = [];
-    for (const [sector, val] of sectorsSorted.slice(0, maxSectors)) {
-      const v = Number(val);
-      if (!Number.isFinite(v) || v <= 0) continue;
-      const pct = (v / invTotal) * 100;
-      const pctTxt = fmtPctSmart(pct);
-      if (!pctTxt || pctTxt === "0.0") continue;
-      sectorParts.push(`${sector} (${fmtMMUS(v)} MMU$, ${pctTxt}%)`);
-    }
-    if (sectorParts.length) lines.push(`Por sector, destacan: ${sectorParts.join(", ")}.`);
-  }
-
-  // 4) año con mayor inversión
-  if (invTotal > 0 && maxYear != null && maxYearInv != null && maxYearInv > 0) {
-    const pct = (maxYearInv / invTotal) * 100;
-    const pctTxt = fmtPctSmart(pct);
-    if (pctTxt && pctTxt !== "0.0") {
-      lines.push(`El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$, que corresponde al ${pctTxt}% del total identificado.`);
+    if (estados.length === 1) {
+      parts.push(
+        `Por estado (inversión), se observa: ${estados[0].label}: ${fmtInv(estados[0].val)} (100%).`
+      );
     } else {
-      lines.push(`El año que muestra la mayor inversión corresponde al año ${maxYear} con un monto de ${fmtMMUS(maxYearInv)} MMU$.`);
+
+      const withPct = estados.map(e => ({
+        ...e,
+        pct: Math.round((e.val / invTotal) * 100)
+      }));
+
+      let sumPct = withPct.reduce((a, e) => a + e.pct, 0);
+      let delta = 100 - sumPct;
+
+      const idxByDesc = withPct
+        .map((e, i) => ({ i, pct: e.pct }))
+        .sort((a, b) => b.pct - a.pct)
+        .map(o => o.i);
+
+      if (delta !== 0) {
+        for (const idx of idxByDesc) {
+          const p = withPct[idx].pct;
+          if (delta > 0) {
+            withPct[idx].pct += delta;
+            delta = 0;
+            break;
+          } else if (p + delta >= 1) {
+            withPct[idx].pct += delta;
+            delta = 0;
+            break;
+          }
+        }
+      }
+
+      const chunks = withPct.map(e =>
+        `${e.label}: ${fmtInv(e.val)} (${e.pct}%)`
+      );
+
+      parts.push(`Por estado (inversión), se observa: ${chunks.join(", ")}.`);
+    }
+
+    // Relación calificación / aprobado
+    if (invAprob > 0 && invCalif > 0) {
+      const ratio = invCalif / invAprob;
+      if (Number.isFinite(ratio) && ratio > 0) {
+        if (ratio >= 1) {
+          parts.push(`La inversión en calificación equivale a ${ratio.toFixed(1)}× la inversión aprobada.`);
+        } else {
+          const pct = ratio * 100;
+          if (pct >= 1) {
+            parts.push(`La inversión en calificación equivale a un ${pct.toFixed(0)}% de la inversión aprobada.`);
+          }
+        }
+      }
     }
   }
 
-  // 5) duración aprobados
-  if (avgMeses != null) {
-    lines.push(`Considerando únicamente los proyectos APROBADOS, la duración promedio del proceso de evaluación es de ${fmtMes(avgMeses)} meses.`);
+  // 3) Sector
+  if (invTotal > 0 && sectorsSorted.length) {
+    const top = sectorsSorted.slice(0, 4).filter(([, v]) => v > 0);
+    if (top.length) {
+      const topTxt = top.map(([s, v]) => {
+        const pct = Math.round((v / invTotal) * 100);
+        return `${pretty(s)} (${fmtInv(v)}, ${pct}%)`;
+      });
+      parts.push(`Por sector, destacan: ${topTxt.join(", ")}.`);
+    }
+  }
+
+  // 4) Año peak
+  if (invTotal > 0 && maxYear != null && maxYearInv != null && maxYearInv > 0) {
+    const pct = Math.round((maxYearInv / invTotal) * 100);
+    parts.push(
+      `El año que registra la mayor inversión corresponde a ${maxYear}, con ${fmtInv(maxYearInv)} (${pct}% del total identificado).`
+    );
+  }
+
+  // 5) Plazos
+  if (avgMeses != null && aprobados.length > 0) {
+    const mesesNum = Math.round(avgMeses);
+    const años = Math.floor(mesesNum / 12);
+    const mesesRest = mesesNum % 12;
+
+    const tiempoTxt =
+      años >= 2
+        ? (mesesRest ? `${años} años y ${mesesRest} meses` : `${años} años`)
+        : años === 1
+          ? (mesesRest ? `1 año y ${mesesRest} meses` : `1 año`)
+          : `${mesesNum} meses`;
+
+    parts.push(
+      `Considerando únicamente los proyectos aprobados, la duración promedio del proceso de evaluación es de ${tiempoTxt}.`
+    );
+
     if (breve && extenso && breve[0] !== extenso[0]) {
-      lines.push(`El sector que presenta el plazo más breve es ${breve[0]} (${fmtMes(breve[1])} meses), y el sector que presenta el plazo más extenso es ${extenso[0]} (${fmtMes(extenso[1])} meses).`);
+      parts.push(
+        `Por sector, el plazo promedio más breve se observa en ${pretty(breve[0])} (${fmtMes(breve[1])} meses), y el más extenso en ${pretty(extenso[0])} (${fmtMes(extenso[1])} meses).`
+      );
     }
   }
 
-  return lines.join("\n");
+  return parts.join(" ");
 }
+
+
 
 // =====================================================
 // ANÁLISIS HUMANO/IA EN HTML (desktop + mobile)
