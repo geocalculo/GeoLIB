@@ -107,25 +107,27 @@ gap: 1rem;
 position: relative;
 }
 
-/* Mapa cuadrado 1:1 */
+/* Mapa – ratio único para HTML y PDF */
 .map-square {
-flex: 1;
-aspect-ratio: 1 / 1;
-position: relative;
+  flex: 1;
+  aspect-ratio: 1 / 1;   /* 🔒 ÚNICA fuente de verdad */
+  position: relative;
+  min-height: 350px;     /* ✅ fallback correcto */
 }
 
 .map-square > #map {
-position: absolute;
-inset: 0;
-width: 100% !important;
-height: 100% !important;
-border-radius: 18px;
-overflow: hidden;
-box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
 }
 
-/* Fallback por si algún navegador ignora aspect-ratio */
-#map { min-height: 350px; }
+/* ❌ #map NO debe definir tamaño */
+#map { min-height: 0; }
+
 
 /* ========================================
 PANEL LATERAL DE PROYECTOS

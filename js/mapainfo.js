@@ -167,9 +167,10 @@ function initMobileSheet() {
   btnClose?.addEventListener("click", close);
   handle?.addEventListener("click", close);
 
-  window.__openMobileSheet = open;
+  window.__openMobileSheet = open;   // ✅ FIX
   window.__closeMobileSheet = close;
 }
+
 
 function openMobileSheet(p) {
   if (!isMobile()) return;
@@ -267,22 +268,32 @@ async function captureMapPng() {
   try {
     const theMap = window.__leafletMap;
     const bounds =
-      typeof mapLayers?.getQueryCircleBounds === "function" ? mapLayers.getQueryCircleBounds() : null;
+      typeof mapLayers?.getQueryCircleBounds === "function"
+        ? mapLayers.getQueryCircleBounds()
+        : null;
 
     if (theMap && bounds) {
-      theMap.fitBounds(bounds, {
-        padding: [30, 30],
-        animate: false,
-        maxZoom: 14,
-      });
+      theMap.fitBounds(bounds, { padding: [30, 30], animate: false, maxZoom: 14 });
+      theMap.invalidateSize(true);
     }
 
-    await new Promise((r) => setTimeout(r, 1000));
+    // Espera breve para layout + tiles
+  // Espera breve para layout + tiles (más fiable en Leaflet)
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 250));
+    try { theMap?.invalidateSize(true); } catch {}
+    await new Promise((r) => setTimeout(r, 120));
+
+
+    // Captura con tamaño REAL del contenedor (no inventar)
+    const rect = mapDiv.getBoundingClientRect();
+    const w = Math.round(rect.width);
+    const h = Math.round(rect.height);
 
     const dataUrl = await window.domtoimage.toPng(mapDiv, {
-      quality: 0.92,
-      width: mapDiv.offsetWidth,
-      height: mapDiv.offsetHeight,
+      width: w,
+      height: h,
+      style: { transform: "scale(1)", transformOrigin: "top left" },
     });
 
     return dataUrl;
@@ -291,6 +302,8 @@ async function captureMapPng() {
     return null;
   }
 }
+
+
 
 // =====================================================
 // EXPORTAR GRAFICOS PLOTLY A IMAGEN (para PDF) - LIVIANO
@@ -906,9 +919,13 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
   const margin = 15;
   const pageWidth = 210;
+  const pageBottom = 270;
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
+  // =====================================================
+  // PORTADA / CABECERA
+  // =====================================================
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.text("GeoEVA – Informe de Proximidad", margin, y);
@@ -924,24 +941,28 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   const info = [
     `Punto: ${Number(params.lat).toFixed(6)}, ${Number(params.lng).toFixed(6)}`,
     `Modo: ${params.modo} | Radio: ${Number(params.radio).toFixed(2)} km | Proyectos: ${params.n}`,
-    `${resumen.texto || "Sin datos"}`,
-    `${resumen.inversion || "Sin datos"}`,
+    `${resumen?.texto || "Sin datos"}`,
+    `${resumen?.inversion || "Sin datos"}`,
   ];
 
   info.forEach((line) => {
-    const lines = doc.splitTextToSize(line, contentWidth);
+    const lines = doc.splitTextToSize(String(line ?? ""), contentWidth);
     doc.text(lines, margin, y);
     y += lines.length * 5;
   });
 
   y += 5;
 
+  // =====================================================
+  // MAPA + PANEL (SIN DEFORMAR)
+  // =====================================================
   console.log("📷 Capturando mapa...");
   const mapPng = await captureMapPng();
 
   if (mapPng) {
-    const blockH = 95;
-    if (y + blockH > 270) {
+    // Si no cabe el bloque completo en la página, saltar ANTES
+    // (el alto final se calcula luego, pero esto evita títulos huérfanos)
+    if (y + 20 > pageBottom) {
       doc.addPage();
       y = margin;
     }
@@ -953,11 +974,46 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
     const gap = 6;
     const panelW = 68;
-    const mapW = contentWidth - panelW - gap;
-    const mapH = blockH;
 
+    // alto máximo permitido para el bloque mapa+panel
+    const maxBlockH = 95;
+
+    // ancho máximo disponible para el mapa (dejando espacio al panel)
+    const mapMaxW = contentWidth - panelW - gap;
+
+    // proporción REAL del PNG
+    const props = doc.getImageProperties(mapPng);
+    const imgRatio = props.width / props.height;
+
+    // ratio seguro (fallback si viene raro)
+    const safeRatio =
+      Number.isFinite(imgRatio) && imgRatio > 0 ? imgRatio : mapMaxW / maxBlockH;
+
+    // intento 1: usar ancho máximo
+    let mapW = mapMaxW;
+    let mapH = mapW / safeRatio;
+
+    // si se pasa del alto máximo, ajusta por alto
+    if (mapH > maxBlockH) {
+      mapH = maxBlockH;
+      mapW = mapH * safeRatio;
+    }
+
+    // si no cabe en la página, saltar ANTES de dibujar
+    if (y + mapH > pageBottom) {
+      doc.addPage();
+      y = margin;
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Mapa de consulta", margin, y);
+      y += 6;
+    }
+
+    // insertar mapa SIN deformar
     doc.addImage(mapPng, "PNG", margin, y, mapW, mapH);
 
+    // panel con misma altura
     drawSummaryListPanel(doc, {
       x: margin + mapW + gap,
       y,
@@ -968,14 +1024,15 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
     y += mapH + 10;
 
-    // ✅ Análisis técnico (título y texto canónicos)
+    // =====================================================
+    // ANÁLISIS (CAJA IA)
+    // =====================================================
     const aiBoxH = 55;
-    if (y + aiBoxH > 270) {
+    if (y + aiBoxH > pageBottom) {
       doc.addPage();
       y = margin;
     }
 
-    // ✅ query debe ser OBJETO (params), no params.n
     const aiText = computeExecutiveInsights(proyectos, params);
 
     drawExecutiveAiBox(doc, {
@@ -989,13 +1046,16 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
     y += aiBoxH + 8;
 
-    // ✅ Forzar que gráficos partan en página 2
+    // =====================================================
+    // FORZAR GRÁFICOS DESDE PÁGINA 2 (UNA SOLA VEZ)
+    // =====================================================
     doc.addPage();
     y = margin;
 
     console.log("✅ Mapa + lista resumen + análisis agregados");
   } else {
     doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
     doc.text("⚠ No se pudo capturar mapa", margin, y);
     y += 8;
 
@@ -1004,9 +1064,12 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
     y = margin;
   }
 
-  // ✅ Gráficos Plotly
+  // =====================================================
+  // GRÁFICOS PLOTLY
+  // =====================================================
   console.log("📊 Exportando gráficos...");
   const chartImages = await ensureChartsRenderedForPdf(model || window.__geoeva_model);
+
   if (chartImages.length) {
     y = addPlotImagesToPdf(doc, { images: chartImages, margin, pageWidth, yStart: y });
     console.log(`✅ Gráficos agregados: ${chartImages.length}`);
@@ -1014,7 +1077,9 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
     console.log("⚠ No hay gráficos para agregar (Plotly / render / DOM).");
   }
 
-  // Tabla final
+  // =====================================================
+  // TABLA FINAL
+  // =====================================================
   if (y > 250) {
     doc.addPage();
     y = margin;
@@ -1028,11 +1093,11 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   const headers = [["#", "Proyecto", "Estado", "Sector", "Región", "Dist. (km)"]];
   const data = (proyectos || []).map((p, i) => [
     String(i + 1),
-    (p.nombre || "").substring(0, 40),
-    p.estado || "—",
-    p.sector || "—",
-    p.region || "—",
-    Number.isFinite(p.distKm) ? p.distKm.toFixed(2) : "—",
+    (p?.nombre || "").toString().substring(0, 40),
+    (p?.estado || "—").toString(),
+    (p?.sector || "—").toString(),
+    (p?.region || "—").toString(),
+    Number.isFinite(p?.distKm) ? p.distKm.toFixed(2) : "—",
   ]);
 
   if (doc.autoTable) {
@@ -1054,9 +1119,24 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
       },
     });
     y = doc.lastAutoTable.finalY + 10;
+  } else {
+    // Fallback ultra simple si no está autotable
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    data.slice(0, 25).forEach((row) => {
+      if (y > pageBottom) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(row.join(" | ").slice(0, 110), margin, y);
+      y += 5;
+    });
   }
 
-  if (y > 270) {
+  // =====================================================
+  // FOOTER + GUARDAR
+  // =====================================================
+  if (y > pageBottom) {
     doc.addPage();
     y = margin;
   }
@@ -1069,6 +1149,7 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   doc.save(filename);
   console.log("✅ PDF:", filename);
 }
+
 
 function bindPdfButtonOnce() {
   const btn = document.getElementById("btnPdf");
