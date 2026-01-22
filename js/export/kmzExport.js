@@ -125,6 +125,10 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
   const lat = Number(q.lat);
   const lng = Number(q.lng);
 
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error("downloadProximityKMZ: lat/lng inválidos.");
+  }
+
   const radioFinal =
     Number.isFinite(q.radioKmFinal) && q.radioKmFinal > 0
       ? q.radioKmFinal
@@ -137,62 +141,107 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     `GeoEVA_${q.modo || "proximidad"}_${lat.toFixed(5)}_${lng.toFixed(5)}_${radioFinal.toFixed(2)}km`;
   const kmzName = safeFileName(baseName) + ".kmz";
 
+  // Helper GA4 seguro (no rompe si gtag no existe)
+  const gaEvent = (name, params = {}) => {
+    try {
+      if (typeof window.gtag === "function") window.gtag("event", name, params);
+    } catch (_) {}
+  };
+
+  // 1) INTENTO (click / inicio export)
+  gaEvent("download_kmz", {
+    event_category: "export",
+    event_label: kmzName,
+    mode: String(q.modo || "proximidad"),
+    radio_km: Number(radioFinal.toFixed(2)),
+  });
+
   const zip = new window.JSZip();
   const kmlName = "doc.kml";
 
-  let kml = "";
-  kml += kmlHeader("GeoEVA - Proximidad");
-  kml += kmlStyleDefs();
+  let objectUrl = null;
 
-  // Punto consulta
-  kml += placemarkPoint({
-    name: "Punto de consulta",
-    lon: lng,
-    lat: lat,
-    styleUrl: "#stQuery",
-    balloonHtmlCdata: renderKmlBalloonForQuery({ model, kind: "punto" }),
-  });
+  try {
+    let kml = "";
+    kml += kmlHeader("GeoEVA - Proximidad");
+    kml += kmlStyleDefs();
 
-  // Círculo
-  const ring = circlePolygonCoords(lng, lat, radioFinal, 120);
-  if (ring) {
-    kml += placemarkCircle({
-      name: `Radio ${radioFinal.toFixed(2)} km`,
-      ringCoords: ring,
-      balloonHtmlCdata: renderKmlBalloonForQuery({ model, kind: "circulo" }),
-    });
-  }
-
-  // Proyectos
-  for (const p of model.projects || []) {
-    const balloon = renderKmlBalloonHtml({
-      model,
-      p,
-      // Si tu graficos.js provee resumen extra para balloon, lo puedes inyectar aquí:
-      extraSummaryText: "",
-    });
-
+    // Punto consulta
     kml += placemarkPoint({
-      name: `${p.id}. ${p.nombre || "Proyecto"}`,
-      lon: p.lon,
-      lat: p.lat,
-      styleUrl: styleForBucket(p.bucket),
-      balloonHtmlCdata: balloon,
+      name: "Punto de consulta",
+      lon: lng,
+      lat: lat,
+      styleUrl: "#stQuery",
+      balloonHtmlCdata: renderKmlBalloonForQuery({ model, kind: "punto" }),
     });
+
+    // Círculo
+    const ring = circlePolygonCoords(lng, lat, radioFinal, 120);
+    if (ring) {
+      kml += placemarkCircle({
+        name: `Radio ${radioFinal.toFixed(2)} km`,
+        ringCoords: ring,
+        balloonHtmlCdata: renderKmlBalloonForQuery({ model, kind: "circulo" }),
+      });
+    }
+
+    // Proyectos
+    for (const p of model.projects || []) {
+      // (opcional) valida coords del proyecto
+      const plon = Number(p.lon);
+      const plat = Number(p.lat);
+      if (!Number.isFinite(plon) || !Number.isFinite(plat)) continue;
+
+      const balloon = renderKmlBalloonHtml({
+        model,
+        p,
+        extraSummaryText: "",
+      });
+
+      kml += placemarkPoint({
+        name: `${p.id}. ${p.nombre || "Proyecto"}`,
+        lon: plon,
+        lat: plat,
+        styleUrl: styleForBucket(p.bucket),
+        balloonHtmlCdata: balloon,
+      });
+    }
+
+    kml += kmlFooter();
+
+    zip.file(kmlName, kml);
+
+    const blob = await zip.generateAsync({ type: "blob" });
+
+    const a = document.createElement("a");
+    objectUrl = URL.createObjectURL(blob);
+    a.href = objectUrl;
+    a.download = kmzName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    // 2) ÉXITO REAL (descarga disparada)
+    gaEvent("download_kmz_success", {
+      event_category: "export",
+      event_label: kmzName,
+      mode: String(q.modo || "proximidad"),
+      radio_km: Number(radioFinal.toFixed(2)),
+      projects_n: Array.isArray(model.projects) ? model.projects.length : 0,
+    });
+  } catch (err) {
+    // (opcional) evento de error para diagnóstico
+    gaEvent("download_kmz_error", {
+      event_category: "export",
+      event_label: kmzName,
+      error_message: String(err?.message || err || "unknown"),
+    });
+    throw err;
+  } finally {
+    // Revocar objectURL aunque ocurra error
+    if (objectUrl) {
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+    }
   }
-
-  kml += kmlFooter();
-
-  zip.file(kmlName, kml);
-
-  const blob = await zip.generateAsync({ type: "blob" });
-
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = kmzName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }
+

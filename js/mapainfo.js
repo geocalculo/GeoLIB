@@ -1147,6 +1147,30 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
   const filename = `GeoEVA_informe_${Date.now()}.pdf`;
   doc.save(filename);
+
+  // ✅ GA4: conversión cuando el PDF ya fue “entregado” (doc.save)
+trackEvent("download_pdf_success", {
+  // Recomendado GA4
+  value: 1,
+
+  // Parámetros útiles (aparecen en DebugView / exploraciones)
+  event_category: "entregables",
+  event_label: "mapainfo_pdf",
+  file_name: filename,
+
+  // Contexto de la consulta
+  radio_km: Number.isFinite(params?.radio) ? Number(Number(params.radio).toFixed(2)) : null,
+  modo: params?.modo || null,
+  lat: Number.isFinite(Number(params?.lat)) ? Number(Number(params.lat).toFixed(6)) : null,
+  lng: Number.isFinite(Number(params?.lng)) ? Number(Number(params.lng).toFixed(6)) : null,
+
+  // Tamaño del resultado
+  proyectos: Array.isArray(proyectos) ? proyectos.length : null,
+
+  // Timestamp simple (útil para depurar)
+  ts: Date.now()
+});
+
   console.log("✅ PDF:", filename);
 }
 
@@ -1198,15 +1222,7 @@ function bindPdfButtonOnce() {
         model,
       });
 
-      // ✅ GA4: PDF generado OK (conversión “real”)
-      trackEvent("download_pdf_success", {
-        event_category: "entregables",
-        event_label: "mapainfo_pdf",
-        radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
-        modo: model?.query?.modo || null,
-        proyectos: Array.isArray(model?.projects) ? model.projects.length : null,
-        non_interaction: true
-      });
+
 
 
 
