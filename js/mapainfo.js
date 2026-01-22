@@ -1301,12 +1301,41 @@ async function main() {
   // Desktop: gráficos visibles. Mobile: gráficos ocultos por CSS (se exportan en PDF igual).
   if (!isMobile()) updateCharts(model);
 
-  bindKmzButton({
-    buttonId: "btnKmz",
-    getModel: () => model,
-    exporter: downloadProximityKMZ,
-    attachGlobalName: "downloadProximityKMZ",
-  });
+bindKmzButton({
+  buttonId: "btnKmz",
+  getModel: () => model,
+  exporter: async (...args) => {
+    const m = model;
+    const radio = Number(m?.query?.radioKmFinal ?? m?.query?.radioKm ?? m?.query?.radio ?? NaN);
+
+    // ✅ GA4: click KMZ (forzado desde mapainfo.js)
+    trackEvent("download_kmz", {
+      event_category: "entregables",
+      event_label: "mapainfo_kmz",
+      radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
+      modo: m?.query?.modo || null,
+      proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
+    });
+
+    // Ejecuta export real
+    const result = await downloadProximityKMZ(...args);
+
+    // ✅ GA4: success KMZ (forzado)
+    trackEvent("download_kmz_success", {
+      value: 1,
+      event_category: "entregables",
+      event_label: "mapainfo_kmz",
+      radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
+      modo: m?.query?.modo || null,
+      proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
+      ts: Date.now(),
+    });
+
+    return result;
+  },
+  attachGlobalName: "downloadProximityKMZ",
+});
+
 
   bindPdfButtonOnce();
 }
