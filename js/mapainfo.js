@@ -25,6 +25,8 @@ import { bindKmzButton } from "./ui/actions.js";
 
 const DATA_URL = "capas/nacional.compact.v2.json";
 
+
+
 let map = null;
 let mapLayers = null;
 let panel = null;
@@ -75,6 +77,18 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+  // =====================================================
+  // Helper CANÓNICO para leer Titular (JSON usa 'titular')
+  // =====================================================
+  // Helper CANÓNICO para leer Titular (robusto a mayúsculas/minúsculas)
+
+
+
+
+
+
+
 
 function enableTwoFingerZoomOnly(map) {
   if (!map || !isMobile()) return;
@@ -854,47 +868,121 @@ function drawExecutiveAiBox(doc, { x, y, w, h, title, text }) {
 // =====================================================
 // PANEL RESUMEN (MAPA + LISTA) PARA PDF
 // =====================================================
+
+
+
+
+// =====================================================
+// PANEL RESUMEN (MAPA + LISTA) PARA PDF
+// - Lista compacta en 3 líneas por proyecto:
+//   1) Nº + Nombre
+//   2) Titular + Inversión
+//   3) Estado · Distancia
+// =====================================================
 function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
+  const norm = (s) => String(s ?? "").trim().toLowerCase();
+  const pretty = (s) => (String(s ?? "—").trim() || "—");
+
+  const getInv = (p) => {
+    const v = Number(
+      p?.inversion ??
+        p?.inversionMm ??
+        p?.inv ??
+        p?.mmus ??
+        p?.inversion_mmus ??
+        p?.inversionMMUS
+    );
+    return Number.isFinite(v) ? v : null;
+  };
+
+  const fmtInv = (p) => {
+    const v = getInv(p);
+    return v == null ? "—" : v.toFixed(1);
+  };
+
+  // Caja
   doc.setDrawColor(220);
   doc.setFillColor(248, 248, 248);
   doc.roundedRect(x, y, w, h, 3, 3, "FD");
 
   let yy = y + 6;
 
+  // Título
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(20);
   doc.text("Lista de Proyectos", x + 4, yy);
   yy += 6;
 
+  // Config filas (3 líneas)
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(60);
 
-  const rowH = 6;
-  const maxRows = Math.floor((h - 14) / rowH);
+  const line1 = 3.6; // Nombre
+  const line2 = 3.4; // Titular+Inv
+  const line3 = 3.4; // Estado+Dist
+  const gapAfter = 2.0;
+  const rowH = line1 + line2 + line3 + gapAfter;
 
-  // Si quieres que el panel muestre solo APROBADOS, cambia a true:
+  const headerH = 14; // aprox: título + padding
+  const usableH = Math.max(0, h - headerH);
+  const maxRows = Math.max(1, Math.floor(usableH / rowH));
+
+  // Si quieres que muestre solo APROBADOS, cambia a true:
   const ONLY_APPROVED = false;
 
   const rows = (projects || [])
-    .filter((p) => (ONLY_APPROVED ? String(p?.estado || "").trim().toLowerCase() === "aprobado" : true))
+    .filter((p) => (ONLY_APPROVED ? norm(p?.estado) === "aprobado" : true))
     .slice(0, maxRows);
+
+  // Helper wrap seguro al ancho del panel
+  const wrap = (txt, maxW) => {
+    const s = String(txt ?? "");
+    // splitTextToSize devuelve array de líneas; si falla, devolvemos una sola línea
+    try {
+      return doc.splitTextToSize(s, maxW);
+    } catch {
+      return [s];
+    }
+  };
+
+  const textW = Math.max(10, w - 8); // padding 4+4
 
   rows.forEach((p, i) => {
     const n = String(i + 1).padStart(2, "0");
-    const name = (p.nombre || "Proyecto").toString().slice(0, 26);
-    const estado = (p.estado || "—").toString().slice(0, 14);
-    const dist = Number.isFinite(p.distKm) ? `${p.distKm.toFixed(1)} km` : "—";
 
+    const name = pretty(p?.nombre || p?.proyecto || "Proyecto");
+    const titular = (p?.titular || "–");
+
+
+    const inv = fmtInv(p); // MMUS$
+    const estado = pretty(p?.estado);
+    const dist = Number.isFinite(p?.distKm) ? `${p.distKm.toFixed(1)} km` : "—";
+
+    // 1) Nombre (bold, 1 línea)
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(30);
-    doc.text(`${n}  ${name}`, x + 4, yy);
+    const nameLine = `${n}  ${name}`;
+    const nameWrapped = wrap(nameLine, textW);
+    doc.text(String(nameWrapped[0] ?? nameLine), x + 4, yy);
+    yy += line1;
 
+    // 2) Titular + Inversión (normal, 1 línea)
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(90);
+    const infoLine = `Titular: ${titular} | Inv: ${inv} MMUS$`;
+    const infoWrapped = wrap(infoLine, textW);
+    doc.text(String(infoWrapped[0] ?? infoLine), x + 4, yy);
+    yy += line2;
+
+    // 3) Estado + Dist (gris, 1 línea)
     doc.setTextColor(110);
-    doc.text(`${estado} · ${dist}`, x + 4, yy + 3.5);
+    const metaLine = `${estado} · ${dist}`;
+    const metaWrapped = wrap(metaLine, textW);
+    doc.text(String(metaWrapped[0] ?? metaLine), x + 4, yy);
+    yy += line3 + gapAfter;
 
-    yy += rowH;
-
+    // Separador
     if (i < rows.length - 1) {
       doc.setDrawColor(235);
       doc.line(x + 4, yy - 1.2, x + w - 4, yy - 1.2);
@@ -903,6 +991,7 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
 
   doc.setTextColor(0);
 }
+
 
 // =====================================================
 // PDF CON jsPDF + IMAGEN DE MAPA
@@ -922,6 +1011,25 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   const pageBottom = 270;
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
+
+    // ✅ Helper inversión (MMUS$) para TABLA FINAL (scope downloadPDFDirect)
+  const getInv = (p) => {
+    const v = Number(
+      p?.inversion ??
+      p?.inversionMm ??
+      p?.inv ??
+      p?.mmus ??
+      p?.inversion_mmus ??
+      p?.inversionMMUS
+    );
+    return Number.isFinite(v) ? v : null;
+  };
+
+  const fmtInv = (p) => {
+    const v = getInv(p);
+    return v == null ? "—" : v.toFixed(1);
+  };
+
 
   // =====================================================
   // PORTADA / CABECERA
@@ -1090,15 +1198,34 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   doc.text("Proyectos Encontrados", margin, y);
   y += 8;
 
-  const headers = [["#", "Proyecto", "Estado", "Sector", "Región", "Dist. (km)"]];
+  const headers = [[
+    "#",
+    "Proyecto",
+    "Titular",
+    "Inv (MMUS$)",
+    "Estado",
+    "Sector",
+    "Región",
+    "Dist. (km)"
+  ]];
+
+
+
+
   const data = (proyectos || []).map((p, i) => [
     String(i + 1),
     (p?.nombre || "").toString().substring(0, 40),
+    (String(p?.titular ?? "–")).substring(0, 35),
+
+
+
+    fmtInv(p),
     (p?.estado || "—").toString(),
     (p?.sector || "—").toString(),
     (p?.region || "—").toString(),
     Number.isFinite(p?.distKm) ? p.distKm.toFixed(2) : "—",
   ]);
+
 
   if (doc.autoTable) {
     doc.autoTable({
@@ -1110,13 +1237,16 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
       headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 65 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 20, halign: "right" },
+        0: { cellWidth: 8 },             // #
+        1: { cellWidth: 48 },            // Proyecto
+        2: { cellWidth: 32 },            // Titular
+        3: { cellWidth: 16, halign: "right" }, // Inv
+        4: { cellWidth: 16 },            // Estado
+        5: { cellWidth: 18 },            // Sector
+        6: { cellWidth: 20 },            // Región
+        7: { cellWidth: 16, halign: "right" }, // Dist
       },
+
     });
     y = doc.lastAutoTable.finalY + 10;
   } else {

@@ -21,6 +21,7 @@ const JSON_FIELD_MAPPING = {
   lon: "lon",
   documentacion: "anexos",
   anio: "anio",
+  titular: "titular",
   meses: "meses",
 };
 
@@ -88,7 +89,9 @@ function mapJsonRowToProyecto(row, colIndex) {
   const regionIdx = colIndex[JSON_FIELD_MAPPING.region] ?? colIndex["region"];
   const estadoIdx = colIndex[JSON_FIELD_MAPPING.estado] ?? colIndex["estado"];
   const sectorIdx = colIndex[JSON_FIELD_MAPPING.sector] ?? colIndex["sector"];
+  const titularIdx = colIndex[JSON_FIELD_MAPPING.titular] ?? colIndex["titular"];
 
+  const titular = titularIdx !== undefined ? stripInvalidXmlChars(row[titularIdx] || "") : "";
   const nombre = stripInvalidXmlChars(row[nombreIdx] || "");
   const region = stripInvalidXmlChars(row[regionIdx] || "");
   const estado = stripInvalidXmlChars(row[estadoIdx] || "");
@@ -132,6 +135,7 @@ function mapJsonRowToProyecto(row, colIndex) {
     lat,
     lon,
     nombre,
+    titular,
     region,
     estado,
     sector,

@@ -10,6 +10,7 @@ export function renderInfoBar(model, ids = {}) {
     radioLabelId = "radioLabel",
     countLabelId = "countLabel",
     invLabelId = "invLabel",
+    titularLabelId = "titularLabel", // ✅ nuevo
   } = ids;
 
   const elCoords = document.getElementById(coordsLabelId);
@@ -17,6 +18,7 @@ export function renderInfoBar(model, ids = {}) {
   const elRadio = document.getElementById(radioLabelId);
   const elCount = document.getElementById(countLabelId);
   const elInv = document.getElementById(invLabelId);
+  const elTitular = document.getElementById(titularLabelId); // ✅ nuevo
 
   if (!model?.query) return;
 
@@ -31,7 +33,9 @@ export function renderInfoBar(model, ids = {}) {
   }
 
   if (elRadio) {
-    const r = Number.isFinite(q.radioKmFinal) ? q.radioKmFinal : (Number.isFinite(q.radioKmInput) ? q.radioKmInput : null);
+    const r = Number.isFinite(q.radioKmFinal)
+      ? q.radioKmFinal
+      : (Number.isFinite(q.radioKmInput) ? q.radioKmInput : null);
     elRadio.textContent = `Radio: ${r != null ? r.toFixed(2) : "—"} km`;
   }
 
@@ -46,5 +50,21 @@ export function renderInfoBar(model, ids = {}) {
   if (elInv) {
     const inv = Number.isFinite(model.stats?.invTotal) ? model.stats.invTotal : 0;
     elInv.textContent = `Inversión: ${formatMMU(inv)}`;
+  }
+
+  // ✅ Titular del proyecto más cercano (debug para ver dónde se “traba”)
+  if (elTitular) {
+    const nearest = (model.projects || []).reduce((best, p) => {
+      const d = Number(p?.distKm);
+      if (!Number.isFinite(d)) return best;
+      if (!best || d < best.dist) return { dist: d, p };
+      return best;
+    }, null)?.p;
+
+    const titular = String(nearest?.titular ?? "—").trim() || "—";
+    const nombre = String(nearest?.nombre ?? nearest?.proyecto ?? "—").trim() || "—";
+    const distTxt = Number.isFinite(nearest?.distKm) ? `${nearest.distKm.toFixed(2)} km` : "—";
+
+    elTitular.textContent = `Titular más cercano: ${titular} — ${nombre} (${distTxt})`;
   }
 }
