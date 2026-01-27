@@ -883,6 +883,14 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
   const norm = (s) => String(s ?? "").trim().toLowerCase();
   const pretty = (s) => (String(s ?? "—").trim() || "—");
 
+  // ✅ URL robusta para link en PDF
+  const safeUrl = (u) => {
+    const s = String(u ?? "").trim();
+    if (!s) return "";
+    if (/^https?:\/\//i.test(s)) return s;
+    return "https://" + s.replace(/^\/+/, "");
+  };
+
   const getInv = (p) => {
     const v = Number(
       p?.inversion ??
@@ -938,7 +946,6 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
   // Helper wrap seguro al ancho del panel
   const wrap = (txt, maxW) => {
     const s = String(txt ?? "");
-    // splitTextToSize devuelve array de líneas; si falla, devolvemos una sola línea
     try {
       return doc.splitTextToSize(s, maxW);
     } catch {
@@ -947,24 +954,36 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
   };
 
   const textW = Math.max(10, w - 8); // padding 4+4
+  const xText = x + 4;
 
   rows.forEach((p, i) => {
     const n = String(i + 1).padStart(2, "0");
 
     const name = pretty(p?.nombre || p?.proyecto || "Proyecto");
-    const titular = (p?.titular || "–");
-
+    const titular = p?.titular || "–";
 
     const inv = fmtInv(p); // MMUS$
     const estado = pretty(p?.estado);
     const dist = Number.isFinite(p?.distKm) ? `${p.distKm.toFixed(1)} km` : "—";
 
-    // 1) Nombre (bold, 1 línea)
+    // 1) Nombre (bold, 1 línea) + ✅ LINK invisible al expediente (p.web)
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30);
+
     const nameLine = `${n}  ${name}`;
     const nameWrapped = wrap(nameLine, textW);
-    doc.text(String(nameWrapped[0] ?? nameLine), x + 4, yy);
+    const nameToPrint = String(nameWrapped[0] ?? nameLine);
+
+    doc.text(nameToPrint, xText, yy);
+
+    // 🔗 Link solo en PDF: el nombre abre el expediente SEA (columna web)
+    const url = safeUrl(p?.web);
+    if (url) {
+      const linkW = doc.getTextWidth(nameToPrint);
+      // Caja clickeable sobre la línea del texto
+      doc.link(xText, yy - 3.8, linkW, 5.2, { url });
+    }
+
     yy += line1;
 
     // 2) Titular + Inversión (normal, 1 línea)
@@ -972,14 +991,14 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
     doc.setTextColor(90);
     const infoLine = `Titular: ${titular} | Inv: ${inv} MMUS$`;
     const infoWrapped = wrap(infoLine, textW);
-    doc.text(String(infoWrapped[0] ?? infoLine), x + 4, yy);
+    doc.text(String(infoWrapped[0] ?? infoLine), xText, yy);
     yy += line2;
 
     // 3) Estado + Dist (gris, 1 línea)
     doc.setTextColor(110);
     const metaLine = `${estado} · ${dist}`;
     const metaWrapped = wrap(metaLine, textW);
-    doc.text(String(metaWrapped[0] ?? metaLine), x + 4, yy);
+    doc.text(String(metaWrapped[0] ?? metaLine), xText, yy);
     yy += line3 + gapAfter;
 
     // Separador
@@ -999,6 +1018,16 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
 async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   console.log("📄 Generando PDF...");
 
+  // ✅ LinkedIn conversion (PDF download)
+  try {
+    if (typeof window.lintrk === "function") {
+      window.lintrk("track", { conversion_id: 25912449 });
+      console.log("LinkedIn Conversion Sent: PDF Download");
+    }
+  } catch (e) {
+    console.warn("Error enviando conversión a LinkedIn:", e);
+  }
+
   if (!window.jspdf || !window.jspdf.jsPDF) {
     throw new Error("jsPDF no disponible");
   }
@@ -1012,15 +1041,25 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
-    // ✅ Helper inversión (MMUS$) para TABLA FINAL (scope downloadPDFDirect)
+  // =====================================================
+  // Helpers
+  // =====================================================
+  const safeUrl = (u) => {
+    const s = String(u ?? "").trim();
+    if (!s) return "";
+    if (/^https?:\/\//i.test(s)) return s;
+    return "https://" + s.replace(/^\/+/, "");
+  };
+
+  // ✅ Helper inversión (MMUS$) para TABLA FINAL
   const getInv = (p) => {
     const v = Number(
       p?.inversion ??
-      p?.inversionMm ??
-      p?.inv ??
-      p?.mmus ??
-      p?.inversion_mmus ??
-      p?.inversionMMUS
+        p?.inversionMm ??
+        p?.inv ??
+        p?.mmus ??
+        p?.inversion_mmus ??
+        p?.inversionMMUS
     );
     return Number.isFinite(v) ? v : null;
   };
@@ -1029,7 +1068,6 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
     const v = getInv(p);
     return v == null ? "—" : v.toFixed(1);
   };
-
 
   // =====================================================
   // PORTADA / CABECERA
@@ -1069,7 +1107,6 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
   if (mapPng) {
     // Si no cabe el bloque completo en la página, saltar ANTES
-    // (el alto final se calcula luego, pero esto evita títulos huérfanos)
     if (y + 20 > pageBottom) {
       doc.addPage();
       y = margin;
@@ -1198,34 +1235,31 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   doc.text("Proyectos Encontrados", margin, y);
   y += 8;
 
-  const headers = [[
-    "#",
-    "Proyecto",
-    "Titular",
-    "Inv (MMUS$)",
-    "Estado",
-    "Sector",
-    "Región",
-    "Dist. (km)"
-  ]];
+  const headers = [
+    [
+      "#",
+      "Proyecto",
+      "Titular",
+      "Inv (MMUS$)",
+      "Estado",
+      "Sector",
+      "Región",
+      "Dist. (km)",
+    ],
+  ];
 
-
-
-
+  // ⚠️ Importante: aquí trunco "Proyecto" a 40 chars.
+  // En didDrawCell usamos EXACTAMENTE el mismo label (cell.text[0]) para medir el ancho del link.
   const data = (proyectos || []).map((p, i) => [
     String(i + 1),
     (p?.nombre || "").toString().substring(0, 40),
     (String(p?.titular ?? "–")).substring(0, 35),
-
-
-
     fmtInv(p),
     (p?.estado || "—").toString(),
     (p?.sector || "—").toString(),
     (p?.region || "—").toString(),
     Number.isFinite(p?.distKm) ? p.distKm.toFixed(2) : "—",
   ]);
-
 
   if (doc.autoTable) {
     doc.autoTable({
@@ -1234,20 +1268,83 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
       startY: y,
       margin: { left: margin, right: margin },
       styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+      headStyles: {
+        fillColor: [240, 240, 240],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+      },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: {
-        0: { cellWidth: 8 },             // #
-        1: { cellWidth: 48 },            // Proyecto
-        2: { cellWidth: 32 },            // Titular
+        0: { cellWidth: 8 },                   // #
+        1: { cellWidth: 48 },                  // Proyecto
+        2: { cellWidth: 32 },                  // Titular
         3: { cellWidth: 16, halign: "right" }, // Inv
-        4: { cellWidth: 16 },            // Estado
-        5: { cellWidth: 18 },            // Sector
-        6: { cellWidth: 20 },            // Región
+        4: { cellWidth: 16 },                  // Estado
+        5: { cellWidth: 18 },                  // Sector
+        6: { cellWidth: 20 },                  // Región
         7: { cellWidth: 16, halign: "right" }, // Dist
       },
 
+      // ✅ SOLO UNO: link expediente (web) + icono 📎 a anexos (documentacion)
+      didDrawCell: (hook) => {
+        try {
+          if (hook.section !== "body") return;
+          if (hook.column.index !== 1) return; // SOLO columna "Proyecto"
+
+          const i = hook.row.index;
+          const p = (proyectos || [])[i];
+          if (!p) return;
+
+          const cell = hook.cell;
+
+          // 1) Link al expediente sobre el texto del nombre
+          const expUrl = safeUrl(p?.web);
+          if (expUrl) {
+            const label =
+              String(cell.text?.[0] ?? "").trim() ||
+              ((p?.nombre || "").toString().substring(0, 40)) ||
+              "—";
+
+            const x0 = cell.x + 2; // padding izquierdo
+            const w = doc.getTextWidth(label);
+            doc.link(x0, cell.y + 1, w, cell.height - 2, { url: expUrl });
+          }
+
+          // 2) Tag pequeño → anexos (documentacion)
+          const anexosUrl = safeUrl(p?.documentacion);
+          if (anexosUrl) {
+            const tag = "[anexos]";
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);          // 👈 más chico que el texto normal
+            doc.setTextColor(120);       // 👈 gris tipo referencia
+
+            const tagW = doc.getTextWidth(tag);
+            const tagX = cell.x + cell.width - tagW - 2;
+            const tagY = cell.y + cell.height / 2 + 2.1;
+
+            // dibuja el texto
+            doc.text(tag, tagX, tagY);
+
+            // área clickeable SOLO sobre [anexos]
+            doc.link(
+              tagX,
+              cell.y + 1,
+              tagW,
+              cell.height - 2,
+              { url: anexosUrl }
+            );
+
+            doc.setTextColor(0);
+          }
+
+
+        } catch (e) {
+          console.warn("didDrawCell link warning:", e);
+        }
+      },
     });
+
     y = doc.lastAutoTable.finalY + 10;
   } else {
     // Fallback ultra simple si no está autotable
@@ -1278,28 +1375,27 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   const filename = `GeoEVA_informe_${Date.now()}.pdf`;
   doc.save(filename);
 
-  // ✅ GA4: conversión cuando el PDF ya fue “entregado” (doc.save)
-trackEvent("download_pdf_success", {
-  // Recomendado GA4
-  value: 1,
+  // ✅ GA4: conversión cuando el PDF ya fue “entregado”
+  trackEvent("download_pdf_success", {
+    value: 1,
+    event_category: "entregables",
+    event_label: "mapainfo_pdf",
+    file_name: filename,
 
-  // Parámetros útiles (aparecen en DebugView / exploraciones)
-  event_category: "entregables",
-  event_label: "mapainfo_pdf",
-  file_name: filename,
+    radio_km: Number.isFinite(params?.radio)
+      ? Number(Number(params.radio).toFixed(2))
+      : null,
+    modo: params?.modo || null,
+    lat: Number.isFinite(Number(params?.lat))
+      ? Number(Number(params.lat).toFixed(6))
+      : null,
+    lng: Number.isFinite(Number(params?.lng))
+      ? Number(Number(params.lng).toFixed(6))
+      : null,
 
-  // Contexto de la consulta
-  radio_km: Number.isFinite(params?.radio) ? Number(Number(params.radio).toFixed(2)) : null,
-  modo: params?.modo || null,
-  lat: Number.isFinite(Number(params?.lat)) ? Number(Number(params.lat).toFixed(6)) : null,
-  lng: Number.isFinite(Number(params?.lng)) ? Number(Number(params.lng).toFixed(6)) : null,
-
-  // Tamaño del resultado
-  proyectos: Array.isArray(proyectos) ? proyectos.length : null,
-
-  // Timestamp simple (útil para depurar)
-  ts: Date.now()
-});
+    proyectos: Array.isArray(proyectos) ? proyectos.length : null,
+    ts: Date.now(),
+  });
 
   console.log("✅ PDF:", filename);
 }

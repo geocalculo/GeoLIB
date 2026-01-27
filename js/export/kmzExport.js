@@ -141,6 +141,19 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     `GeoEVA_${q.modo || "proximidad"}_${lat.toFixed(5)}_${lng.toFixed(5)}_${radioFinal.toFixed(2)}km`;
   const kmzName = safeFileName(baseName) + ".kmz";
 
+    // =====================================================
+    // ✅ TRACKING DE LINKEDIN ADS (NUEVA CONVERSIÓN KMZ)
+    // =====================================================
+    try {
+      if (typeof window.lintrk === 'function') {
+        window.lintrk('track', { conversion_id: 25912457 });
+        console.log("LinkedIn Conversion Sent: KMZ Download Triggered");
+      }
+    } catch (e) {
+      console.warn("Error enviando conversión KMZ a LinkedIn:", e);
+    }
+    // =====================================================
+
   // Helper GA4 seguro (no rompe si gtag no existe)
   const gaEvent = (name, params = {}) => {
     try {
