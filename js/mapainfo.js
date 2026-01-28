@@ -234,6 +234,8 @@ function openMobileSheet(p) {
 window.openMobileSheet = openMobileSheet;
 window.__isMobile = isMobile;
 
+
+
 function initMap({ lat, lng }) {
   map = L.map("map", { center: [lat, lng], zoom: 11, minZoom: 4, zoomControl: true });
   window.__leafletMap = map;
@@ -1010,6 +1012,54 @@ function drawSummaryListPanel(doc, { x, y, w, h, projects }) {
 
   doc.setTextColor(0);
 }
+// =====================================================
+// PIE DE PAGINA HTTPS://GEOEVA.CLY HTTPS://GEOIPT.CL
+// =====================================================
+function addPdfFooter(doc, { margin = 15 } = {}) {
+  const pageCount = doc.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const leftX = margin;
+  const rightX = pageWidth - margin;
+  const y = pageHeight - 10;
+
+  const url1 = "https://geoipt.cl";
+  const url2 = "https://geoeva.cl";
+
+  const line1 = "geoipt.cl – Sitio de consulta de instrumentos de planificación territorial";
+  const line2 = "geoeva.cl – Sitio de consulta de evaluación ambiental de proyectos cercanos";
+
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+
+    // Línea separadora
+    doc.setDrawColor(220);
+    doc.line(margin, y - 4, pageWidth - margin, y - 4);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+
+    // Texto (izquierda)
+    doc.text(line1, leftX, y);
+    doc.text(line2, leftX, y + 4);
+
+    // Links clickeables (derecha)
+    doc.setTextColor(60);
+    const u1w = doc.getTextWidth(url1);
+    const u2w = doc.getTextWidth(url2);
+
+    doc.text(url1, rightX - u1w, y);
+    doc.link(rightX - u1w, y - 3.2, u1w, 4.6, { url: url1 });
+
+    doc.text(url2, rightX - u2w, y + 4);
+    doc.link(rightX - u2w, y + 0.8, u2w, 4.6, { url: url2 });
+
+    doc.setTextColor(0);
+  }
+}
+
 
 
 // =====================================================
@@ -1373,6 +1423,10 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   doc.text(`Generado: ${new Date().toLocaleString("es-CL")}`, margin, y);
 
   const filename = `GeoEVA_informe_${Date.now()}.pdf`;
+
+  // ✅ Footer con hipervínculos en todas las páginas
+  addPdfFooter(doc, { margin });
+
   doc.save(filename);
 
   // ✅ GA4: conversión cuando el PDF ya fue “entregado”
@@ -1467,6 +1521,32 @@ function bindPdfButtonOnce() {
   });
 }
 
+function resizeAllPlots(retries = 6) {
+  if (!window.Plotly) return;
+
+  const plots = document.querySelectorAll(".js-plotly-plot, .plotly-graph-div, .plotly-chart");
+
+  // Si aún no existen plots (o están en 0px), reintenta un poco
+  if ((!plots || plots.length === 0) && retries > 0) {
+    setTimeout(() => resizeAllPlots(retries - 1), 180);
+    return;
+  }
+
+  let anyResized = false;
+
+  plots.forEach((p) => {
+    if (!p) return;
+    if (p.offsetWidth > 0 && p.offsetHeight > 0) {
+      try { Plotly.Plots.resize(p); anyResized = true; } catch {}
+    }
+  });
+
+  // Si existían pero estaban en 0px, reintenta un poco
+  if (!anyResized && retries > 0) {
+    setTimeout(() => resizeAllPlots(retries - 1), 180);
+  }
+}
+
 async function main() {
   const params = getMapainfoParamsFromUrl();
   if (isMobile()) params.n = 10;
@@ -1524,8 +1604,12 @@ async function main() {
 
   panel.render(model.projects);
 
-  // Desktop: gráficos visibles. Mobile: gráficos ocultos por CSS (se exportan en PDF igual).
-  if (!isMobile()) updateCharts(model);
+  // ✅ Gráficos también en mobile
+  await updateCharts(model);
+
+  // ✅ Fix: Plotly en mobile a veces renderiza con 0px → forzamos resize
+  requestAnimationFrame(() => resizeAllPlots());
+  setTimeout(resizeAllPlots, 250);
 
 bindKmzButton({
   buttonId: "btnKmz",
@@ -1565,6 +1649,9 @@ bindKmzButton({
 
   bindPdfButtonOnce();
 }
+
+window.addEventListener("orientationchange", () => setTimeout(() => resizeAllPlots(), 450));
+window.addEventListener("resize", () => setTimeout(() => resizeAllPlots(), 250));
 
 document.addEventListener("DOMContentLoaded", () => {
   initMobileSheet();

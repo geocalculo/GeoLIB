@@ -595,3 +595,16 @@ font-weight: 700; text-decoration: none;
 }
 
 .chart-card { cursor: default !important; }
+
+/* =========================
+   MOBILE FIX: Plotly charts
+   ========================= */
+@media (max-width: 768px) {
+  /* Ajusta estos selectores a tus contenedores reales */
+  .chart-box,
+  .plotly-chart,
+  .plotly-graph-div {
+    min-height: 280px !important;
+    height: 280px !important;
+  }
+}
