@@ -134,13 +134,110 @@ function onRegionChange(e) {
   setTimeout(() => refreshByBbox(), 250);
 }
 
+// --------------------------------
+// GEOLOCATION (inicio por ubicación usuario)
+// --------------------------------
+const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 }; // Antofagasta
+const USER_ZOOM = 12;
+let __geoLayer = null;
+
+function setBboxInfo(msg, mode = "") {
+  const el = document.getElementById("bboxInfo");
+  if (!el) return;
+  el.textContent = msg;
+  el.dataset.mode = mode; // "geo" cuando el mensaje es GPS
+}
+
+function canOverwriteBboxInfo() {
+  const el = document.getElementById("bboxInfo");
+  return !el || el.dataset.mode !== "geo";
+}
+
+function clearGeoLayer() {
+  if (!state.map || !__geoLayer) return;
+  try { __geoLayer.remove(); } catch (_) {}
+  __geoLayer = null;
+}
+
+function drawGeo(lat, lon, acc) {
+  clearGeoLayer();
+  __geoLayer = L.layerGroup().addTo(state.map);
+
+  L.circleMarker([lat, lon], { radius: 7, weight: 2, fillOpacity: 0.7 }).addTo(__geoLayer);
+  L.circle([lat, lon], {
+    radius: Math.min(Math.max(acc ?? 50, 25), 800),
+    weight: 1,
+    fillOpacity: 0.08,
+  }).addTo(__geoLayer);
+}
+
+function tryCenterOnUser() {
+  const map = state.map;
+  if (!map) return;
+
+  console.log("[geo] origin:", window.location.origin, "secure:", window.isSecureContext);
+  if (!("geolocation" in navigator)) {
+    console.warn("[geo] sin geolocation → fallback");
+    map.setView(FALLBACK_VIEW.center, FALLBACK_VIEW.zoom);
+    return;
+  }
+
+  setBboxInfo("📍 Buscando tu ubicación… (permite el GPS)", "geo");
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      console.log("[geo] OK", latitude, longitude, "±", Math.round(accuracy || 0), "m");
+
+      map.setView([latitude, longitude], USER_ZOOM, { animate: true });
+      drawGeo(latitude, longitude, accuracy);
+
+      setBboxInfo(`📍 Tu ubicación (±${Math.round(accuracy || 0)} m)`, "geo");
+    },
+    (err) => {
+      console.warn("[geo] ERROR", err?.code, err?.message, "→ fallback");
+      map.setView(FALLBACK_VIEW.center, FALLBACK_VIEW.zoom);
+      setBboxInfo(`📍 GPS no disponible (code ${err?.code ?? "?"}) → fallback`, "geo");
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+  );
+}
+
+// Botón Leaflet "📍" para reintentar cuando el usuario quiera
+function addLocateButton(map) {
+  const LocateControl = L.Control.extend({
+    options: { position: "topleft" },
+    onAdd: function () {
+      const btn = L.DomUtil.create("button", "leaflet-bar");
+      btn.type = "button";
+      btn.title = "Mi ubicación";
+      btn.innerHTML = "📍";
+      btn.style.width = "34px";
+      btn.style.height = "34px";
+      btn.style.cursor = "pointer";
+      btn.style.background = "#fff";
+      btn.style.border = "none";
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.on(btn, "click", (ev) => {
+        L.DomEvent.stop(ev);
+        tryCenterOnUser();
+      });
+      return btn;
+    },
+  });
+
+  map.addControl(new LocateControl());
+}
+
+
 // ---------------------------
 // Mapa
 // ---------------------------
 function initMap() {
   const map = L.map("map", {
-    center: [-23.6509, -70.3975],
-    zoom: 9,
+    center: FALLBACK_VIEW.center,
+    zoom: FALLBACK_VIEW.zoom,
+
     minZoom: 4,
     zoomControl: true,
   });
@@ -186,6 +283,11 @@ setTimeout(showMapBalloon, 100);
 
   state.map = map;
   state.markersLayer = markersLayer;
+
+    // ✅ Botón + intento inicial de geolocalización
+  addLocateButton(map);
+  tryCenterOnUser();
+
 }
 
 // ---------------------------
@@ -403,8 +505,11 @@ function refreshByBbox() {
 
   drawMarkers(proyectosEnBBox);
 
-  const bboxInfo = document.getElementById("bboxInfo");
-  if (bboxInfo) bboxInfo.textContent = `Proyectos en pantalla: ${proyectosEnBBox.length} proyectos`;
+  if (canOverwriteBboxInfo()) {
+    const bboxInfo = document.getElementById("bboxInfo");
+    if (bboxInfo) bboxInfo.textContent = `Proyectos en pantalla: ${proyectosEnBBox.length} proyectos`;
+  }
+
 
   const resumenRE = calcResumenRegionEstado(proyectosEnBBox);
   renderSummaryTable(resumenRE);

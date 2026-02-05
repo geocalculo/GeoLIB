@@ -6,18 +6,21 @@ import { renderSummaryTable, summarizeByRegionAndState } from "../ui/summaryTabl
 import { buildMapainfoUrl } from "./router.js";
 
 const DATA_XLSX_URL = "capas/nacional.xlsx";
-const REGIONES_JSON_URL = "capas/regiones.json";
+const REGIONES_JSON_URL = "capas/regiones.json"; // (reservado si lo usas más adelante)
 
 let map;
 let markersLayer;
 let proyectos = [];
 let filtros;
 
+// --------------------------------
+// Analytics (si está gtag)
+// --------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   if (window.gtag) {
     gtag("event", "open_geoeva", {
       event_category: "engagement",
-      event_label: "index"
+      event_label: "index",
     });
   }
 });
@@ -26,11 +29,10 @@ document.getElementById("helpOnboardingBtn")?.addEventListener("click", () => {
   if (window.gtag) {
     gtag("event", "open_onboarding", {
       event_category: "engagement",
-      event_label: "geoeva_help"
+      event_label: "geoeva_help",
     });
   }
 });
-
 
 // ===============================
 // DEBUG RESUMEN MÓVIL (FORZADO)
@@ -48,7 +50,6 @@ function debugForceMobileSummary(n) {
 
   console.log("✅ mobile summary actualizado (debug)", n);
 }
-
 
 // --------------------------------
 // Utils
@@ -69,8 +70,7 @@ function normalizeEstado(s) {
 }
 
 /**
- * Ajusta estos match si tus estados vienen con variantes.
- * La idea es mapear a 3 buckets: aprobados / calificacion / rechazados
+ * Buckets para 3 estados visibles en resumen móvil.
  */
 function bucketEstado(estado) {
   const e = normalizeEstado(estado);
@@ -81,7 +81,8 @@ function bucketEstado(estado) {
     e.includes("resolucion de calificacion ambiental favorable") ||
     e.includes("rca favorable") ||
     e === "aprobado"
-  ) return "aprobados";
+  )
+    return "aprobados";
 
   // En calificación / tramitación
   if (
@@ -91,39 +92,35 @@ function bucketEstado(estado) {
     e.includes("admis") ||
     e.includes("en revision") ||
     e.includes("en evaluacion")
-  ) return "calificacion";
+  )
+    return "calificacion";
 
-  // Rechazados / desistidos / no admitidos (ajusta según tu criterio)
+  // Rechazados / desistidos / no admitidos
   if (
     e.includes("rechaz") ||
     e.includes("desist") ||
     e.includes("no admis") ||
     e.includes("termin") ||
     e.includes("caduc")
-  ) return "rechazados";
+  )
+    return "rechazados";
 
-  // Si no calza, no lo contamos en el resumen móvil (o puedes meterlo en calificación)
   return "otros";
 }
 
 function updateMobileSummaryFromVisibles(visibles) {
-  // contar por palabras clave simples (SEA-friendly)
-  let aprobados = 0, calificacion = 0, rechazados = 0;
+  let aprobados = 0,
+    calificacion = 0,
+    rechazados = 0;
 
   for (const p of visibles) {
-    const e = normalizeEstado(p.estado);
-
-    if (e.includes("rechaz") || e.includes("desfavorable") || e.includes("desist") || e.includes("inadmis") || e.includes("no admit")) {
-      rechazados++;
-    } else if (e.includes("aprob") || e.includes("favorable") || e.includes("rca favorable")) {
-      aprobados++;
-    } else {
-      // default: en trámite / calificación
-      calificacion++;
-    }
+    const b = bucketEstado(p.estado);
+    if (b === "aprobados") aprobados++;
+    else if (b === "rechazados") rechazados++;
+    else if (b === "calificacion") calificacion++;
+    else calificacion++; // default: lo metemos a "en calificación" para no perder conteo
   }
 
-  // escribir valores usando data-key (robusto)
   const root = document.getElementById("mobileSummary");
   if (!root) return;
 
@@ -137,18 +134,137 @@ function updateMobileSummaryFromVisibles(visibles) {
   setVal("rechazados", rechazados);
 }
 
+// --------------------------------
+// GEOLOCATION (zoom inicial por ubicación del usuario)
+// --------------------------------
+const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 }; // Antofagasta
+const USER_ZOOM = 12; // 11–14 suele andar bien
+let didAutoCenter = false;
+let __userLocateLayer = null;
+
+function setBboxInfo(msg) {
+  const el = document.getElementById("bboxInfo");
+  if (el) el.textContent = msg;
+}
+
+function clearUserLocateLayer() {
+  if (!map || !__userLocateLayer) return;
+  try {
+    __userLocateLayer.remove();
+  } catch (_) {}
+  __userLocateLayer = null;
+}
+
+function drawUserLocate(lat, lon, accuracy) {
+  clearUserLocateLayer();
+
+  __userLocateLayer = L.layerGroup().addTo(map);
+
+  L.circleMarker([lat, lon], {
+    radius: 7,
+    weight: 2,
+    fillOpacity: 0.7,
+  }).addTo(__userLocateLayer);
+
+  L.circle([lat, lon], {
+    radius: Math.min(Math.max(accuracy ?? 50, 25), 800),
+    weight: 1,
+    fillOpacity: 0.08,
+  }).addTo(__userLocateLayer);
+}
+
+function tryCenterOnUser(map) {
+  const log = (...a) => console.log("[geo]", ...a);
+  const warn = (...a) => console.warn("[geo]", ...a);
+
+  log("origin:", window.location.origin);
+  log("secureContext:", window.isSecureContext);
+  log("hasGeolocation:", "geolocation" in navigator);
+
+  if (!("geolocation" in navigator)) {
+    warn("navegador sin geolocation → fallback");
+    setBboxInfo("📍 GPS no disponible (fallback Antofagasta).");
+    map.setView(FALLBACK_VIEW.center, FALLBACK_VIEW.zoom);
+    return;
+  }
+
+  // Diagnóstico de permisos (si existe)
+  if (navigator.permissions?.query) {
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((p) => log("permission:", p.state))
+      .catch(() => {});
+  }
+
+  setBboxInfo("📍 Buscando tu ubicación… (permite el GPS)");
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      didAutoCenter = true;
+
+      log("OK:", latitude, longitude, "±", Math.round(accuracy || 0), "m");
+
+      map.setView([latitude, longitude], USER_ZOOM, { animate: true });
+      drawUserLocate(latitude, longitude, accuracy);
+
+      setBboxInfo(`📍 Tu ubicación (±${Math.round(accuracy || 0)} m)`);
+    },
+    (err) => {
+      // err.code: 1=denied, 2=unavailable, 3=timeout
+      warn("ERROR:", err?.code, err?.message);
+
+      const code = err?.code ?? "?";
+      setBboxInfo(`📍 GPS no disponible (code ${code}) → fallback Antofagasta`);
+      map.setView(FALLBACK_VIEW.center, FALLBACK_VIEW.zoom);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 0,
+    }
+  );
+}
+
+// Botón Leaflet “📍 Mi ubicación”
+function addLocateButton(map) {
+  const LocateControl = L.Control.extend({
+    options: { position: "topleft" },
+    onAdd: function () {
+      const btn = L.DomUtil.create("button", "leaflet-bar");
+      btn.type = "button";
+      btn.title = "Mi ubicación";
+      btn.innerHTML = "📍";
+      btn.style.width = "34px";
+      btn.style.height = "34px";
+      btn.style.cursor = "pointer";
+      btn.style.background = "#fff";
+      btn.style.border = "none";
+
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.on(btn, "click", (ev) => {
+        L.DomEvent.stop(ev);
+        tryCenterOnUser(map);
+      });
+
+      return btn;
+    },
+  });
+
+  map.addControl(new LocateControl());
+}
 
 // --------------------------------
 // MAP INIT
 // --------------------------------
 function initMap() {
   map = L.map("map", {
-    center: [-23.6509, -70.3975],
-    zoom: 9,
+    center: FALLBACK_VIEW.center,
+    zoom: FALLBACK_VIEW.zoom,
     minZoom: 4,
     zoomControl: true,
     dragging: !isMobile(),
-    touchZoom: isMobile(),     // ✅ 2 dedos
+    touchZoom: isMobile(), // ✅ 2 dedos
     scrollWheelZoom: false,
     doubleClickZoom: false,
     boxZoom: false,
@@ -158,12 +274,14 @@ function initMap() {
   // Guardar referencia global
   window.__leafletMap = map;
 
+  // Base OSM (principal)
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     opacity: 1,
     attribution: "&copy; OpenStreetMap contributors",
   }).addTo(map);
 
+  // Satelital tenue
   L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     { maxZoom: 19, opacity: 0.2 }
@@ -182,6 +300,10 @@ function initMap() {
   map.on("click", onMapClick);
 
   setTimeout(() => map.invalidateSize(), 150);
+
+  // ✅ Botón GPS + intento inicial
+  addLocateButton(map);
+  tryCenterOnUser(map);
 }
 
 // --------------------------------
@@ -228,13 +350,17 @@ function actualizarResumenYCapas() {
     }).addTo(markersLayer);
   });
 
-  safeText("bboxInfo", `Proyectos en pantalla: ${visibles.length}`);
+  // Si el bboxInfo está mostrando mensajes GPS, no lo pises agresivamente:
+  // Solo actualiza si no está en modo "📍 ..."
+  const bboxEl = document.getElementById("bboxInfo");
+  const cur = bboxEl?.textContent || "";
+  if (!cur.startsWith("📍")) {
+    safeText("bboxInfo", `Proyectos en pantalla: ${visibles.length}`);
+  }
 
-  // Desktop: tabla resumen existente
   const resumen = summarizeByRegionAndState(visibles);
   renderSummaryTable(resumen, "summaryTableContainer");
 
-  // Mobile: barra 3 estados (si existe)
   updateMobileSummaryFromVisibles(visibles);
 }
 
@@ -258,7 +384,7 @@ function onMapClick(e) {
 }
 
 // --------------------------------
-// MOBILE: ocultar panel + backdrop + botón (si están en DOM)
+// MOBILE: ocultar panel + backdrop + botón
 // --------------------------------
 function forceMobileNoPanel() {
   const panel = document.getElementById("configPanel");
@@ -276,11 +402,9 @@ function forceMobileNoPanel() {
 function boot() {
   initMap();
 
-  // ✅ Si es móvil: no inicializamos panel responsive
   if (isMobile()) {
     forceMobileNoPanel();
   } else {
-    // ✅ Desktop: panel normal
     initPanelResponsive({
       panelId: "configPanel",
       backdropId: "panelBackdrop",
@@ -292,7 +416,6 @@ function boot() {
       },
       onClose: () => {
         document.body.style.overflow = "";
-        // ✅ importante: re-habilitar drag en desktop
         map.dragging.enable();
       },
     });
@@ -307,4 +430,3 @@ function boot() {
 }
 
 document.addEventListener("DOMContentLoaded", boot);
-
