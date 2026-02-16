@@ -276,7 +276,7 @@ setTimeout(showMapBalloon, 100);
 
   const markersLayer = L.layerGroup().addTo(map);
 
-  map.on("moveend", refreshByBbox);
+  map.on("moveend", createDebouncedRefreshByBbox());
   map.on("click", onMapClick);
 
   // invalidate para layout full-height
@@ -289,6 +289,19 @@ setTimeout(showMapBalloon, 100);
   addLocateButton(map);
   tryCenterOnUser();
 
+}
+
+function createDebouncedRefreshByBbox(delayMs = 200) {
+  let timerId = null;
+
+  return () => {
+    if (timerId) clearTimeout(timerId);
+
+    timerId = setTimeout(() => {
+      timerId = null;
+      refreshByBbox();
+    }, delayMs);
+  };
 }
 
 // ---------------------------
