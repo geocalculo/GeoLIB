@@ -1,19 +1,21 @@
 // js/ui/chartsController.js
 // VERSIÓN DEBUG para diagnosticar problema de meses
 
+import { log, warn } from "../core/logger.js";
+
 export function updateCharts(model) {
-  console.log("=== DEBUG chartsController ===");
-  console.log("model.projects:", model?.projects?.length);
+  log("=== DEBUG chartsController ===");
+  log("model.projects:", model?.projects?.length);
   
   if (typeof window.initCharts !== "function") {
-    console.warn("window.initCharts no disponible - graficos.js no cargado?");
+    warn("window.initCharts no disponible - graficos.js no cargado?");
     return;
   }
 
   // Debug: ver primeros 3 proyectos RAW
-  console.log("Primeros 3 proyectos del modelo:");
+  log("Primeros 3 proyectos del modelo:");
   (model?.projects || []).slice(0, 3).forEach((p, i) => {
-    console.log(`  Proyecto ${i}:`, {
+    log(`  Proyecto ${i}:`, {
       nombre: p.nombre?.substring(0, 40),
       estado: p.estado,
       meses: p.meses,
@@ -47,9 +49,9 @@ export function updateCharts(model) {
     id: p.id ?? null,
   }));
 
-  console.log("Primeros 3 proyectos DESPUÉS de mapeo:");
+  log("Primeros 3 proyectos DESPUÉS de mapeo:");
   chartData.slice(0, 3).forEach((p, i) => {
-    console.log(`  ChartData ${i}:`, {
+    log(`  ChartData ${i}:`, {
       nombre: p.nombre.substring(0, 40),
       estado: p.estado,
       meses: p.meses,
@@ -60,13 +62,13 @@ export function updateCharts(model) {
   const conMeses = chartData.filter(p => 
     Number.isFinite(p.meses) && p.meses > 0
   ).length;
-  console.log(`[chartsController] Proyectos con meses válidos: ${conMeses}/${chartData.length}`);
+  log(`[chartsController] Proyectos con meses válidos: ${conMeses}/${chartData.length}`);
 
   const aprobadosConMeses = chartData.filter(p => {
     const est = (p.estado || "").toLowerCase();
     return est.includes("aprob") && Number.isFinite(p.meses) && p.meses > 0;
   }).length;
-  console.log(`[chartsController] APROBADOS con meses válidos: ${aprobadosConMeses}`);
+  log(`[chartsController] APROBADOS con meses válidos: ${aprobadosConMeses}`);
 
   window.initCharts(chartData);
 }

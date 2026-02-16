@@ -22,6 +22,7 @@ import { downloadProximityKMZ } from "./export/kmzExport.js";
 import { getMapainfoParamsFromUrl } from "./app/router.js";
 import { renderInfoBar } from "./ui/infoBar.js";
 import { bindKmzButton } from "./ui/actions.js";
+import { log, warn, error } from "./core/logger.js";
 
 const DATA_URL = "capas/nacional.compact.v2.json";
 
@@ -274,7 +275,7 @@ function initMap({ lat, lng }) {
 // =====================================================
 async function captureMapPng() {
   if (!window.domtoimage) {
-    console.warn("dom-to-image no cargado");
+    warn("dom-to-image no cargado");
     return null;
   }
 
@@ -314,7 +315,7 @@ async function captureMapPng() {
 
     return dataUrl;
   } catch (error) {
-    console.warn("Error capturando mapa:", error);
+    warn("Error capturando mapa:", error);
     return null;
   }
 }
@@ -326,14 +327,14 @@ async function captureMapPng() {
 // =====================================================
 async function ensureChartsRenderedForPdf(model) {
   if (!window.Plotly) {
-    console.warn("Plotly no está cargado; no se exportarán gráficos.");
+    warn("Plotly no está cargado; no se exportarán gráficos.");
     return [];
   }
 
   const chartsSection = document.getElementById("chartsSection");
   const chartsGrid = document.getElementById("chartsGrid");
   if (!chartsSection || !chartsGrid) {
-    console.warn("No existe chartsSection/chartsGrid en el DOM.");
+    warn("No existe chartsSection/chartsGrid en el DOM.");
     return [];
   }
 
@@ -357,13 +358,13 @@ async function ensureChartsRenderedForPdf(model) {
   try {
     await updateCharts(model);
   } catch (e) {
-    console.warn("No se pudo ejecutar updateCharts(model):", e);
+    warn("No se pudo ejecutar updateCharts(model):", e);
   }
 
   await new Promise((r) => setTimeout(r, 250));
 
   const plotDivs = Array.from(chartsGrid.querySelectorAll(".js-plotly-plot"));
-  if (!plotDivs.length) console.warn("No se encontraron .js-plotly-plot dentro de chartsGrid.");
+  if (!plotDivs.length) warn("No se encontraron .js-plotly-plot dentro de chartsGrid.");
 
   try {
     plotDivs.forEach((d) => window.Plotly.Plots.resize(d));
@@ -385,7 +386,7 @@ async function ensureChartsRenderedForPdf(model) {
       });
       images.push({ title, dataUrl, kind: "JPEG" });
     } catch (e) {
-      console.warn(`No se pudo exportar gráfico ${i + 1}:`, e);
+      warn(`No se pudo exportar gráfico ${i + 1}:`, e);
     }
   }
 
@@ -816,7 +817,7 @@ function renderExecutiveAnalysis(model) {
     const txt = computeExecutiveInsights(model?.projects || [], model?.query || {});
     p.innerHTML = escapeHtml(txt).replace(/\n/g, "<br>");
   } catch (e) {
-    console.warn("No se pudo renderizar análisis ejecutivo:", e);
+    warn("No se pudo renderizar análisis ejecutivo:", e);
   }
 }
 
@@ -1066,16 +1067,16 @@ function addPdfFooter(doc, { margin = 15 } = {}) {
 // PDF CON jsPDF + IMAGEN DE MAPA
 // =====================================================
 async function downloadPDFDirect({ params, resumen, proyectos, model }) {
-  console.log("📄 Generando PDF...");
+  log("📄 Generando PDF...");
 
   // ✅ LinkedIn conversion (PDF download)
   try {
     if (typeof window.lintrk === "function") {
       window.lintrk("track", { conversion_id: 25912449 });
-      console.log("LinkedIn Conversion Sent: PDF Download");
+      log("LinkedIn Conversion Sent: PDF Download");
     }
   } catch (e) {
-    console.warn("Error enviando conversión a LinkedIn:", e);
+    warn("Error enviando conversión a LinkedIn:", e);
   }
 
   if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -1152,7 +1153,7 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   // =====================================================
   // MAPA + PANEL (SIN DEFORMAR)
   // =====================================================
-  console.log("📷 Capturando mapa...");
+  log("📷 Capturando mapa...");
   const mapPng = await captureMapPng();
 
   if (mapPng) {
@@ -1247,7 +1248,7 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
     doc.addPage();
     y = margin;
 
-    console.log("✅ Mapa + lista resumen + análisis agregados");
+    log("✅ Mapa + lista resumen + análisis agregados");
   } else {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
@@ -1262,14 +1263,14 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   // =====================================================
   // GRÁFICOS PLOTLY
   // =====================================================
-  console.log("📊 Exportando gráficos...");
+  log("📊 Exportando gráficos...");
   const chartImages = await ensureChartsRenderedForPdf(model || window.__geoeva_model);
 
   if (chartImages.length) {
     y = addPlotImagesToPdf(doc, { images: chartImages, margin, pageWidth, yStart: y });
-    console.log(`✅ Gráficos agregados: ${chartImages.length}`);
+    log(`✅ Gráficos agregados: ${chartImages.length}`);
   } else {
-    console.log("⚠ No hay gráficos para agregar (Plotly / render / DOM).");
+    log("⚠ No hay gráficos para agregar (Plotly / render / DOM).");
   }
 
   // =====================================================
@@ -1390,7 +1391,7 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
 
 
         } catch (e) {
-          console.warn("didDrawCell link warning:", e);
+          warn("didDrawCell link warning:", e);
         }
       },
     });
@@ -1451,7 +1452,7 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
     ts: Date.now(),
   });
 
-  console.log("✅ PDF:", filename);
+  log("✅ PDF:", filename);
 }
 
 
@@ -1513,7 +1514,7 @@ function bindPdfButtonOnce() {
         btn.disabled = false;
       }, 2000);
     } catch (err) {
-      console.error("❌ Error:", err);
+      error("❌ Error:", err);
       alert(`Error: ${err.message}`);
       btn.textContent = "🖨️ PDF";
       btn.disabled = false;
@@ -1656,7 +1657,7 @@ window.addEventListener("resize", () => setTimeout(() => resizeAllPlots(), 250))
 document.addEventListener("DOMContentLoaded", () => {
   initMobileSheet();
   main().catch((err) => {
-    console.error("❌ Error:", err);
+    error("❌ Error:", err);
     alert("Error fatal al cargar datos.");
   });
 });

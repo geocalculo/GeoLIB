@@ -12,6 +12,7 @@
 
 import { loadProyectosXlsx } from "../core/dataLoader.js";
 import { escapeHtml } from "../core/utils.js";
+import { log, warn, error } from "../core/logger.js";
 
 // 🎈 Balloon UX: pista inicial (1 segundo)
 function showMapBalloon() {
@@ -56,7 +57,7 @@ function saveBasemapPrefs({
       JSON.stringify({ addOSM, osmOpacity, addIMG, imgOpacity })
     );
   } catch (e) {
-    console.warn("No se pudo guardar geoeva_basemap:", e);
+    warn("No se pudo guardar geoeva_basemap:", e);
   }
 }
 
@@ -97,7 +98,7 @@ async function loadRegionesData() {
     state.regiones = await resp.json();
     populateRegionSelect();
   } catch (err) {
-    console.error("❌ Error cargando regiones.json:", err);
+    error("❌ Error cargando regiones.json:", err);
     state.regiones = [];
     if (select) {
       select.innerHTML = '<option value="">❌ Error cargando regiones</option>';
@@ -175,9 +176,9 @@ function tryCenterOnUser() {
   const map = state.map;
   if (!map) return;
 
-  console.log("[geo] origin:", window.location.origin, "secure:", window.isSecureContext);
+  log("[geo] origin:", window.location.origin, "secure:", window.isSecureContext);
   if (!("geolocation" in navigator)) {
-    console.warn("[geo] sin geolocation → fallback");
+    warn("[geo] sin geolocation → fallback");
     map.setView(FALLBACK_VIEW.center, FALLBACK_VIEW.zoom);
     return;
   }
@@ -187,7 +188,7 @@ function tryCenterOnUser() {
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude, longitude, accuracy } = pos.coords;
-      console.log("[geo] OK", latitude, longitude, "±", Math.round(accuracy || 0), "m");
+      log("[geo] OK", latitude, longitude, "±", Math.round(accuracy || 0), "m");
 
       map.setView([latitude, longitude], USER_ZOOM, { animate: true });
       drawGeo(latitude, longitude, accuracy);
@@ -195,7 +196,7 @@ function tryCenterOnUser() {
       setBboxInfo(`📍 Tu ubicación (±${Math.round(accuracy || 0)} m)`, "geo");
     },
     (err) => {
-      console.warn("[geo] ERROR", err?.code, err?.message, "→ fallback");
+      warn("[geo] ERROR", err?.code, err?.message, "→ fallback");
       map.setView(FALLBACK_VIEW.center, FALLBACK_VIEW.zoom);
       setBboxInfo(`📍 GPS no disponible (code ${err?.code ?? "?"}) → fallback`, "geo");
     },
@@ -621,7 +622,7 @@ function initControls() {
 // Main
 // ---------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("🚀 GeoEVA app/index.js iniciando...");
+  log("🚀 GeoEVA app/index.js iniciando...");
 
   initMap();
   initControls();
@@ -632,12 +633,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     // Perfil "index": nombre/region/estado/sector/lat/lon
     state.proyectos = await loadProyectosXlsx(DATA_XLSX_URL, "index");
-    console.log("✔ Proyectos cargados:", state.proyectos.length);
+    log("✔ Proyectos cargados:", state.proyectos.length);
   } catch (err) {
-    console.error("❌ Error cargando XLSX:", err);
+    error("❌ Error cargando XLSX:", err);
     return;
   }
 
   refreshByBbox();
-  console.log("✅ GeoEVA Explorador listo (nuevo app/index.js).");
+  log("✅ GeoEVA Explorador listo (nuevo app/index.js).");
 });
