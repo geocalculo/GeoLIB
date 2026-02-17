@@ -12,7 +12,7 @@
 
 import { loadProyectosXlsx } from "../core/dataLoader.js";
 import { escapeHtml } from "../core/utils.js";
-import { log, warn, error } from "../core/logger.js";
+import { DEBUG, log, warn, error } from "../core/logger.js";
 
 // 🎈 Balloon UX: pista inicial (1 segundo)
 function showMapBalloon() {
@@ -39,6 +39,7 @@ const state = {
   proyectos: [],
   map: null,
   markersLayer: null,
+  markerIndex: new Map(),
   regiones: [],
 };
 
@@ -307,11 +308,20 @@ function createDebouncedRefreshByBbox(delayMs = 200) {
 // ---------------------------
 // Marcadores (BBOX visible)
 // ---------------------------
+function getProjectKey(p) {
+  if (p?.id != null && p.id !== "") return String(p.id);
+
+  return `${Number(p.lat).toFixed(6)}|${Number(p.lon).toFixed(6)}|${String(
+    p.nombre || ""
+  ).trim()}`;
+}
+
 function drawMarkers(proyectosVisibles) {
   const layer = state.markersLayer;
   if (!layer) return;
-
-  layer.clearLayers();
+  const markerIndex = state.markerIndex;
+  const visibleKeys = new Set();
+  let addCount = 0;
 
   const colores = {
     Aprob: "#10b981",
@@ -321,6 +331,11 @@ function drawMarkers(proyectosVisibles) {
   };
 
   proyectosVisibles.forEach((p) => {
+    const key = getProjectKey(p);
+    visibleKeys.add(key);
+
+    if (markerIndex.has(key)) return;
+
     const estadoLower = String(p.estado || "").toLowerCase();
     const estadoKey =
       estadoLower.includes("aprob")
@@ -350,7 +365,23 @@ function drawMarkers(proyectosVisibles) {
     `);
 
     layer.addLayer(marker);
+    markerIndex.set(key, marker);
+    addCount++;
   });
+
+  let removeCount = 0;
+  for (const [key, marker] of markerIndex) {
+    if (visibleKeys.has(key)) continue;
+    layer.removeLayer(marker);
+    markerIndex.delete(key);
+    removeCount++;
+  }
+
+  if (DEBUG) {
+    log(
+      `[markers] visible=${visibleKeys.size} add=${addCount} remove=${removeCount} totalIndex=${markerIndex.size}`
+    );
+  }
 }
 
 // ---------------------------
