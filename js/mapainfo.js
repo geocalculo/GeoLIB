@@ -56,6 +56,18 @@ function trackEvent(name, params = {}) {
   }
 }
 
+function trackPdfConversion(params = {}) {
+  trackEvent("download_pdf", params);
+
+  try {
+    if (typeof window.lintrk === "function") {
+      window.lintrk("track", { conversion_id: 25912449 });
+    }
+  } catch (e) {
+    // No romper por tracking
+  }
+}
+
 
 function isMobile() {
   return window.matchMedia("(max-width: 768px)").matches;
@@ -1069,16 +1081,6 @@ function addPdfFooter(doc, { margin = 15 } = {}) {
 async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   log("📄 Generando PDF...");
 
-  // ✅ LinkedIn conversion (PDF download)
-  try {
-    if (typeof window.lintrk === "function") {
-      window.lintrk("track", { conversion_id: 25912449 });
-      log("LinkedIn Conversion Sent: PDF Download");
-    }
-  } catch (e) {
-    warn("Error enviando conversión a LinkedIn:", e);
-  }
-
   if (!window.jspdf || !window.jspdf.jsPDF) {
     throw new Error("jsPDF no disponible");
   }
@@ -1478,17 +1480,14 @@ function bindPdfButtonOnce() {
 
       const radio = Number(model?.query?.radioKmFinal ?? model?.query?.radioKm ?? model?.query?.radio ?? NaN);
 
-      // ✅ GA4: click en PDF (entregable principal)
-      trackEvent("download_pdf", {
+      trackPdfConversion({
         event_category: "entregables",
         event_label: "mapainfo_pdf",
         radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
         modo: model?.query?.modo || null,
         proyectos: Array.isArray(model?.projects) ? model.projects.length : null,
-        non_interaction: true
-
+        non_interaction: true,
       });
-
 
       await downloadPDFDirect({
         params: {
