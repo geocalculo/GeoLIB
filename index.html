@@ -10,10 +10,7 @@
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
 
-    // GA4 GeoEVA (NUEVO)
     gtag('config', 'G-1MZPKTVT0F');
-
-    // Google Ads (se mantiene)
     gtag('config', 'AW-2594851442');
   </script>
 
@@ -38,32 +35,20 @@
     })(window.lintrk);
   </script>
 
-
-
-
   <title>SEA proyectos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Fuente -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-  <!-- CSS -->
   <link rel="stylesheet" href="css/index-fullheight.css" />
- 
-
 </head>
 
 <body>
 
-  <!-- =========================
-       ONBOARDING (overlay fijo)
-       (fuera del layout del sitio)
-       ========================= -->
+  <!-- ONBOARDING -->
   <div id="geoeva-onboarding" class="geoeva-onboarding" aria-label="Guía de inicio" aria-hidden="true">
     <div class="geoeva-onboarding__box" role="dialog" aria-modal="true">
 
@@ -100,22 +85,20 @@
     </div>
   </div>
 
-  <!-- =========================
-       APP WRAPPER (layout)
-       ========================= -->
+  <!-- APP -->
   <div class="app-wrapper">
 
-    <!-- HEADER -->
     <header class="app-header">
       <div class="app-header-inner">
         <h1>Proyectos</h1>
-        
+
         <div class="region-selector-container">
           <label for="region-select" class="region-label">📍 Región:</label>
           <select id="region-select" class="region-select">
             <option value="">Cargando regiones...</option>
           </select>
         </div>
+
         <button
           id="helpOnboardingBtn"
           class="help-onboarding-btn"
@@ -123,11 +106,9 @@
           aria-label="Cómo funciona GeoEVA"
         >
           ❓ Ayuda
-      </button>
-
+        </button>
       </div>
 
-      <!-- RESUMEN MOVIL -->
       <div class="mobile-summary" id="mobileSummary" aria-label="Resumen por estado">
         <button class="ms-card ms-aprobados" type="button">
           <div class="ms-label">🟢 Aprobados</div>
@@ -144,98 +125,34 @@
           <div class="ms-value" data-key="rechazados">—</div>
         </button>
       </div>
-
-      <button
-        id="togglePanelBtn"
-        class="panel-toggle-btn"
-        type="button"
-        aria-label="Abrir configuración"
-      >
-        ☰ Configuración
-      </button>
     </header>
 
-    <!-- MAIN -->
     <main>
       <div class="layout">
 
-        <!-- PANEL -->
-        <section class="panel" id="configPanel">
-          <div class="panel-scroll">
-
-            <div class="panel-section">
-              <div class="badge badge-resumen">📊 RESUMEN</div>
-
-              <div id="bboxInfo" class="bbox-info">
-                Proyectos en pantalla: —
-              </div>
-
-              <div id="summaryTableContainer" class="summary-table-container"></div>
-              <div id="sectorTableContainer" class="summary-table-container"></div>
-            </div>
-
-            <div class="panel-section">
-
-              <div class="field-block">
-                <label class="field-label">Modo de selección</label>
-                <div class="radio-group">
-                  <label class="chip">
-                    <input type="radio" checked />
-                    <span>Por Proximidad</span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="field-block">
-                <label class="field-label">Proyectos más cercanos</label>
-                <input
-                  type="range"
-                  id="nSlider"
-                  min="5"
-                  max="20"
-                  step="1"
-                  value="10"
-                  class="range-input"
-                />
-                <div class="hint">
-                  N aprobados: <strong><span id="nValue">10</span></strong>
-                </div>
-              </div>
-
-              <span class="hint">
-                El detalle se abre tocando el mapa.
-              </span>
-
-            </div>
-          </div>
-        </section>
-
-        <div id="panelBackdrop" class="panel-backdrop"></div>
-
-        <!-- MAPA -->
         <section class="map-section">
-
-          <!-- Balloon hint inicial -->
           <div id="map-balloon">Haz clic sobre el mapa para comenzar</div>
-
           <div id="map" class="map-main"></div>
         </section>
+
+        <aside class="geoeva-side-banner" aria-label="Banner promocional">
+          <iframe
+            src="banners/banner_01_geoipt.html"
+            title="Banner GeoIPT"
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin">
+          </iframe>
+        </aside>
 
       </div>
     </main>
 
-    <!-- SCRIPTS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-    <!-- Onboarding (NO module) -->
     <script src="js/onboarding.js?v=1"></script>
-
-    <!-- App principal -->
     <script type="module" src="js/app/index.js?v=3"></script>
 
-
-  </div> <!-- /app-wrapper -->
+  </div>
 
 </body>
 </html>
