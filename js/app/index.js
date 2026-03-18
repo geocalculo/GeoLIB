@@ -253,6 +253,15 @@ window.dispatchEvent(new CustomEvent("geoeva:map-ready", { detail: { map } }));
 
 setTimeout(showMapBalloon, 100);
 
+  initMapCursorHint({
+    storageKey: "geoeva_map_hint_seen_v1",
+    mapContainerId: "map",
+    hintId: "map-hint-cursor",
+    showDelay: 1400,
+    visibleMs: 6500,
+    desktopOnly: true,
+  });
+
 
   const capaOSM = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     opacity: 1.0,
@@ -564,6 +573,133 @@ function refreshByBbox() {
   updateMobileSummary(proyectosEnBBox);
 
 }
+
+// --------------------------------
+// HINT CURSOR MAPA (solo 1ª vez)
+// --------------------------------
+function initMapCursorHint(options = {}) {
+  const {
+    storageKey = "geoeva_map_hint_seen_v1",
+    mapContainerId = "map",
+    hintId = "map-hint-cursor",
+    showDelay = 1200,
+    visibleMs = 6500,
+    desktopOnly = true,
+  } = options;
+
+  const isMobileViewport = window.matchMedia("(max-width: 768px)").matches;
+  if (desktopOnly && isMobileViewport) return;
+
+  let alreadySeen = false;
+  try {
+    alreadySeen = localStorage.getItem(storageKey) === "1";
+  } catch (_) {}
+
+  if (alreadySeen) return;
+
+  const mapEl = document.getElementById(mapContainerId);
+  const hintEl = document.getElementById(hintId);
+
+  if (!mapEl || !hintEl) {
+    console.warn("⚠️ Hint mapa no inicializado: falta #map o #" + hintId);
+    return;
+  }
+
+  let active = false;
+  let started = false;
+  let hideTimer = null;
+
+  function moveHint(ev) {
+    if (!active) return;
+    hintEl.style.left = `${ev.clientX}px`;
+    hintEl.style.top = `${ev.clientY}px`;
+  }
+
+  function markSeen() {
+    try {
+      localStorage.setItem(storageKey, "1");
+    } catch (_) {}
+  }
+
+  function hideHint(mark = true) {
+    if (!started) return;
+
+    active = false;
+    hintEl.classList.remove("is-visible");
+    hintEl.classList.add("is-leaving");
+
+    window.removeEventListener("mousemove", moveHint);
+
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+
+    if (mark) markSeen();
+
+    window.setTimeout(() => {
+      hintEl.classList.remove("is-leaving");
+    }, 250);
+  }
+
+  function showHint() {
+    if (started) return;
+    started = true;
+    active = true;
+
+    hintEl.classList.add("is-visible");
+    window.addEventListener("mousemove", moveHint, { passive: true });
+
+    if (window.gtag) {
+      gtag("event", "map_hint_shown", {
+        event_category: "engagement",
+        event_label: "geoeva_index_map",
+      });
+    }
+
+    hideTimer = window.setTimeout(() => {
+      hideHint(true);
+    }, visibleMs);
+  }
+
+  window.setTimeout(() => {
+    const rect = mapEl.getBoundingClientRect();
+    hintEl.style.left = `${rect.left + 90}px`;
+    hintEl.style.top = `${rect.top + 90}px`;
+    showHint();
+  }, showDelay);
+
+  mapEl.addEventListener(
+    "click",
+    () => {
+      if (window.gtag) {
+        gtag("event", "map_hint_clicked", {
+          event_category: "engagement",
+          event_label: "geoeva_index_map",
+        });
+      }
+      hideHint(true);
+    },
+    { once: true }
+  );
+
+  mapEl.addEventListener(
+    "mousedown",
+    () => {
+      hideHint(true);
+    },
+    { once: true }
+  );
+
+  mapEl.addEventListener(
+    "mouseleave",
+    () => {
+      if (active) hideHint(true);
+    },
+    { once: true }
+  );
+}
+
 
 // ---------------------------
 // Click en mapa → mapainfo.html
