@@ -283,3 +283,29 @@ select:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+#map-hint-cursor {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+
+  background: rgba(15, 23, 42, 0.9);
+  color: #fff;
+
+  padding: 10px 14px;
+  border-radius: 12px;
+
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+
+  backdrop-filter: blur(6px);
+
+  opacity: 0;
+  transform: translate(10px, 10px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#map-hint-cursor.show {
+  opacity: 1;
+}

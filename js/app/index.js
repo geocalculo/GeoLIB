@@ -209,11 +209,6 @@ function initMap() {
     attribution: "&copy; OpenStreetMap contributors",
   }).addTo(map);
 
-  L.tileLayer(
-    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { opacity: 0.2, maxZoom: 19 }
-  ).addTo(map);
-
   L.control.scale().addTo(map);
   map.addControl(new (createLocateControl())());
 
@@ -224,7 +219,15 @@ function initMap() {
   map.on("moveend", refreshOnMoveEnd);
   map.on("click", handleMapClick);
 
-  saveBasemapPrefs();
+  initMapCursorHint(map);
+
+  saveBasemapPrefs({
+    addOSM: true,
+    osmOpacity: 1,
+    addIMG: false,
+    imgOpacity: 0,
+  });
+
   centerOnUser();
   window.__leafletMap = map;
 }
@@ -289,43 +292,46 @@ async function loadRegions() {
   });
 }
 
-function initHints() {
-  const isMobile = window.matchMedia("(max-width: 768px)").matches;
-  const hintId = isMobile ? "mobile-map-hint" : "desktop-map-hint";
-  const hint = document.getElementById(hintId);
-  const storageKey = isMobile ? "geoeva_mobile_map_hint_seen_v1" : "geoeva_desktop_map_hint_seen_v1";
 
+
+function initMapCursorHint(map) {
+  const hint = document.getElementById("map-hint-cursor");
   if (!hint) return;
 
-  try {
-    if (localStorage.getItem(storageKey) === "1") return;
-  } catch (storageError) {
-    warn("No se pudo leer el estado del hint", storageError);
+  // Solo desktop
+  const isDesktop = window.matchMedia("(pointer: fine)").matches;
+  if (!isDesktop) return;
+
+  let visible = false;
+  let timeout;
+
+  function showHint() {
+    hint.classList.add("show");
+    visible = true;
+
+    timeout = setTimeout(() => {
+      hideHint();
+    }, 4000);
   }
 
-  const dismiss = () => {
-    hint.classList.remove("is-visible");
-    hint.setAttribute("aria-hidden", "true");
-    try {
-      localStorage.setItem(storageKey, "1");
-    } catch (storageError) {
-      warn("No se pudo persistir el estado del hint", storageError);
-    }
-  };
+  function hideHint() {
+    hint.classList.remove("show");
+    visible = false;
+    clearTimeout(timeout);
+  }
 
-  window.setTimeout(() => {
-    hint.classList.add("is-visible");
-    hint.setAttribute("aria-hidden", "false");
-    track("geoeva_map_hint_shown", {
-      event_category: "engagement",
-      event_label: isMobile ? "mobile" : "desktop",
-    });
-  }, 700);
+  map.getContainer().addEventListener("mouseenter", () => {
+    if (!visible) showHint();
+  });
 
-  window.setTimeout(dismiss, 6500);
+  map.getContainer().addEventListener("mousemove", (e) => {
+    hint.style.left = e.clientX + 12 + "px";
+    hint.style.top = e.clientY + 12 + "px";
+  });
 
-  state.map?.once("click", dismiss);
-  state.map?.once("dragstart", dismiss);
+  map.getContainer().addEventListener("mouseleave", hideHint);
+
+  map.getContainer().addEventListener("mousedown", hideHint);
 }
 
 async function bootstrap() {
@@ -335,7 +341,6 @@ async function bootstrap() {
   });
 
   initMap();
-  initHints();
   await loadRegions();
 
   try {
