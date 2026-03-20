@@ -9,7 +9,6 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
     gtag('config', 'G-1MZPKTVT0F');
     gtag('config', 'AW-2594851442');
   </script>
@@ -22,9 +21,9 @@
   </script>
   <script type="text/javascript">
     (function(l) {
-      if (!l){
-        window.lintrk = function(a,b){window.lintrk.q.push([a,b])};
-        window.lintrk.q=[];
+      if (!l) {
+        window.lintrk = function(a,b){window.lintrk.q.push([a,b]);};
+        window.lintrk.q = [];
       }
       var s = document.getElementsByTagName("script")[0];
       var b = document.createElement("script");
@@ -43,120 +42,68 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="stylesheet" href="css/index-fullheight.css" />
+  <link rel="stylesheet" href="css/app.css" />
 </head>
-
 <body>
-
-  <!-- ONBOARDING -->
-  <div id="geoeva-onboarding" class="geoeva-onboarding" aria-label="Guía de inicio" aria-hidden="true">
-    <div class="geoeva-onboarding__box" role="dialog" aria-modal="true">
-
-      <div class="geoeva-onboarding__slide is-active">
-        <img src="assets/introeva/introeva1.png" alt="Paso 1: buscar lugar" />
-        <h2>🔍 Busca un lugar de interés</h2>
-        <p>Escribe una dirección, comuna o navega el mapa hasta tu zona.</p>
-      </div>
-
-      <div class="geoeva-onboarding__slide">
-        <img src="assets/introeva/introeva2.png" alt="Paso 2: clic en el mapa" />
-        <h2>🖱️ Haz clic en el mapa</h2>
-        <p>Selecciona un punto y GeoEVA analizará los proyectos cercanos.</p>
-      </div>
-
-      <div class="geoeva-onboarding__slide">
-        <img src="assets/introeva/introeva3.png" alt="Paso 3: revisar y descargar" />
-        <h2>📊 Revisa y descarga</h2>
-        <p>Analiza resultados y descarga el reporte en KMZ o PDF.</p>
-      </div>
-
-      <div class="geoeva-onboarding__controls">
-        <button type="button" class="geoeva-onboarding__nav" data-onboard-prev>◀</button>
-        <button type="button" class="geoeva-onboarding__nav" data-onboard-next>▶</button>
-
-        <button type="button" class="geoeva-onboarding__skip">Saltar</button>
-        <button type="button" class="geoeva-onboarding__cta">Comenzar</button>
-      </div>
-
-      <div class="geoeva-onboarding__hint">
-        Tip: también puedes cerrar tocando el mapa o con ESC.
-      </div>
-
-    </div>
-  </div>
-
-  <!-- APP -->
-  <div class="app-wrapper">
-
+  <div class="app-shell">
     <header class="app-header">
-      <div class="app-header-inner">
-        <h1>Proyectos</h1>
-
-        <div class="region-selector-container">
-          <label for="region-select" class="region-label">📍 Región:</label>
-          <select id="region-select" class="region-select">
-            <option value="">Cargando regiones...</option>
-          </select>
+      <div class="app-header__content">
+        <div class="app-branding">
+          <h1>Proyectos</h1>
+          <p class="app-subtitle">Explorador GeoEVA</p>
         </div>
 
-        <button
-          id="helpOnboardingBtn"
-          class="help-onboarding-btn"
-          type="button"
-          aria-label="Cómo funciona GeoEVA"
-        >
-          ❓ Ayuda
-        </button>
+        <div class="app-toolbar">
+          <div class="region-selector-container">
+            <label for="region-select" class="region-label">📍 Región</label>
+            <select id="region-select" class="region-select">
+              <option value="">Cargando regiones...</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div class="mobile-summary" id="mobileSummary" aria-label="Resumen por estado">
         <button class="ms-card ms-aprobados" type="button">
-          <div class="ms-label">🟢 Aprobados</div>
-          <div class="ms-value" data-key="aprobados">—</div>
+          <span class="ms-label">🟢 Aprobados</span>
+          <span class="ms-value" data-key="aprobados">—</span>
         </button>
-
         <button class="ms-card ms-calificacion" type="button">
-          <div class="ms-label">🟡 En calificación</div>
-          <div class="ms-value" data-key="calificacion">—</div>
+          <span class="ms-label">🟡 En calificación</span>
+          <span class="ms-value" data-key="calificacion">—</span>
         </button>
-
         <button class="ms-card ms-rechazados" type="button">
-          <div class="ms-label">🔴 Rechazados</div>
-          <div class="ms-value" data-key="rechazados">—</div>
+          <span class="ms-label">🔴 Rechazados</span>
+          <span class="ms-value" data-key="rechazados">—</span>
         </button>
       </div>
     </header>
 
-    <main>
-      <div class="layout">
-
-        <section class="map-section">
-          <div id="map-balloon">Haz clic sobre el mapa para comenzar</div>
+    <main class="app-main">
+      <section class="map-section" aria-label="Mapa principal GeoEVA">
+        <div class="map-stage">
           <div id="map" class="map-main"></div>
-        </section>
+          <div id="desktop-map-hint" class="map-hint map-hint--desktop" aria-hidden="true">
+            Haz clic en el mapa para abrir el análisis del punto.
+          </div>
+          <div id="mobile-map-hint" class="map-hint map-hint--mobile" aria-hidden="true">
+            Toca el mapa para abrir el análisis del punto.
+          </div>
+        </div>
+      </section>
 
-        <aside class="geoeva-side-banner" aria-label="Banner promocional">
-          <iframe
-            src="banners/banner_01_geoipt.html"
-            title="Banner GeoIPT"
-            loading="lazy"
-            referrerpolicy="strict-origin-when-cross-origin">
-          </iframe>
-        </aside>
-
-      </div>
+      <aside class="geoeva-side-banner" aria-label="Banner promocional">
+        <iframe
+          src="banners/banner_01_geoipt.html"
+          title="Banner GeoIPT"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin">
+        </iframe>
+      </aside>
     </main>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="js/onboarding.js?v=1"></script>
-    <script type="module" src="js/app/index.js?v=3"></script>
-
   </div>
 
-  <div id="map-hint-cursor" class="map-hint-cursor" aria-hidden="true">
-    Haz clic en el mapa y descubre proyectos + su permisología
-  </div>
-
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="js/app/index.js?v=4"></script>
 </body>
 </html>
