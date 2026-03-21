@@ -378,3 +378,15 @@ select:focus-visible {
     transform: rotate(360deg);
   }
 }
+
+/* izquierdo (GeoNEMO) */
+.geoeva-side-banner:first-child {
+  border-right: 1px solid var(--border-soft);
+  box-shadow: 4px 0 18px rgba(0,0,0,0.08);
+}
+
+/* derecho (GeoIPT) */
+.geoeva-side-banner:last-child {
+  border-left: 1px solid var(--border-soft);
+  box-shadow: -4px 0 18px rgba(0,0,0,0.08);
+}

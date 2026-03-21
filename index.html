@@ -26,20 +26,23 @@
 <body>
   <!-- Google Tag Manager (noscript) -->
   <noscript>
-    <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PM7NMT4G"
-      height="0" width="0" style="display:none;visibility:hidden"></iframe>
+    <iframe
+      src="https://www.googletagmanager.com/ns.html?id=GTM-PM7NMT4G"
+      height="0"
+      width="0"
+      style="display:none;visibility:hidden"></iframe>
   </noscript>
   <!-- End Google Tag Manager (noscript) -->
 
   <div id="loading-overlay" class="loading-overlay" aria-live="polite" aria-busy="true">
-  <div class="loading-card">
-    <div class="loading-ring-wrap">
-      <div class="loading-ring"></div>
-      <div id="loading-percent" class="loading-percent">0%</div>
+    <div class="loading-card">
+      <div class="loading-ring-wrap">
+        <div class="loading-ring"></div>
+        <div id="loading-percent" class="loading-percent">0%</div>
+      </div>
+      <div id="loading-text" class="loading-text">Cargando mapa...</div>
     </div>
-    <div id="loading-text" class="loading-text">Cargando mapa...</div>
   </div>
-</div>
 
   <div class="app-shell">
     <header class="app-header">
@@ -76,19 +79,34 @@
     </header>
 
     <main class="app-main">
+
+      <!-- IZQUIERDA: GeoNEMO -->
+      <aside class="geoeva-side-banner" aria-label="Banner promocional GeoNEMO">
+        <iframe
+          src="banners/banner_GeoNEMO.html"
+          title="Banner GeoNEMO"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin">
+        </iframe>
+      </aside>
+
+      <!-- CENTRO: MAPA -->
       <section class="map-section" aria-label="Mapa principal GeoEVA">
         <div class="map-stage">
           <div id="map" class="map-main"></div>
+
           <div id="desktop-map-hint" class="map-hint map-hint--desktop" aria-hidden="true">
             Haz clic en el mapa para abrir el análisis del punto.
           </div>
+
           <div id="mobile-map-hint" class="map-hint map-hint--mobile" aria-hidden="true">
             Toca el mapa para abrir el análisis del punto.
           </div>
         </div>
       </section>
 
-      <aside class="geoeva-side-banner" aria-label="Banner promocional">
+      <!-- DERECHA: GeoIPT -->
+      <aside class="geoeva-side-banner" aria-label="Banner promocional GeoIPT">
         <iframe
           src="banners/banner_01_geoipt.html"
           title="Banner GeoIPT"
@@ -96,6 +114,7 @@
           referrerpolicy="strict-origin-when-cross-origin">
         </iframe>
       </aside>
+
     </main>
   </div>
 
