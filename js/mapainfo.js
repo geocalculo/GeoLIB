@@ -46,11 +46,14 @@ const REPORT_TITLES = {
   chart4: "Plazo promedio por sector (meses) – Solo Aprobados",
 };
 
+window.dataLayer = window.dataLayer || [];
+
 function trackEvent(name, params = {}) {
   try {
-    if (typeof window.gtag === "function") {
-      window.gtag("event", name, params);
-    }
+    window.dataLayer.push({
+      event: name,
+      ...params
+    });
   } catch (e) {
     // No romper por tracking
   }
@@ -1069,15 +1072,6 @@ function addPdfFooter(doc, { margin = 15 } = {}) {
 async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   log("📄 Generando PDF...");
 
-  // ✅ LinkedIn conversion (PDF download)
-  try {
-    if (typeof window.lintrk === "function") {
-      window.lintrk("track", { conversion_id: 25912449 });
-      log("LinkedIn Conversion Sent: PDF Download");
-    }
-  } catch (e) {
-    warn("Error enviando conversión a LinkedIn:", e);
-  }
 
   if (!window.jspdf || !window.jspdf.jsPDF) {
     throw new Error("jsPDF no disponible");
