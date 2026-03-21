@@ -16,9 +16,30 @@ const state = {
   markerIndex: new Map(),
 };
 
+function setLoadingProgress(percent, text) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+  const percentEl = document.getElementById("loading-percent");
+  const textEl = document.getElementById("loading-text");
+
+  if (percentEl) percentEl.textContent = `${safePercent}%`;
+  if (textEl && text) textEl.textContent = text;
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById("loading-overlay");
+  if (!overlay) return;
+  overlay.classList.add("is-hidden");
+}
+
+
+
+window.dataLayer = window.dataLayer || [];
+
 function track(eventName, params = {}) {
-  if (typeof window.gtag !== "function") return;
-  window.gtag("event", eventName, params);
+  window.dataLayer.push({
+    event: eventName,
+    ...params,
+  });
 }
 
 function createStatusBucket(rawEstado) {
@@ -335,23 +356,43 @@ function initMapCursorHint(map) {
 }
 
 async function bootstrap() {
-  track("open_geoeva", {
-    event_category: "engagement",
-    event_label: "index",
-  });
-
-  initMap();
-  await loadRegions();
-
   try {
-    state.proyectos = await loadProyectos(DATA_URL);
-    log("✔ Proyectos cargados:", state.proyectos.length);
-  } catch (loadError) {
-    error("❌ Error cargando proyectos", loadError);
-    return;
-  }
+    setLoadingProgress(8, "Preparando visor...");
 
-  refreshVisibleProjects();
+    track("open_geoeva", {
+      event_category: "engagement",
+      event_label: "index",
+    });
+
+    setLoadingProgress(20, "Inicializando mapa...");
+    initMap();
+
+    setLoadingProgress(38, "Cargando regiones...");
+    await loadRegions();
+
+    setLoadingProgress(62, "Cargando proyectos...");
+    try {
+      state.proyectos = await loadProyectos(DATA_URL);
+      log("✔ Proyectos cargados:", state.proyectos.length);
+    } catch (loadError) {
+      error("❌ Error cargando proyectos", loadError);
+      setLoadingProgress(100, "Error cargando proyectos");
+      setTimeout(() => hideLoadingOverlay(), 700);
+      return;
+    }
+
+    setLoadingProgress(85, "Procesando vista inicial...");
+    refreshVisibleProjects();
+
+    setLoadingProgress(100, "Listo");
+    setTimeout(() => hideLoadingOverlay(), 250);
+  } catch (err) {
+    error("❌ Error en bootstrap()", err);
+    setLoadingProgress(100, "Error al cargar");
+    setTimeout(() => hideLoadingOverlay(), 700);
+  }
 }
+
+
 
 document.addEventListener("DOMContentLoaded", bootstrap);

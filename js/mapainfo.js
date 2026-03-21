@@ -48,6 +48,21 @@ const REPORT_TITLES = {
 
 window.dataLayer = window.dataLayer || [];
 
+function setLoadingProgress(percent, text) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+  const percentEl = document.getElementById("loading-percent");
+  const textEl = document.getElementById("loading-text");
+
+  if (percentEl) percentEl.textContent = `${safePercent}%`;
+  if (textEl && text) textEl.textContent = text;
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById("loading-overlay");
+  if (!overlay) return;
+  overlay.classList.add("is-hidden");
+}
+
 function trackEvent(name, params = {}) {
   try {
     window.dataLayer.push({
@@ -1543,106 +1558,124 @@ function resizeAllPlots(retries = 6) {
 }
 
 async function main() {
-  const params = getMapainfoParamsFromUrl();
-  if (isMobile()) params.n = 10;
+  try {
+    setLoadingProgress(8, "Preparando análisis...");
 
-  initMap({ lat: params.lat, lng: params.lng });
+    const params = getMapainfoParamsFromUrl();
+    if (isMobile()) params.n = 10;
 
-  panel = createProjectsPanel({
-    containerId: "panelContent",
-    countId: "panelCount",
-    onSelectProject: (id) => {
-      panel.highlight(id);
-      mapLayers.highlightProject(id);
-    },
-  });
+    setLoadingProgress(18, "Inicializando mapa...");
+    initMap({ lat: params.lat, lng: params.lng });
 
-  const proyectos = await loadProyectos(DATA_URL);
-
-  const engineOutput = runProximityEngine({
-    projects: proyectos,
-    center: { lat: params.lat, lng: params.lng },
-    modo: params.modo,
-    radioKm: params.radio,
-    n: params.n,
-  });
-
-  model = buildReportModel({
-    engineOutput,
-    meta: { sourceFile: DATA_URL, generatedAt: new Date().toISOString() },
-  });
-
-  window.__geoeva_model = model;
-
-  renderInfoBar(model);
-
-  // ✅ Párrafo “oro” en HTML (desktop y móvil)
-  renderExecutiveAnalysis(model);
-  bindExecutiveReflow(() => model);
-
-  const radioFinal =
-    Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0 ? model.query.radioKmFinal : params.radio;
-
-  mapLayers.setQueryPoint(model.query.lat, model.query.lng);
-  mapLayers.setQueryCircle(model.query.lat, model.query.lng, radioFinal);
-
-  mapLayers.renderProjects(model.projects, {
-    onMarkerClick: (id) => {
-      panel.highlight(id);
-      mapLayers.highlightProject(id);
-    },
-  });
-
-  const bounds = typeof mapLayers.getQueryCircleBounds === "function" ? mapLayers.getQueryCircleBounds() : null;
-  if (bounds) map.fitBounds(bounds, { padding: [40, 40] });
-  else map.setView([model.query.lat, model.query.lng], 12);
-
-  panel.render(model.projects);
-
-  // ✅ Gráficos también en mobile
-  await updateCharts(model);
-
-  // ✅ Fix: Plotly en mobile a veces renderiza con 0px → forzamos resize
-  requestAnimationFrame(() => resizeAllPlots());
-  setTimeout(resizeAllPlots, 250);
-
-bindKmzButton({
-  buttonId: "btnKmz",
-  getModel: () => model,
-  exporter: async (...args) => {
-    const m = model;
-    const radio = Number(m?.query?.radioKmFinal ?? m?.query?.radioKm ?? m?.query?.radio ?? NaN);
-
-    // ✅ GA4: click KMZ (forzado desde mapainfo.js)
-    trackEvent("download_kmz", {
-      event_category: "entregables",
-      event_label: "mapainfo_kmz",
-      radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
-      modo: m?.query?.modo || null,
-      proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
+    panel = createProjectsPanel({
+      containerId: "panelContent",
+      countId: "panelCount",
+      onSelectProject: (id) => {
+        panel.highlight(id);
+        mapLayers.highlightProject(id);
+      },
     });
 
-    // Ejecuta export real
-    const result = await downloadProximityKMZ(...args);
+    setLoadingProgress(35, "Cargando proyectos...");
+    const proyectos = await loadProyectos(DATA_URL);
 
-    // ✅ GA4: success KMZ (forzado)
-    trackEvent("download_kmz_success", {
-      value: 1,
-      event_category: "entregables",
-      event_label: "mapainfo_kmz",
-      radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
-      modo: m?.query?.modo || null,
-      proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
-      ts: Date.now(),
+    setLoadingProgress(55, "Calculando proximidad...");
+    const engineOutput = runProximityEngine({
+      projects: proyectos,
+      center: { lat: params.lat, lng: params.lng },
+      modo: params.modo,
+      radioKm: params.radio,
+      n: params.n,
     });
 
-    return result;
-  },
-  attachGlobalName: "downloadProximityKMZ",
-});
+    setLoadingProgress(70, "Construyendo modelo...");
+    model = buildReportModel({
+      engineOutput,
+      meta: { sourceFile: DATA_URL, generatedAt: new Date().toISOString() },
+    });
 
+    window.__geoeva_model = model;
 
-  bindPdfButtonOnce();
+    setLoadingProgress(82, "Renderizando panel y mapa...");
+    renderInfoBar(model);
+    renderExecutiveAnalysis(model);
+    bindExecutiveReflow(() => model);
+
+    const radioFinal =
+      Number.isFinite(model.query.radioKmFinal) && model.query.radioKmFinal > 0
+        ? model.query.radioKmFinal
+        : params.radio;
+
+    mapLayers.setQueryPoint(model.query.lat, model.query.lng);
+    mapLayers.setQueryCircle(model.query.lat, model.query.lng, radioFinal);
+
+    mapLayers.renderProjects(model.projects, {
+      onMarkerClick: (id) => {
+        panel.highlight(id);
+        mapLayers.highlightProject(id);
+      },
+    });
+
+    const bounds =
+      typeof mapLayers.getQueryCircleBounds === "function"
+        ? mapLayers.getQueryCircleBounds()
+        : null;
+
+    if (bounds) map.fitBounds(bounds, { padding: [40, 40] });
+    else map.setView([model.query.lat, model.query.lng], 12);
+
+    panel.render(model.projects);
+
+    setLoadingProgress(92, "Generando gráficos...");
+    await updateCharts(model);
+
+    requestAnimationFrame(() => resizeAllPlots());
+    setTimeout(resizeAllPlots, 250);
+
+    bindKmzButton({
+      buttonId: "btnKmz",
+      getModel: () => model,
+      exporter: async (...args) => {
+        const m = model;
+        const radio = Number(
+          m?.query?.radioKmFinal ?? m?.query?.radioKm ?? m?.query?.radio ?? NaN
+        );
+
+        trackEvent("download_kmz", {
+          event_category: "entregables",
+          event_label: "mapainfo_kmz",
+          radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
+          modo: m?.query?.modo || null,
+          proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
+        });
+
+        const result = await downloadProximityKMZ(...args);
+
+        trackEvent("download_kmz_success", {
+          value: 1,
+          event_category: "entregables",
+          event_label: "mapainfo_kmz",
+          radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
+          modo: m?.query?.modo || null,
+          proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
+          ts: Date.now(),
+        });
+
+        return result;
+      },
+      attachGlobalName: "downloadProximityKMZ",
+    });
+
+    bindPdfButtonOnce();
+
+    setLoadingProgress(100, "Listo");
+    setTimeout(() => hideLoadingOverlay(), 3000);
+  } catch (err) {
+    error("❌ Error:", err);
+    setLoadingProgress(100, "Error al cargar");
+    setTimeout(() => hideLoadingOverlay(), 700);
+    alert("Error fatal al cargar datos.");
+  }
 }
 
 window.addEventListener("orientationchange", () => setTimeout(() => resizeAllPlots(), 450));
@@ -1650,8 +1683,5 @@ window.addEventListener("resize", () => setTimeout(() => resizeAllPlots(), 250))
 
 document.addEventListener("DOMContentLoaded", () => {
   initMobileSheet();
-  main().catch((err) => {
-    error("❌ Error:", err);
-    alert("Error fatal al cargar datos.");
-  });
+  main();
 });

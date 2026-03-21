@@ -309,3 +309,72 @@ select:focus-visible {
 #map-hint-cursor.show {
   opacity: 1;
 }
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.loading-overlay.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loading-card {
+  min-width: 220px;
+  max-width: 280px;
+  padding: 22px 20px 18px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.loading-ring-wrap {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  margin: 0 auto 14px;
+}
+
+.loading-ring {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: 8px solid rgba(148, 163, 184, 0.18);
+  border-top-color: #22c55e;
+  animation: loading-spin 1s linear infinite;
+  box-sizing: border-box;
+}
+
+.loading-percent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #e2e8f0;
+}
+
+.loading-text {
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: #cbd5e1;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
