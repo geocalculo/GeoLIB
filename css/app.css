@@ -390,3 +390,68 @@ select:focus-visible {
   border-left: 1px solid var(--border-soft);
   box-shadow: -4px 0 18px rgba(0,0,0,0.08);
 }
+
+/* =========================================
+   MOBILE ECOSYSTEM BAR (GeoEVA)
+========================================= */
+
+#ecosystem-bar{
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 60px;
+  display: flex;
+  background: rgba(2, 6, 23, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  z-index: 99999;
+}
+
+/* botones */
+#ecosystem-bar a{
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #19f0c2;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* separador */
+#ecosystem-bar a + a{
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
+/* efecto touch */
+#ecosystem-bar a:active{
+  background: rgba(255,255,255,0.06);
+}
+
+/* SOLO MOBILE */
+@media (min-width: 768px){
+  #ecosystem-bar{
+    display: none;
+  }
+}
+
+/* =========================================
+   AJUSTE MAPA + HINT + CONTROLES
+========================================= */
+
+@media (max-width: 768px){
+
+  /* evita tapar controles leaflet */
+  .leaflet-bottom{
+    bottom: 70px !important;
+  }
+
+  /* mueve el hint hacia arriba */
+  .map-hint{
+    bottom: 80px !important;
+  }
+
+}
