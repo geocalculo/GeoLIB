@@ -31,8 +31,6 @@ function hideLoadingOverlay() {
   overlay.classList.add("is-hidden");
 }
 
-
-
 window.dataLayer = window.dataLayer || [];
 
 function track(eventName, params = {}) {
@@ -85,7 +83,11 @@ function saveBasemapPrefs({
 
 function getProjectKey(project) {
   if (project?.id != null && project.id !== "") return String(project.id);
-  return [Number(project.lat).toFixed(6), Number(project.lon).toFixed(6), String(project.nombre || "").trim()].join("|");
+  return [
+    Number(project.lat).toFixed(6),
+    Number(project.lon).toFixed(6),
+    String(project.nombre || "").trim(),
+  ].join("|");
 }
 
 function buildPopup(project) {
@@ -161,7 +163,9 @@ function updateMobileSummary(projectsInView) {
 function refreshVisibleProjects() {
   if (!state.map || !state.proyectos.length) return;
   const bounds = state.map.getBounds();
-  const visibleProjects = state.proyectos.filter((project) => bounds.contains([project.lat, project.lon]));
+  const visibleProjects = state.proyectos.filter((project) =>
+    bounds.contains([project.lat, project.lon])
+  );
   updateMarkers(visibleProjects);
   updateMobileSummary(visibleProjects);
 }
@@ -202,7 +206,9 @@ function centerOnUser() {
 
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
-      state.map.setView([coords.latitude, coords.longitude], USER_ZOOM, { animate: true });
+      state.map.setView([coords.latitude, coords.longitude], USER_ZOOM, {
+        animate: true,
+      });
     },
     (geoError) => {
       warn("[geo] No se pudo obtener la ubicación; usando fallback.", geoError);
@@ -214,6 +220,27 @@ function centerOnUser() {
       maximumAge: 0,
     }
   );
+}
+
+function syncMapSize() {
+  if (!state.map) return;
+
+  window.requestAnimationFrame(() => {
+    state.map.invalidateSize({ animate: false, pan: false });
+  });
+}
+
+function attachMapResizeSync() {
+  const debouncedSync = debounce(syncMapSize, 120);
+  window.addEventListener("resize", debouncedSync, { passive: true });
+  window.addEventListener("orientationchange", debouncedSync, { passive: true });
+
+  const desktopLayoutMedia = window.matchMedia("(max-width: 1024px)");
+  if (typeof desktopLayoutMedia.addEventListener === "function") {
+    desktopLayoutMedia.addEventListener("change", debouncedSync);
+  } else if (typeof desktopLayoutMedia.addListener === "function") {
+    desktopLayoutMedia.addListener(debouncedSync);
+  }
 }
 
 function initMap() {
@@ -251,6 +278,8 @@ function initMap() {
 
   centerOnUser();
   window.__leafletMap = map;
+  syncMapSize();
+  attachMapResizeSync();
 }
 
 function debounce(callback, delayMs) {
@@ -313,13 +342,10 @@ async function loadRegions() {
   });
 }
 
-
-
 function initMapCursorHint(map) {
   const hint = document.getElementById("map-hint-cursor");
   if (!hint) return;
 
-  // Solo desktop
   const isDesktop = window.matchMedia("(pointer: fine)").matches;
   if (!isDesktop) return;
 
@@ -346,12 +372,11 @@ function initMapCursorHint(map) {
   });
 
   map.getContainer().addEventListener("mousemove", (e) => {
-    hint.style.left = e.clientX + 12 + "px";
-    hint.style.top = e.clientY + 12 + "px";
+    hint.style.left = `${e.clientX + 12}px`;
+    hint.style.top = `${e.clientY + 12}px`;
   });
 
   map.getContainer().addEventListener("mouseleave", hideHint);
-
   map.getContainer().addEventListener("mousedown", hideHint);
 }
 
@@ -392,7 +417,5 @@ async function bootstrap() {
     setTimeout(() => hideLoadingOverlay(), 700);
   }
 }
-
-
 
 document.addEventListener("DOMContentLoaded", bootstrap);
