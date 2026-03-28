@@ -33,12 +33,14 @@ body {
 }
 
 button,
-select {
+select,
+input {
   font: inherit;
 }
 
 button:focus-visible,
-select:focus-visible {
+select:focus-visible,
+input:focus-visible {
   outline: 2px solid #4338ca;
   outline-offset: 2px;
 }
@@ -179,6 +181,83 @@ select:focus-visible {
   height: 100%;
 }
 
+.project-search {
+  position: absolute;
+  top: 14px;
+  left: 56px;
+  z-index: 650;
+  width: min(420px, calc(100% - 76px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.project-search__label {
+  display: inline-flex;
+  width: fit-content;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  box-shadow: 0 2px 10px rgba(17, 24, 39, 0.08);
+}
+
+.project-search__input {
+  width: 100%;
+  height: 40px;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  box-shadow: var(--shadow-soft);
+}
+
+.project-search__results {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  max-height: min(320px, 48vh);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: var(--shadow-strong);
+}
+
+.project-search__item {
+  border: 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  background: transparent;
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  cursor: pointer;
+}
+
+.project-search__item:last-child {
+  border-bottom: 0;
+}
+
+.project-search__item:hover,
+.project-search__item.is-active {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.project-search__name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.project-search__meta {
+  font-size: 0.78rem;
+  color: #4b5563;
+}
+
 .map-main,
 .leaflet-container {
   width: 100%;
@@ -293,6 +372,16 @@ select:focus-visible {
   .map-hint--mobile {
     display: block;
   }
+
+  .project-search {
+    top: 8px;
+    left: 8px;
+    width: calc(100% - 16px);
+  }
+
+  .project-search__label {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -310,19 +399,14 @@ select:focus-visible {
   position: fixed;
   z-index: 9999;
   pointer-events: none;
-
   background: rgba(15, 23, 42, 0.9);
   color: #fff;
-
   padding: 10px 14px;
   border-radius: 12px;
-
   font-size: 13px;
   line-height: 1.2;
   white-space: nowrap;
-
   backdrop-filter: blur(6px);
-
   opacity: 0;
   transform: translate(10px, 10px);
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -405,7 +489,7 @@ select:focus-visible {
    MOBILE ECOSYSTEM BAR (GeoEVA)
 ========================================= */
 
-#ecosystem-bar{
+#ecosystem-bar {
   position: fixed;
   left: 0;
   bottom: 0;
@@ -418,8 +502,7 @@ select:focus-visible {
   z-index: 99999;
 }
 
-/* botones */
-#ecosystem-bar a{
+#ecosystem-bar a {
   flex: 1;
   display: flex;
   align-items: center;
@@ -431,19 +514,16 @@ select:focus-visible {
   letter-spacing: 0.2px;
 }
 
-/* separador */
-#ecosystem-bar a + a{
+#ecosystem-bar a + a {
   border-left: 1px solid rgba(255,255,255,0.08);
 }
 
-/* efecto touch */
-#ecosystem-bar a:active{
+#ecosystem-bar a:active {
   background: rgba(255,255,255,0.06);
 }
 
-/* SOLO MOBILE */
-@media (min-width: 768px){
-  #ecosystem-bar{
+@media (min-width: 768px) {
+  #ecosystem-bar {
     display: none;
   }
 }
@@ -452,16 +532,12 @@ select:focus-visible {
    AJUSTE MAPA + HINT + CONTROLES
 ========================================= */
 
-@media (max-width: 768px){
-
-  /* evita tapar controles leaflet */
-  .leaflet-bottom{
+@media (max-width: 768px) {
+  .leaflet-bottom {
     bottom: 70px !important;
   }
 
-  /* mueve el hint hacia arriba */
-  .map-hint{
+  .map-hint {
     bottom: 80px !important;
   }
-
 }

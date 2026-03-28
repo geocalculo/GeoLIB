@@ -7,6 +7,18 @@ const DATA_URL = "capas/nacional.compact.v2.json";
 const REGIONES_URL = "capas/regiones.json";
 const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 };
 const USER_ZOOM = 12;
+const SEARCH_FLY_ZOOM = 13;
+
+const PROJECT_MARKER_STYLE = {
+  radius: 3,
+  color: "#2563eb",
+  weight: 1,
+  opacity: 1,
+  fillColor: "#2563eb",
+  fillOpacity: 0.7,
+  interactive: false,
+  bubblingMouseEvents: false,
+};
 
 const state = {
   map: null,
@@ -14,6 +26,19 @@ const state = {
   proyectos: [],
   markersLayer: null,
   markerIndex: new Map(),
+  projectsLoaded: false,
+  regionsLoaded: false,
+  heavyInteractionTriggered: false,
+
+  searchIndex: [],
+  searchHighlight: null,
+  searchUi: {
+    wrap: null,
+    input: null,
+    results: null,
+    activeIndex: -1,
+    currentResults: [],
+  },
 };
 
 function setLoadingProgress(percent, text) {
@@ -90,31 +115,8 @@ function getProjectKey(project) {
   ].join("|");
 }
 
-function buildPopup(project) {
-  return [
-    `<strong>${escapeHtml(project.nombre)}</strong>`,
-    `Estado: ${escapeHtml(project.estado || "—")}`,
-    `Sector: ${escapeHtml(project.sector || "—")}`,
-    `Región: ${escapeHtml(project.region || "—")}`,
-  ].join("<br />");
-}
-
 function createMarker(project) {
-  const bucket = createStatusBucket(project.estado);
-  const palette = {
-    aprobados: "#10b981",
-    calificacion: "#f59e0b",
-    rechazados: "#ef4444",
-  };
-
-  return L.circleMarker([project.lat, project.lon], {
-    radius: 6,
-    fillColor: palette[bucket],
-    color: "#ffffff",
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.85,
-  }).bindPopup(buildPopup(project));
+  return L.circleMarker([project.lat, project.lon], PROJECT_MARKER_STYLE);
 }
 
 function updateMarkers(visibleProjects) {
@@ -122,6 +124,7 @@ function updateMarkers(visibleProjects) {
   if (!layer) return;
 
   const visibleKeys = new Set();
+
   visibleProjects.forEach((project) => {
     const key = getProjectKey(project);
     visibleKeys.add(key);
@@ -162,10 +165,12 @@ function updateMobileSummary(projectsInView) {
 
 function refreshVisibleProjects() {
   if (!state.map || !state.proyectos.length) return;
+
   const bounds = state.map.getBounds();
   const visibleProjects = state.proyectos.filter((project) =>
     bounds.contains([project.lat, project.lon])
   );
+
   updateMarkers(visibleProjects);
   updateMobileSummary(visibleProjects);
 }
@@ -243,43 +248,23 @@ function attachMapResizeSync() {
   }
 }
 
-function initMap() {
-  const map = L.map("map", {
-    center: FALLBACK_VIEW.center,
-    zoom: FALLBACK_VIEW.zoom,
-    minZoom: 4,
-    zoomControl: true,
-  });
+function scheduleAfterLoad(callback, delayMs = 0) {
+  window.addEventListener(
+    "load",
+    () => {
+      window.setTimeout(callback, delayMs);
+    },
+    { once: true }
+  );
+}
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    opacity: 1,
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
-  }).addTo(map);
+function scheduleWhenIdle(callback, timeout = 1500) {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(callback, { timeout });
+    return;
+  }
 
-  L.control.scale().addTo(map);
-  map.addControl(new (createLocateControl())());
-
-  state.map = map;
-  state.markersLayer = L.layerGroup().addTo(map);
-
-  const refreshOnMoveEnd = debounce(refreshVisibleProjects, 180);
-  map.on("moveend", refreshOnMoveEnd);
-  map.on("click", handleMapClick);
-
-  initMapCursorHint(map);
-
-  saveBasemapPrefs({
-    addOSM: true,
-    osmOpacity: 1,
-    addIMG: false,
-    imgOpacity: 0,
-  });
-
-  centerOnUser();
-  window.__leafletMap = map;
-  syncMapSize();
-  attachMapResizeSync();
+  window.setTimeout(callback, 0);
 }
 
 function debounce(callback, delayMs) {
@@ -293,7 +278,75 @@ function debounce(callback, delayMs) {
   };
 }
 
+function initMap() {
+  const map = L.map("map", {
+    center: FALLBACK_VIEW.center,
+    zoom: FALLBACK_VIEW.zoom,
+    minZoom: 4,
+    zoomControl: true,
+  });
+
+  const baseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    opacity: 1,
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+  });
+
+  baseLayer.addTo(map);
+
+  L.control.scale().addTo(map);
+  map.addControl(new (createLocateControl())());
+
+  state.map = map;
+  state.markersLayer = L.layerGroup().addTo(map);
+
+  const refreshOnMoveEnd = debounce(refreshVisibleProjects, 180);
+  map.on("moveend", refreshOnMoveEnd);
+  map.on("click", handleMapClick);
+  map.on("movestart", clearSearchHighlight);
+
+  saveBasemapPrefs({
+    addOSM: true,
+    osmOpacity: 1,
+    addIMG: false,
+    imgOpacity: 0,
+  });
+
+  let overlayHidden = false;
+  const revealMapShell = () => {
+    if (overlayHidden) return;
+    overlayHidden = true;
+    setLoadingProgress(100, "Mapa listo");
+    hideLoadingOverlay();
+  };
+
+  baseLayer.once("load", revealMapShell);
+  window.setTimeout(revealMapShell, 1200);
+
+  scheduleAfterLoad(() => {
+    window.setTimeout(centerOnUser, 800);
+  });
+
+  scheduleWhenIdle(() => initMapCursorHint(map), 2000);
+
+  window.__leafletMap = map;
+  syncMapSize();
+  attachMapResizeSync();
+}
+
+function triggerHeavyInteraction() {
+  if (state.heavyInteractionTriggered) return;
+  state.heavyInteractionTriggered = true;
+
+  track("geoeva_first_heavy_trigger", {
+    event_category: "engagement",
+    event_label: "first_map_click",
+  });
+}
+
 function handleMapClick(event) {
+  triggerHeavyInteraction();
+
   const url = buildMapainfoUrl({
     lat: event.latlng.lat,
     lng: event.latlng.lng,
@@ -311,6 +364,8 @@ function handleMapClick(event) {
 }
 
 async function loadRegions() {
+  if (state.regionsLoaded) return;
+
   const select = document.getElementById("region-select");
   if (!select) return;
 
@@ -319,6 +374,8 @@ async function loadRegions() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     state.regiones = await response.json();
+    state.regionsLoaded = true;
+
     select.innerHTML = '<option value="">Selecciona una región</option>';
 
     state.regiones.forEach((region) => {
@@ -333,13 +390,298 @@ async function loadRegions() {
     return;
   }
 
-  select.addEventListener("change", (event) => {
-    const region = state.regiones.find((item) => item.id === event.target.value);
-    if (!region || !state.map) return;
-    if (region.centro && region.zoom) {
-      state.map.setView(region.centro, region.zoom);
+  if (!select.dataset.bound) {
+    select.addEventListener("change", (event) => {
+      const region = state.regiones.find((item) => item.id === event.target.value);
+      if (!region || !state.map) return;
+      if (region.centro && region.zoom) {
+        state.map.setView(region.centro, region.zoom);
+      }
+    });
+    select.dataset.bound = "true";
+  }
+}
+
+function normalizeSearchText(value) {
+  return normalizeSimple(String(value || ""))
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function formatSearchResultLabel(item) {
+  return [item.sector, item.region, item.titular].filter(Boolean).join(" · ");
+}
+
+function buildSearchIndex() {
+  state.searchIndex = state.proyectos
+    .filter(
+      (project) =>
+        Number.isFinite(Number(project.lat)) && Number.isFinite(Number(project.lon))
+    )
+    .map((project) => {
+      const nombre = String(project.nombre || "").trim();
+      const sector = String(project.sector || "").trim();
+      const region = String(project.region || "").trim();
+      const titular = String(project.titular || "").trim();
+      const id = getProjectKey(project);
+      const nameNormalized = normalizeSearchText(nombre);
+
+      return {
+        id,
+        nombre,
+        sector,
+        region,
+        titular,
+        lat: Number(project.lat),
+        lon: Number(project.lon),
+        nameNormalized,
+        searchText: normalizeSearchText([nombre, sector, titular, region].join(" ")),
+      };
+    });
+}
+
+function searchProjects(query) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return [];
+
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+
+  const ranked = [];
+  for (const item of state.searchIndex) {
+    const haystack = item.searchText;
+    let allTermsMatch = true;
+    let score = 0;
+
+    for (const term of terms) {
+      const idx = haystack.indexOf(term);
+      if (idx === -1) {
+        allTermsMatch = false;
+        break;
+      }
+      score += idx === 0 ? 0 : idx;
+    }
+
+    if (!allTermsMatch) continue;
+
+    const nameStarts = item.nameNormalized.startsWith(terms[0]);
+    ranked.push({
+      item,
+      score: score - (nameStarts ? 20 : 0),
+    });
+  }
+
+  ranked.sort((a, b) => a.score - b.score);
+  return ranked.slice(0, 10).map((entry) => entry.item);
+}
+
+function clearSearchResults() {
+  const { wrap, results, input } = state.searchUi;
+  if (!results) return;
+
+  results.innerHTML = "";
+  results.hidden = true;
+
+  if (input) input.setAttribute("aria-expanded", "false");
+  if (wrap) wrap.classList.remove("is-open");
+
+  state.searchUi.activeIndex = -1;
+  state.searchUi.currentResults = [];
+}
+
+function applyActiveSearchItem() {
+  const { results, activeIndex } = state.searchUi;
+  if (!results) return;
+
+  const nodes = Array.from(results.querySelectorAll(".project-search__item"));
+  nodes.forEach((node, index) => {
+    const isActive = index === activeIndex;
+    node.classList.toggle("is-active", isActive);
+    node.setAttribute("aria-selected", isActive ? "true" : "false");
+    if (isActive) node.scrollIntoView({ block: "nearest" });
+  });
+}
+
+function renderSearchResults(results) {
+  const { wrap, input, results: listEl } = state.searchUi;
+  if (!listEl) return;
+
+  state.searchUi.currentResults = results;
+  state.searchUi.activeIndex = results.length ? 0 : -1;
+  listEl.innerHTML = "";
+
+  if (!results.length) {
+    listEl.hidden = true;
+    if (input) input.setAttribute("aria-expanded", "false");
+    if (wrap) wrap.classList.remove("is-open");
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  results.forEach((item, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "project-search__item";
+    button.setAttribute("role", "option");
+    button.dataset.index = String(index);
+    button.innerHTML = `
+      <span class="project-search__name">${escapeHtml(item.nombre || "Proyecto sin nombre")}</span>
+      <span class="project-search__meta">${escapeHtml(formatSearchResultLabel(item) || "Sin metadata")}</span>
+    `;
+    button.addEventListener("click", () => {
+      selectSearchResult(item);
+    });
+    fragment.appendChild(button);
+  });
+
+  listEl.appendChild(fragment);
+  listEl.hidden = false;
+
+  if (input) input.setAttribute("aria-expanded", "true");
+  if (wrap) wrap.classList.add("is-open");
+
+  applyActiveSearchItem();
+}
+
+function clearSearchHighlight() {
+  if (!state.searchHighlight || !state.map) return;
+  state.map.removeLayer(state.searchHighlight);
+  state.searchHighlight = null;
+}
+
+function highlightSearchResult(item) {
+  if (!state.map) return;
+
+  clearSearchHighlight();
+
+  const halo = L.circleMarker([item.lat, item.lon], {
+    radius: 18,
+    color: "#2563eb",
+    weight: 3,
+    fillColor: "#60a5fa",
+    fillOpacity: 0.15,
+    opacity: 0.95,
+    interactive: false,
+    bubblingMouseEvents: false,
+  }).addTo(state.map);
+
+  state.searchHighlight = halo;
+
+  window.setTimeout(() => {
+    if (state.searchHighlight === halo) {
+      clearSearchHighlight();
+    }
+  }, 2200);
+}
+
+function selectSearchResult(item) {
+  if (!state.map || !item) return;
+
+  state.map.flyTo([item.lat, item.lon], SEARCH_FLY_ZOOM, { duration: 0.9 });
+  highlightSearchResult(item);
+
+  if (state.searchUi.input) {
+    const query = state.searchUi.input.value.trim();
+
+    track("geoeva_search_select", {
+      event_category: "engagement",
+      event_label: "project_search_select",
+      query,
+      project_name: item.nombre || "",
+    });
+
+    state.searchUi.input.value = item.nombre || "";
+    state.searchUi.input.blur();
+  }
+
+  clearSearchResults();
+}
+
+function initProjectSearch() {
+  const wrap = document.getElementById("project-search-wrap");
+  const input = document.getElementById("project-search");
+  const results = document.getElementById("project-search-results");
+
+  if (!wrap || !input || !results) {
+    warn("Buscador de proyectos no inicializado: faltan nodos HTML.");
+    return;
+  }
+
+  state.searchUi.wrap = wrap;
+  state.searchUi.input = input;
+  state.searchUi.results = results;
+
+  const onInput = debounce(() => {
+    const items = searchProjects(input.value);
+    renderSearchResults(items);
+  }, 90);
+
+  input.addEventListener("input", onInput);
+
+  input.addEventListener("focus", () => {
+    if (input.value.trim()) {
+      renderSearchResults(searchProjects(input.value));
     }
   });
+
+  input.addEventListener("keydown", (event) => {
+    const total = state.searchUi.currentResults.length;
+
+    if (event.key === "Escape") {
+      clearSearchResults();
+      return;
+    }
+
+    if (!total) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      state.searchUi.activeIndex =
+        (state.searchUi.activeIndex + 1 + total) % total;
+      applyActiveSearchItem();
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      state.searchUi.activeIndex =
+        (state.searchUi.activeIndex - 1 + total) % total;
+      applyActiveSearchItem();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const selected = state.searchUi.currentResults[state.searchUi.activeIndex];
+      if (selected) selectSearchResult(selected);
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!wrap.contains(event.target)) {
+      clearSearchResults();
+    }
+  });
+}
+
+async function loadProjectsLight() {
+  if (state.projectsLoaded) return;
+
+  try {
+    state.proyectos = await loadProyectos(DATA_URL);
+    state.projectsLoaded = true;
+    buildSearchIndex();
+    log("✔ Proyectos cargados:", state.proyectos.length);
+    refreshVisibleProjects();
+
+    if (state.searchUi.input && state.searchUi.input.value.trim()) {
+      renderSearchResults(searchProjects(state.searchUi.input.value));
+    }
+  } catch (loadError) {
+    error("❌ Error cargando proyectos", loadError);
+  }
 }
 
 function initMapCursorHint(map) {
@@ -380,42 +722,39 @@ function initMapCursorHint(map) {
   map.getContainer().addEventListener("mousedown", hideHint);
 }
 
-async function bootstrap() {
+async function runDeferredDataWarmup() {
+  setLoadingProgress(30, "Cargando regiones...");
+  await loadRegions();
+
+  scheduleWhenIdle(async () => {
+    setLoadingProgress(65, "Cargando proyectos...");
+    await loadProjectsLight();
+    setLoadingProgress(100, "Proyectos listos");
+  }, 2500);
+}
+
+function bootstrapPhase0And1() {
   try {
-    setLoadingProgress(8, "Preparando visor...");
+    setLoadingProgress(10, "Preparando visor...");
 
     track("open_geoeva", {
       event_category: "engagement",
       event_label: "index",
     });
 
-    setLoadingProgress(20, "Inicializando mapa...");
+    initProjectSearch();
+
+    setLoadingProgress(25, "Inicializando mapa...");
     initMap();
 
-    setLoadingProgress(38, "Cargando regiones...");
-    await loadRegions();
-
-    setLoadingProgress(62, "Cargando proyectos...");
-    try {
-      state.proyectos = await loadProyectos(DATA_URL);
-      log("✔ Proyectos cargados:", state.proyectos.length);
-    } catch (loadError) {
-      error("❌ Error cargando proyectos", loadError);
-      setLoadingProgress(100, "Error cargando proyectos");
-      setTimeout(() => hideLoadingOverlay(), 700);
-      return;
-    }
-
-    setLoadingProgress(85, "Procesando vista inicial...");
-    refreshVisibleProjects();
-
-    setLoadingProgress(100, "Listo");
-    setTimeout(() => hideLoadingOverlay(), 250);
+    scheduleAfterLoad(() => {
+      window.setTimeout(runDeferredDataWarmup, 80);
+    });
   } catch (err) {
-    error("❌ Error en bootstrap()", err);
+    error("❌ Error en bootstrapPhase0And1()", err);
     setLoadingProgress(100, "Error al cargar");
-    setTimeout(() => hideLoadingOverlay(), 700);
+    window.setTimeout(() => hideLoadingOverlay(), 700);
   }
 }
 
-document.addEventListener("DOMContentLoaded", bootstrap);
+document.addEventListener("DOMContentLoaded", bootstrapPhase0And1);

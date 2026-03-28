@@ -14,8 +14,8 @@
   <!-- End Google Tag Manager -->
 
   <!-- Cloudflare Web Analytics -->
-  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' 
-   data-cf-beacon='{"token": "6bc7cef62da440a4b477a416c3cd250d"}'>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+    data-cf-beacon='{"token": "6bc7cef62da440a4b477a416c3cd250d"}'>
   </script>
   <!-- End Cloudflare Web Analytics -->
 
@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
@@ -85,7 +85,6 @@
     </header>
 
     <main class="app-main">
-
       <!-- IZQUIERDA: GeoNEMO -->
       <aside class="geoeva-side-banner" aria-label="Banner promocional GeoNEMO">
         <iframe
@@ -99,6 +98,26 @@
       <!-- CENTRO: MAPA -->
       <section class="map-section" aria-label="Mapa principal GeoEVA">
         <div class="map-stage">
+          <div id="project-search-wrap" class="project-search" role="search" aria-label="Buscar proyecto">
+            <label for="project-search" class="project-search__label">Buscar proyecto</label>
+            <input
+              id="project-search"
+              class="project-search__input"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Ej: planta solar domeyko"
+              aria-expanded="false"
+              aria-controls="project-search-results"
+            />
+            <div
+              id="project-search-results"
+              class="project-search__results"
+              role="listbox"
+              hidden
+            ></div>
+          </div>
+
           <div id="map" class="map-main"></div>
 
           <div id="desktop-map-hint" class="map-hint map-hint--desktop" aria-hidden="true">
@@ -120,12 +139,11 @@
           referrerpolicy="strict-origin-when-cross-origin">
         </iframe>
       </aside>
-
     </main>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="js/app/index.js?v=4"></script>
+  <script type="module" src="js/app/index.js?v=5"></script>
 
   <div id="map-hint-cursor">
     Haz clic en el mapa y descubre proyectos + su permisología
@@ -145,10 +163,12 @@
     backdrop-filter: blur(6px);
     z-index:9999;
   ">
-    Visitas: 
-    <img src="https://api.visitorbadge.io/api/visitors?path=geoeva.cl&countColor=%2322c55e"
-        alt="contador visitas"
-        style="vertical-align:middle;">
+    Visitas:
+    <img
+      src="https://api.visitorbadge.io/api/visitors?path=geoeva.cl&countColor=%2322c55e"
+      alt="contador visitas"
+      style="vertical-align:middle;"
+    >
   </div>
 
   <div id="ecosystem-bar">
@@ -159,6 +179,5 @@
       GeoNEMO.cl
     </a>
   </div>
-
 </body>
 </html>
