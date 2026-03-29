@@ -580,6 +580,7 @@ function selectSearchResult(item) {
   if (!state.map || !item) return;
 
   state.map.flyTo([item.lat, item.lon], SEARCH_FLY_ZOOM, { duration: 0.9 });
+
   highlightSearchResult(item);
 
   if (state.searchUi.input) {
