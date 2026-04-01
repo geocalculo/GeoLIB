@@ -1,6 +1,7 @@
 import { loadProyectos } from "../core/dataLoader.js";
 import { escapeHtml, normalizeSimple } from "../core/utils.js";
 import { log, warn, error } from "../core/logger.js";
+import { trackEvent } from "../core/tracking.js";
 import { buildMapainfoUrl } from "./router.js";
 
 const DATA_URL = "capas/nacional.compact.v2.json";
@@ -54,15 +55,6 @@ function hideLoadingOverlay() {
   const overlay = document.getElementById("loading-overlay");
   if (!overlay) return;
   overlay.classList.add("is-hidden");
-}
-
-window.dataLayer = window.dataLayer || [];
-
-function track(eventName, params = {}) {
-  window.dataLayer.push({
-    event: eventName,
-    ...params,
-  });
 }
 
 function createStatusBucket(rawEstado) {
@@ -338,7 +330,7 @@ function triggerHeavyInteraction() {
   if (state.heavyInteractionTriggered) return;
   state.heavyInteractionTriggered = true;
 
-  track("geoeva_first_heavy_trigger", {
+  trackEvent("geoeva_first_heavy_trigger", {
     event_category: "engagement",
     event_label: "first_map_click",
   });
@@ -355,9 +347,15 @@ function handleMapClick(event) {
     n: 10,
   });
 
-  track("geoeva_open_mapainfo", {
+  trackEvent("geoeva_open_mapainfo", {
     event_category: "engagement",
     event_label: "index_map_click",
+    source: "index_map_click",
+    modo: "proximidad",
+    radio_km: 10,
+    lat: Number(event.latlng.lat.toFixed(6)),
+    lng: Number(event.latlng.lng.toFixed(6)),
+    open_target: "new_tab",
   });
 
   window.open(url, "_blank", "noopener");
@@ -586,7 +584,7 @@ function selectSearchResult(item) {
   if (state.searchUi.input) {
     const query = state.searchUi.input.value.trim();
 
-    track("geoeva_search_select", {
+    trackEvent("geoeva_search_select", {
       event_category: "engagement",
       event_label: "project_search_select",
       query,
@@ -738,7 +736,7 @@ function bootstrapPhase0And1() {
   try {
     setLoadingProgress(10, "Preparando visor...");
 
-    track("open_geoeva", {
+    trackEvent("geoeva_open_geoeva", {
       event_category: "engagement",
       event_label: "index",
     });

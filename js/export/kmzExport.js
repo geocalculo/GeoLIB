@@ -133,41 +133,13 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     Number.isFinite(q.radioKmFinal) && q.radioKmFinal > 0
       ? q.radioKmFinal
       : Number.isFinite(q.radioKmInput) && q.radioKmInput > 0
-      ? q.radioKmInput
-      : 10;
+        ? q.radioKmInput
+        : 10;
 
   const baseName =
     fileName ||
     `GeoEVA_${q.modo || "proximidad"}_${lat.toFixed(5)}_${lng.toFixed(5)}_${radioFinal.toFixed(2)}km`;
   const kmzName = safeFileName(baseName) + ".kmz";
-
-    // =====================================================
-    // ✅ TRACKING DE LINKEDIN ADS (NUEVA CONVERSIÓN KMZ)
-    // =====================================================
-    try {
-      if (typeof window.lintrk === 'function') {
-        window.lintrk('track', { conversion_id: 25912457 });
-        console.log("LinkedIn Conversion Sent: KMZ Download Triggered");
-      }
-    } catch (e) {
-      console.warn("Error enviando conversión KMZ a LinkedIn:", e);
-    }
-    // =====================================================
-
-  // Helper GA4 seguro (no rompe si gtag no existe)
-  const gaEvent = (name, params = {}) => {
-    try {
-      if (typeof window.gtag === "function") window.gtag("event", name, params);
-    } catch (_) {}
-  };
-
-  // 1) INTENTO (click / inicio export)
-  gaEvent("download_kmz", {
-    event_category: "export",
-    event_label: kmzName,
-    mode: String(q.modo || "proximidad"),
-    radio_km: Number(radioFinal.toFixed(2)),
-  });
 
   const zip = new window.JSZip();
   const kmlName = "doc.kml";
@@ -200,7 +172,6 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
 
     // Proyectos
     for (const p of model.projects || []) {
-      // (opcional) valida coords del proyecto
       const plon = Number(p.lon);
       const plat = Number(p.lat);
       if (!Number.isFinite(plon) || !Number.isFinite(plat)) continue;
@@ -233,28 +204,11 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     document.body.appendChild(a);
     a.click();
     a.remove();
-
-    // 2) ÉXITO REAL (descarga disparada)
-    gaEvent("download_kmz_success", {
-      event_category: "export",
-      event_label: kmzName,
-      mode: String(q.modo || "proximidad"),
-      radio_km: Number(radioFinal.toFixed(2)),
-      projects_n: Array.isArray(model.projects) ? model.projects.length : 0,
-    });
   } catch (err) {
-    // (opcional) evento de error para diagnóstico
-    gaEvent("download_kmz_error", {
-      event_category: "export",
-      event_label: kmzName,
-      error_message: String(err?.message || err || "unknown"),
-    });
     throw err;
   } finally {
-    // Revocar objectURL aunque ocurra error
     if (objectUrl) {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
     }
   }
 }
-

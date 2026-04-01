@@ -24,6 +24,8 @@ import { renderInfoBar } from "./ui/infoBar.js";
 import { bindKmzButton } from "./ui/actions.js";
 import { log, warn, error } from "./core/logger.js";
 
+import { trackEvent } from "./core/tracking.js";
+
 const DATA_URL = "capas/nacional.compact.v2.json";
 
 
@@ -63,16 +65,7 @@ function hideLoadingOverlay() {
   overlay.classList.add("is-hidden");
 }
 
-function trackEvent(name, params = {}) {
-  try {
-    window.dataLayer.push({
-      event: name,
-      ...params
-    });
-  } catch (e) {
-    // No romper por tracking
-  }
-}
+
 
 
 function isMobile() {
