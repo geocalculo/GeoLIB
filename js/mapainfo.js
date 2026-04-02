@@ -1430,6 +1430,25 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   // ✅ Footer con hipervínculos en todas las páginas
   addPdfFooter(doc, { margin });
 
+trackEvent("download_pdf_success", {
+  value: 1,
+  event_category: "entregables",
+  event_label: "mapainfo_pdf",
+  file_name: filename,
+  radio_km: Number.isFinite(params?.radio)
+    ? Number(Number(params.radio).toFixed(2))
+    : null,
+  modo: params?.modo || null,
+  lat: Number.isFinite(Number(params?.lat))
+    ? Number(Number(params.lat).toFixed(6))
+    : null,
+  lng: Number.isFinite(Number(params?.lng))
+    ? Number(Number(params.lng).toFixed(6))
+    : null,
+  proyectos: Array.isArray(proyectos) ? proyectos.length : null,
+  ts: Date.now(),
+});
+
   doc.save(filename);
 
   // ✅ GA4: conversión cuando el PDF ya fue “entregado”
