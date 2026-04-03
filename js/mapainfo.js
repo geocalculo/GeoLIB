@@ -48,7 +48,7 @@ const REPORT_TITLES = {
   chart4: "Plazo promedio por sector (meses) – Solo Aprobados",
 };
 
-window.dataLayer = window.dataLayer || [];
+
 
 function setLoadingProgress(percent, text) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
@@ -1430,29 +1430,12 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   // ✅ Footer con hipervínculos en todas las páginas
   addPdfFooter(doc, { margin });
 
-trackEvent("download_pdf_success", {
-  value: 1,
-  event_category: "entregables",
-  event_label: "mapainfo_pdf",
-  file_name: filename,
-  radio_km: Number.isFinite(params?.radio)
-    ? Number(Number(params.radio).toFixed(2))
-    : null,
-  modo: params?.modo || null,
-  lat: Number.isFinite(Number(params?.lat))
-    ? Number(Number(params.lat).toFixed(6))
-    : null,
-  lng: Number.isFinite(Number(params?.lng))
-    ? Number(Number(params.lng).toFixed(6))
-    : null,
-  proyectos: Array.isArray(proyectos) ? proyectos.length : null,
-  ts: Date.now(),
-});
+
 
   doc.save(filename);
 
   // ✅ GA4: conversión cuando el PDF ya fue “entregado”
-  trackEvent("download_pdf_success", {
+  trackEvent("geoeva_download_pdf_success", {
     value: 1,
     event_category: "entregables",
     event_label: "mapainfo_pdf",
@@ -1497,19 +1480,21 @@ function bindPdfButtonOnce() {
       const resumenTexto = document.getElementById("countLabel")?.textContent || "";
       const invTexto = document.getElementById("invLabel")?.textContent || "";
 
-      const radio = Number(model?.query?.radioKmFinal ?? model?.query?.radioKm ?? model?.query?.radio ?? NaN);
+      const radio = Number(
+        model?.query?.radioKmFinal ??
+        model?.query?.radioKm ??
+        model?.query?.radio ??
+        NaN
+      );
 
-      // ✅ GA4: click en PDF (entregable principal)
-      trackEvent("download_pdf", {
+      trackEvent("geoeva_download_pdf", {
         event_category: "entregables",
         event_label: "mapainfo_pdf",
         radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
         modo: model?.query?.modo || null,
         proyectos: Array.isArray(model?.projects) ? model.projects.length : null,
-        non_interaction: true
-
+        non_interaction: true,
       });
-
 
       await downloadPDFDirect({
         params: {
@@ -1519,15 +1504,13 @@ function bindPdfButtonOnce() {
           modo: model.query.modo,
           n: model.query.n ?? (model.projects?.length ?? 0),
         },
-        resumen: { texto: resumenTexto, inversion: invTexto },
+        resumen: {
+          texto: resumenTexto,
+          inversion: invTexto,
+        },
         proyectos: Array.isArray(model.projects) ? model.projects : [],
         model,
       });
-
-
-
-
-
 
       btn.textContent = "✅ Listo";
       setTimeout(() => {
@@ -1567,6 +1550,33 @@ function resizeAllPlots(retries = 6) {
   if (!anyResized && retries > 0) {
     setTimeout(() => resizeAllPlots(retries - 1), 180);
   }
+}
+
+function bindMapainfoDeepScrollTracker({ threshold = 0.75 } = {}) {
+  let sent = false;
+
+  const emit = () => {
+    if (sent) return;
+    sent = true;
+    trackEvent("geoeva_mapainfo_scroll_deep", {
+      page: "mapainfo",
+      threshold: Math.round(threshold * 100),
+    });
+  };
+
+  const onScroll = () => {
+    const doc = document.documentElement;
+    const viewport = window.innerHeight || doc.clientHeight || 0;
+    const scrollable = Math.max(doc.scrollHeight - viewport, 1);
+    const depth = (window.scrollY || window.pageYOffset || 0) / scrollable;
+    if (depth >= threshold) {
+      emit();
+      window.removeEventListener("scroll", onScroll);
+    }
+  };
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
 }
 
 async function main() {
@@ -1653,7 +1663,7 @@ async function main() {
           m?.query?.radioKmFinal ?? m?.query?.radioKm ?? m?.query?.radio ?? NaN
         );
 
-        trackEvent("download_kmz", {
+        trackEvent("geoeva_download_kmz", {
           event_category: "entregables",
           event_label: "mapainfo_kmz",
           radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
@@ -1663,7 +1673,7 @@ async function main() {
 
         const result = await downloadProximityKMZ(...args);
 
-        trackEvent("download_kmz_success", {
+        trackEvent("geoeva_download_kmz_success", {
           value: 1,
           event_category: "entregables",
           event_label: "mapainfo_kmz",
@@ -1695,5 +1705,6 @@ window.addEventListener("resize", () => setTimeout(() => resizeAllPlots(), 250))
 
 document.addEventListener("DOMContentLoaded", () => {
   initMobileSheet();
+  bindMapainfoDeepScrollTracker({ threshold: 0.75 });
   main();
 });

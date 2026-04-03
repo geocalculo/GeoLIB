@@ -4,6 +4,7 @@ import { log, warn, error } from "../core/logger.js";
 import { trackEvent } from "../core/tracking.js";
 import { buildMapainfoUrl } from "./router.js";
 
+
 const DATA_URL = "capas/nacional.compact.v2.json";
 const REGIONES_URL = "capas/regiones.json";
 const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 };
