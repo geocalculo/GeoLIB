@@ -271,6 +271,56 @@ function debounce(callback, delayMs) {
   };
 }
 
+function parseNumberParam(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseBBoxFromQuery(searchParams) {
+  const rawBBox = searchParams.get("bbox");
+  if (!rawBBox) return null;
+
+  const parts = rawBBox.split(",").map((part) => Number(part.trim()));
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) return null;
+
+  const [north, east, south, west] = parts;
+  if (north <= south || east <= west) return null;
+
+  return {
+    north,
+    east,
+    south,
+    west,
+  };
+}
+
+function applyIncomingViewport(map) {
+  if (!map) return false;
+
+  const params = new URLSearchParams(window.location.search);
+  const bbox = parseBBoxFromQuery(params);
+
+  if (bbox) {
+    map.fitBounds(
+      [
+        [bbox.south, bbox.west],
+        [bbox.north, bbox.east],
+      ],
+      { animate: false }
+    );
+    return true;
+  }
+
+  const lat = parseNumberParam(params.get("lat"));
+  const lon = parseNumberParam(params.get("lon"));
+  const zoom = parseNumberParam(params.get("zoom"));
+
+  if (lat == null || lon == null || zoom == null) return false;
+
+  map.setView([lat, lon], zoom, { animate: false });
+  return true;
+}
+
 function initMap() {
   const map = L.map("map", {
     center: FALLBACK_VIEW.center,
@@ -316,7 +366,10 @@ function initMap() {
   baseLayer.once("load", revealMapShell);
   window.setTimeout(revealMapShell, 1200);
 
+  const incomingViewportApplied = applyIncomingViewport(map);
+
   scheduleAfterLoad(() => {
+    if (incomingViewportApplied) return;
     window.setTimeout(centerOnUser, 800);
   });
 
