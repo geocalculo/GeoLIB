@@ -1618,6 +1618,14 @@ async function main() {
 
     window.__geoeva_model = model;
 
+  const btn = document.getElementById("btn-download-kmz");
+
+  if (btn) {
+    btn.addEventListener("click", () => {
+      downloadProximityKMZ({ model });
+    });
+  }
+
     setLoadingProgress(82, "Renderizando panel y mapa...");
     renderInfoBar(model);
     renderExecutiveAnalysis(model);
