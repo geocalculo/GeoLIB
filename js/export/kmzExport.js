@@ -199,11 +199,23 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
 
     const a = document.createElement("a");
     objectUrl = URL.createObjectURL(blob);
+
     a.href = objectUrl;
     a.download = kmzName;
     document.body.appendChild(a);
+
+    // 🔥 TRACKING (igual que GeoIPT)
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "download_kmz",
+      event_label: "mapainfo_kmz",
+      file_name: kmzName,
+      ts: Date.now(),
+    });
+
     a.click();
     a.remove();
+
   } catch (err) {
     throw err;
   } finally {
