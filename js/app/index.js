@@ -10,6 +10,7 @@ const REGIONES_URL = "capas/regiones.json";
 const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 };
 const USER_ZOOM = 12;
 const SEARCH_FLY_ZOOM = 13;
+let incomingViewportApplied = false;
 
 const PROJECT_MARKER_STYLE = {
   radius: 3,
@@ -241,10 +242,11 @@ function attachMapResizeSync() {
   }
 }
 
-function scheduleAfterLoad(callback, delayMs = 0) {
+function scheduleAfterLoad(callback, delayMs = 0, { skipIfIncomingViewport = false } = {}) {
   window.addEventListener(
     "load",
     () => {
+      if (skipIfIncomingViewport && incomingViewportApplied) return;
       window.setTimeout(callback, delayMs);
     },
     { once: true }
@@ -366,12 +368,15 @@ function initMap() {
   baseLayer.once("load", revealMapShell);
   window.setTimeout(revealMapShell, 1200);
 
-  const incomingViewportApplied = applyIncomingViewport(map);
+  incomingViewportApplied = applyIncomingViewport(map);
 
-  scheduleAfterLoad(() => {
-    if (incomingViewportApplied) return;
-    window.setTimeout(centerOnUser, 800);
-  });
+  scheduleAfterLoad(
+    () => {
+      window.setTimeout(centerOnUser, 800);
+    },
+    0,
+    { skipIfIncomingViewport: true }
+  );
 
   scheduleWhenIdle(() => initMapCursorHint(map), 2000);
 
@@ -446,6 +451,7 @@ async function loadRegions() {
     select.addEventListener("change", (event) => {
       const region = state.regiones.find((item) => item.id === event.target.value);
       if (!region || !state.map) return;
+      if (incomingViewportApplied) return;
       if (region.centro && region.zoom) {
         state.map.setView(region.centro, region.zoom);
       }
