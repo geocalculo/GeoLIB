@@ -11,6 +11,7 @@ const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 };
 const USER_ZOOM = 12;
 const SEARCH_FLY_ZOOM = 13;
 let incomingViewportApplied = false;
+let locationPromptShown = false;
 
 const PROJECT_MARKER_STYLE = {
   radius: 3,
@@ -194,6 +195,66 @@ function createLocateControl() {
   });
 }
 
+function hasUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  return params.toString().length > 0;
+}
+
+function shouldAskForUserLocation() {
+  if (locationPromptShown) return false;
+  if (incomingViewportApplied) return false;
+  return !hasUrlParams();
+}
+
+function dismissUserLocationPrompt(container) {
+  if (container) container.remove();
+  locationPromptShown = true;
+}
+
+function showUserLocationPrompt() {
+  if (!state.map || !shouldAskForUserLocation()) return;
+
+  const prompt = L.DomUtil.create("div", "geoeva-location-prompt");
+  prompt.setAttribute("role", "dialog");
+  prompt.setAttribute("aria-live", "polite");
+
+  const question = L.DomUtil.create("p", "geoeva-location-prompt__text", prompt);
+  question.textContent = "¿Deseas ir a tu ubicación?";
+
+  const actions = L.DomUtil.create("div", "geoeva-location-prompt__actions", prompt);
+  const yesButton = L.DomUtil.create(
+    "button",
+    "geoeva-location-prompt__button is-yes",
+    actions
+  );
+  yesButton.type = "button";
+  yesButton.textContent = "Sí";
+
+  const noButton = L.DomUtil.create(
+    "button",
+    "geoeva-location-prompt__button is-no",
+    actions
+  );
+  noButton.type = "button";
+  noButton.textContent = "No";
+
+  L.DomEvent.disableClickPropagation(prompt);
+
+  L.DomEvent.on(yesButton, "click", (event) => {
+    L.DomEvent.stop(event);
+    dismissUserLocationPrompt(prompt);
+    centerOnUser();
+  });
+
+  L.DomEvent.on(noButton, "click", (event) => {
+    L.DomEvent.stop(event);
+    dismissUserLocationPrompt(prompt);
+  });
+
+  const mapContainer = state.map.getContainer();
+  mapContainer.appendChild(prompt);
+}
+
 function centerOnUser() {
   if (!state.map) return;
 
@@ -371,9 +432,7 @@ function initMap() {
   incomingViewportApplied = applyIncomingViewport(map);
 
   scheduleAfterLoad(
-    () => {
-      window.setTimeout(centerOnUser, 800);
-    },
+    showUserLocationPrompt,
     0,
     { skipIfIncomingViewport: true }
   );

@@ -338,6 +338,54 @@ input:focus-visible {
   display: none;
 }
 
+.geoeva-location-prompt {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  z-index: 700;
+  min-width: 220px;
+  max-width: min(280px, calc(100% - 32px));
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.92);
+  color: #f9fafb;
+  box-shadow: var(--shadow-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.geoeva-location-prompt__text {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.geoeva-location-prompt__actions {
+  display: flex;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.geoeva-location-prompt__button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.geoeva-location-prompt__button.is-yes {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.geoeva-location-prompt__button.is-no {
+  background: rgba(255, 255, 255, 0.18);
+  color: #f3f4f6;
+}
+
 @media (max-width: 1024px) {
   .geoeva-side-banner {
     display: none;
@@ -345,6 +393,12 @@ input:focus-visible {
 
   .app-main {
     overflow: hidden;
+  }
+
+  .geoeva-location-prompt {
+    right: 12px;
+    bottom: 16px;
+    min-width: 200px;
   }
 }
 
