@@ -8,10 +8,15 @@ import { buildMapainfoUrl } from "./router.js";
 const DATA_URL = "capas/nacional.compact.v2.json";
 const REGIONES_URL = "capas/regiones.json";
 const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 };
+const CHILE_INITIAL_BOUNDS = [
+  [-56.0, -75.0], // SW
+  [-17.5, -66.0], // NE
+];
 const USER_ZOOM = 12;
 const SEARCH_FLY_ZOOM = 13;
 let incomingViewportApplied = false;
 let locationPromptShown = false;
+let hasUrlViewportParams = false;
 
 const PROJECT_MARKER_STYLE = {
   radius: 3,
@@ -202,8 +207,9 @@ function hasUrlParams() {
 
 function shouldAskForUserLocation() {
   if (locationPromptShown) return false;
+  if (hasUrlViewportParams) return false;
   if (incomingViewportApplied) return false;
-  return !hasUrlParams();
+  return true;
 }
 
 function dismissUserLocationPrompt(container) {
@@ -384,6 +390,11 @@ function applyIncomingViewport(map) {
   return true;
 }
 
+function applyChileInitialViewport(map) {
+  if (!map) return;
+  map.fitBounds(CHILE_INITIAL_BOUNDS, { animate: false });
+}
+
 function initMap() {
   const map = L.map("map", {
     center: FALLBACK_VIEW.center,
@@ -429,12 +440,17 @@ function initMap() {
   baseLayer.once("load", revealMapShell);
   window.setTimeout(revealMapShell, 1200);
 
-  incomingViewportApplied = applyIncomingViewport(map);
+  hasUrlViewportParams = hasUrlParams();
+  if (hasUrlViewportParams) {
+    incomingViewportApplied = applyIncomingViewport(map);
+  } else {
+    incomingViewportApplied = false;
+    applyChileInitialViewport(map);
+  }
 
   scheduleAfterLoad(
     showUserLocationPrompt,
-    0,
-    { skipIfIncomingViewport: true }
+    0
   );
 
   scheduleWhenIdle(() => initMapCursorHint(map), 2000);
