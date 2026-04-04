@@ -406,10 +406,10 @@ function getCurrentViewportParams() {
     lon: Number(center.lng).toFixed(6),
     zoom: String(state.map.getZoom()),
     bbox: [
-      Number(bounds.getSouth()).toFixed(6),
-      Number(bounds.getWest()).toFixed(6),
       Number(bounds.getNorth()).toFixed(6),
       Number(bounds.getEast()).toFixed(6),
+      Number(bounds.getSouth()).toFixed(6),
+      Number(bounds.getWest()).toFixed(6),
     ].join(","),
   };
 }
@@ -497,6 +497,7 @@ function initMap() {
   hasUrlViewportParams = hasUrlParams();
   if (hasUrlViewportParams) {
     incomingViewportApplied = applyIncomingViewport(map);
+    if (!incomingViewportApplied) applyChileInitialViewport(map);
   } else {
     incomingViewportApplied = false;
     applyChileInitialViewport(map);
