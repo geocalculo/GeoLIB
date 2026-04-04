@@ -482,7 +482,7 @@ function initCrossSitePortal() {
     if (!targetUrl.hostname.includes("geoipt.cl")) return;
 
     const enrichedUrl = buildCrossSiteUrl(targetUrl.toString());
-    const target = typeof data.target === "string" ? data.target : "_blank";
+    const target = typeof data.target === "string" ? data.target : "_self";
     openCrossSiteUrl(enrichedUrl, target);
   });
 }
