@@ -284,33 +284,64 @@ input:focus-visible {
 }
 
 .geoeva-side-banner {
-  width: 170px;
-  min-width: 170px;
-  background: var(--surface);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 16px 10px;
+  position: fixed;
+  top: calc(50% + 36px);
+  transform: translateY(-50%);
+  width: 232px;
+  padding: 1rem 1rem 0.9rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 18px 38px rgba(2, 6, 23, 0.35);
+  background: rgba(15, 23, 42, 0.84);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 650;
 }
 
-.geoeva-side-banner:first-of-type {
-  border-left: 0;
-  border-right: 1px solid var(--border-soft);
-  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.08);
+.geoeva-side-banner--left {
+  left: 16px;
+  border-left: 4px solid #2563eb;
 }
 
-.geoeva-side-banner:last-of-type {
-  border-left: 1px solid var(--border-soft);
-  box-shadow: -4px 0 18px rgba(0, 0, 0, 0.08);
+.geoeva-side-banner--right {
+  right: 16px;
+  border-left: 4px solid #c08a45;
 }
 
-.geoeva-side-banner iframe {
-  width: 150px;
-  height: 600px;
-  border: 0;
-  border-radius: 12px;
-  box-shadow: var(--shadow-strong);
-  background: transparent;
+.geoeva-side-banner__title {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #f8fafc;
+}
+
+.geoeva-side-banner__text {
+  margin: 0 0 0.8rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.geoeva-side-banner__link {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 0.79rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #cbd5e1;
+}
+
+.geoeva-side-banner__link:hover {
+  color: #ffffff;
+}
+
+.geoeva-side-banner--left .geoeva-side-banner__link {
+  color: #93c5fd;
+}
+
+.geoeva-side-banner--right .geoeva-side-banner__link {
+  color: #f2d3a3;
 }
 
 .map-hint {
