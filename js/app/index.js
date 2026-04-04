@@ -406,16 +406,16 @@ function getCurrentViewportParams() {
     lon: Number(center.lng).toFixed(6),
     zoom: String(state.map.getZoom()),
     bbox: [
-      Number(bounds.getNorth()).toFixed(6),
-      Number(bounds.getEast()).toFixed(6),
       Number(bounds.getSouth()).toFixed(6),
       Number(bounds.getWest()).toFixed(6),
+      Number(bounds.getNorth()).toFixed(6),
+      Number(bounds.getEast()).toFixed(6),
     ].join(","),
   };
 }
 
-function buildCrossSiteUrl(rawHref) {
-  const targetUrl = new URL(rawHref, window.location.href);
+function buildCrossSiteUrl(baseUrl) {
+  const targetUrl = new URL(baseUrl, window.location.href);
   const params = targetUrl.searchParams;
   const viewport = getCurrentViewportParams();
 
@@ -423,67 +423,29 @@ function buildCrossSiteUrl(rawHref) {
   if (viewport.lon) params.set("lon", viewport.lon);
   if (viewport.zoom) params.set("zoom", viewport.zoom);
   if (viewport.bbox) params.set("bbox", viewport.bbox);
-  params.set("from", "geoeva");
 
   return targetUrl.toString();
 }
 
-function openCrossSiteUrl(enrichedUrl, target = "_blank") {
-  if (target === "_blank") {
-    const popup = window.open(enrichedUrl, "_blank", "noopener");
-
-    if (!popup) {
-      warn("[cross-site] window.open bloqueado; usando navegación en misma pestaña.");
-      window.location.assign(enrichedUrl);
-    }
-    return;
-  }
-
-  window.location.assign(enrichedUrl);
-}
-
 function initCrossSitePortal() {
-  document.addEventListener("click", (event) => {
-    if (event.defaultPrevented) return;
-    if (event.button !== 0) return;
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const crossSiteLinks = document.querySelectorAll("[data-cross-site='side-banner']");
+  crossSiteLinks.forEach((anchor) => {
+    if (!(anchor instanceof HTMLAnchorElement)) return;
+    if (anchor.dataset.crossSiteBound === "true") return;
 
-    const eventTarget = event.target;
-    if (!(eventTarget instanceof Element)) return;
+    anchor.addEventListener("click", (event) => {
+      event.preventDefault();
+      const rawHref = anchor.getAttribute("href");
+      if (!rawHref) return;
 
-    const anchor = eventTarget.closest("a[href]");
-    if (!anchor) return;
+      const enrichedUrl = buildCrossSiteUrl(rawHref);
+      const popup = window.open(enrichedUrl, "_blank", "noopener");
+      if (!popup) {
+        warn("[cross-site] No se pudo abrir nueva pestaña para card lateral.");
+      }
+    });
 
-    const rawHref = anchor.getAttribute("href");
-    if (!rawHref) return;
-
-    const targetUrl = new URL(rawHref, window.location.href);
-    if (!targetUrl.hostname.includes("geoipt.cl")) return;
-
-    event.preventDefault();
-
-    const enrichedUrl = buildCrossSiteUrl(rawHref);
-    openCrossSiteUrl(enrichedUrl, anchor.target || "_self");
-  });
-
-  window.addEventListener("message", (event) => {
-    const { data } = event;
-    if (!data || typeof data !== "object") return;
-    if (data.type !== "ecosystem:navigate") return;
-    if (typeof data.href !== "string" || !data.href) return;
-
-    let targetUrl;
-    try {
-      targetUrl = new URL(data.href, window.location.href);
-    } catch (invalidUrlError) {
-      return;
-    }
-
-    if (!targetUrl.hostname.includes("geoipt.cl")) return;
-
-    const enrichedUrl = buildCrossSiteUrl(targetUrl.toString());
-    const target = typeof data.target === "string" ? data.target : "_self";
-    openCrossSiteUrl(enrichedUrl, target);
+    anchor.dataset.crossSiteBound = "true";
   });
 }
 
