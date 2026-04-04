@@ -132,6 +132,44 @@ function rotar(){
 
 rotar();
 setInterval(rotar, 6000);
+
+const bannerLink = document.getElementById("banner-link");
+
+function openBannerFallback(href, target){
+  if (target === "_blank") {
+    window.open(href, "_blank", "noopener");
+    return;
+  }
+
+  window.location.href = href;
+}
+
+if (bannerLink) {
+  bannerLink.addEventListener("click", (event) => {
+    event.preventDefault();
+
+    const href = bannerLink.href;
+    const target = bannerLink.target || "_blank";
+
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "ecosystem:navigate",
+            href,
+            target
+          },
+          "*"
+        );
+        return;
+      }
+    } catch (postMessageError) {
+      // Fallback a navegación normal si falla postMessage.
+    }
+
+    openBannerFallback(href, target);
+  });
+}
 </script>
 </body>
 </html>

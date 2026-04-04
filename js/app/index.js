@@ -456,6 +456,32 @@ function initCrossSitePortal() {
 
     window.location.assign(enrichedUrl);
   });
+
+  window.addEventListener("message", (event) => {
+    const { data } = event;
+    if (!data || typeof data !== "object") return;
+    if (data.type !== "ecosystem:navigate") return;
+    if (typeof data.href !== "string" || !data.href) return;
+
+    let targetUrl;
+    try {
+      targetUrl = new URL(data.href, window.location.href);
+    } catch (invalidUrlError) {
+      return;
+    }
+
+    if (!targetUrl.hostname.includes("geoipt.cl")) return;
+
+    const enrichedUrl = buildCrossSiteUrl(targetUrl.toString());
+    const target = typeof data.target === "string" ? data.target : "_blank";
+
+    if (target === "_blank") {
+      window.open(enrichedUrl, "_blank", "noopener");
+      return;
+    }
+
+    window.location.assign(enrichedUrl);
+  });
 }
 
 function initMap() {
