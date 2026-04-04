@@ -428,6 +428,20 @@ function buildCrossSiteUrl(rawHref) {
   return targetUrl.toString();
 }
 
+function openCrossSiteUrl(enrichedUrl, target = "_blank") {
+  if (target === "_blank") {
+    const popup = window.open(enrichedUrl, "_blank", "noopener");
+
+    if (!popup) {
+      warn("[cross-site] window.open bloqueado; usando navegación en misma pestaña.");
+      window.location.assign(enrichedUrl);
+    }
+    return;
+  }
+
+  window.location.assign(enrichedUrl);
+}
+
 function initCrossSitePortal() {
   document.addEventListener("click", (event) => {
     if (event.defaultPrevented) return;
@@ -449,12 +463,7 @@ function initCrossSitePortal() {
     event.preventDefault();
 
     const enrichedUrl = buildCrossSiteUrl(rawHref);
-    if (anchor.target === "_blank") {
-      window.open(enrichedUrl, "_blank", "noopener");
-      return;
-    }
-
-    window.location.assign(enrichedUrl);
+    openCrossSiteUrl(enrichedUrl, anchor.target || "_self");
   });
 
   window.addEventListener("message", (event) => {
@@ -474,13 +483,7 @@ function initCrossSitePortal() {
 
     const enrichedUrl = buildCrossSiteUrl(targetUrl.toString());
     const target = typeof data.target === "string" ? data.target : "_blank";
-
-    if (target === "_blank") {
-      window.open(enrichedUrl, "_blank", "noopener");
-      return;
-    }
-
-    window.location.assign(enrichedUrl);
+    openCrossSiteUrl(enrichedUrl, target);
   });
 }
 
