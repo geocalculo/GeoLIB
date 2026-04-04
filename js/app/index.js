@@ -395,6 +395,69 @@ function applyChileInitialViewport(map) {
   map.fitBounds(CHILE_INITIAL_BOUNDS, { animate: false });
 }
 
+function getCurrentViewportParams() {
+  if (!state.map) return {};
+
+  const center = state.map.getCenter();
+  const bounds = state.map.getBounds();
+
+  return {
+    lat: Number(center.lat).toFixed(6),
+    lon: Number(center.lng).toFixed(6),
+    zoom: String(state.map.getZoom()),
+    bbox: [
+      Number(bounds.getNorth()).toFixed(6),
+      Number(bounds.getEast()).toFixed(6),
+      Number(bounds.getSouth()).toFixed(6),
+      Number(bounds.getWest()).toFixed(6),
+    ].join(","),
+  };
+}
+
+function buildCrossSiteUrl(rawHref) {
+  const targetUrl = new URL(rawHref, window.location.href);
+  const params = targetUrl.searchParams;
+  const viewport = getCurrentViewportParams();
+
+  if (viewport.lat) params.set("lat", viewport.lat);
+  if (viewport.lon) params.set("lon", viewport.lon);
+  if (viewport.zoom) params.set("zoom", viewport.zoom);
+  if (viewport.bbox) params.set("bbox", viewport.bbox);
+  params.set("from", "geoeva");
+
+  return targetUrl.toString();
+}
+
+function initCrossSitePortal() {
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented) return;
+    if (event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+    const eventTarget = event.target;
+    if (!(eventTarget instanceof Element)) return;
+
+    const anchor = eventTarget.closest("a[href]");
+    if (!anchor) return;
+
+    const rawHref = anchor.getAttribute("href");
+    if (!rawHref) return;
+
+    const targetUrl = new URL(rawHref, window.location.href);
+    if (!targetUrl.hostname.includes("geoipt.cl")) return;
+
+    event.preventDefault();
+
+    const enrichedUrl = buildCrossSiteUrl(rawHref);
+    if (anchor.target === "_blank") {
+      window.open(enrichedUrl, "_blank", "noopener");
+      return;
+    }
+
+    window.location.assign(enrichedUrl);
+  });
+}
+
 function initMap() {
   const map = L.map("map", {
     center: FALLBACK_VIEW.center,
@@ -876,6 +939,7 @@ function bootstrapPhase0And1() {
       event_label: "index",
     });
 
+    initCrossSitePortal();
     initProjectSearch();
 
     setLoadingProgress(25, "Inicializando mapa...");
