@@ -143,6 +143,29 @@ function updateMarkers(visibleProjects) {
   }
 }
 
+function ensureMobileSummaryNodes(root) {
+  const requiredKeys = ["aprobados", "calificacion", "rechazados"];
+  const hasAllNodes = requiredKeys.every((key) =>
+    root.querySelector(`[data-key="${key}"]`)
+  );
+
+  if (hasAllNodes) return;
+
+  root.innerHTML = `
+    <span class="ms-inline ms-aprobados">
+      Aprobados <strong data-key="aprobados">0</strong>
+    </span>
+    <span class="ms-sep">|</span>
+    <span class="ms-inline ms-calificacion">
+      En revisión <strong data-key="calificacion">0</strong>
+    </span>
+    <span class="ms-sep">|</span>
+    <span class="ms-inline ms-rechazados">
+      Rechazados <strong data-key="rechazados">0</strong>
+    </span>
+  `;
+}
+
 function updateMobileSummary(projectsInView) {
   const root = document.getElementById("mobileSummary");
   if (!root) return;
@@ -158,11 +181,10 @@ function updateMobileSummary(projectsInView) {
     if (summary[bucket] != null) summary[bucket] += 1;
   });
 
-  console.log("summary actual:", summary);
+  ensureMobileSummaryNodes(root);
 
   Object.entries(summary).forEach(([key, value]) => {
     const node = root.querySelector(`[data-key="${key}"]`);
-    console.log("key:", key, "node:", node, "value:", value);
     if (node) node.textContent = String(value);
   });
 }
