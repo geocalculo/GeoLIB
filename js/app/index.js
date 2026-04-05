@@ -157,8 +157,29 @@ function updateMobileSummary(projectsInView) {
     summary[createStatusBucket(project.estado)] += 1;
   });
 
+  const requiredKeys = ["aprobados", "calificacion", "rechazados"];
+  const hasAllNodes = requiredKeys.every((key) =>
+    root.querySelector(`[data-key="${key}"]`)
+  );
+
+  if (!hasAllNodes) {
+    root.innerHTML = `
+      <span class="ms-inline ms-aprobados">
+        Aprobados <strong data-key="aprobados">0</strong>
+      </span>
+      <span class="ms-sep">|</span>
+      <span class="ms-inline ms-calificacion">
+        En revisión <strong data-key="calificacion">0</strong>
+      </span>
+      <span class="ms-sep">|</span>
+      <span class="ms-inline ms-rechazados">
+        Rechazados <strong data-key="rechazados">0</strong>
+      </span>
+    `;
+  }
+
   Object.entries(summary).forEach(([key, value]) => {
-    const node = root.querySelector(`.ms-value[data-key="${key}"]`);
+    const node = root.querySelector(`[data-key="${key}"]`);
     if (node) node.textContent = String(value);
   });
 }
