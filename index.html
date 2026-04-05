@@ -55,8 +55,13 @@
     <header class="app-header">
       <div class="app-header__content">
         <div class="app-branding">
-          <h1>GeoEVA</h1>
-          <h2 class="app-subtitle">Explora proyectos SEA, su estado y contexto territorial</h2>
+          <h1 class="app-title">GeoEVA | Proyectos y Evaluación Ambiental</h1>
+          <h2 class="app-subtitle">
+            Explora proyectos SEA y su contexto territorial
+          </h2>
+          <h3 class="app-hint">
+            👉 Haz clic en el mapa para analizar proyectos cercanos
+          </h3>
         </div>
 
         <div class="app-toolbar">
@@ -69,20 +74,20 @@
         </div>
       </div>
 
-      <div class="mobile-summary" id="mobileSummary" aria-label="Resumen por estado">
-        <button class="ms-card ms-aprobados" type="button">
-          <span class="ms-label">🟢 Aprobados</span>
-          <span class="ms-value" data-key="aprobados">—</span>
-        </button>
-        <button class="ms-card ms-calificacion" type="button">
-          <span class="ms-label">🟡 En calificación</span>
-          <span class="ms-value" data-key="calificacion">—</span>
-        </button>
-        <button class="ms-card ms-rechazados" type="button">
-          <span class="ms-label">🔴 Rechazados</span>
-          <span class="ms-value" data-key="rechazados">—</span>
-        </button>
-      </div>
+      <div class="mobile-summary compact" id="mobileSummary" aria-label="Resumen por estado">
+      <span class="ms-inline ms-aprobados">
+        Aprobados <strong data-key="aprobados">—</strong>
+      </span>
+      <span class="ms-sep">|</span>
+      <span class="ms-inline ms-calificacion">
+        En revisión <strong data-key="calificacion">—</strong>
+      </span>
+      <span class="ms-sep">|</span>
+      <span class="ms-inline ms-rechazados">
+        Rechazados <strong data-key="rechazados">—</strong>
+      </span>
+    </div>
+
     </header>
 
     <main class="app-main">

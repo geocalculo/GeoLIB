@@ -154,11 +154,15 @@ function updateMobileSummary(projectsInView) {
   };
 
   projectsInView.forEach((project) => {
-    summary[createStatusBucket(project.estado)] += 1;
+    const bucket = createStatusBucket(project.estado);
+    if (summary[bucket] != null) summary[bucket] += 1;
   });
 
+  console.log("summary actual:", summary);
+
   Object.entries(summary).forEach(([key, value]) => {
-    const node = root.querySelector(`.ms-value[data-key="${key}"]`);
+    const node = root.querySelector(`[data-key="${key}"]`);
+    console.log("key:", key, "node:", node, "value:", value);
     if (node) node.textContent = String(value);
   });
 }
