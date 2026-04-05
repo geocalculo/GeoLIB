@@ -7,7 +7,8 @@ import { buildMapainfoUrl } from "./router.js";
 
 const DATA_URL = "capas/nacional.compact.v2.json";
 const REGIONES_URL = "capas/regiones.json";
-const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 9 };
+const FALLBACK_VIEW = { center: [-23.6509, -70.3975], zoom: 11 };
+const HOME_VIEW = { center: [-23.6509, -70.3975], zoom: 10 };
 const CHILE_INITIAL_BOUNDS = [
   [-56.0, -75.0], // SW
   [-17.5, -66.0], // NE
@@ -418,7 +419,7 @@ function applyIncomingViewport(map) {
 
 function applyChileInitialViewport(map) {
   if (!map) return;
-  map.fitBounds(CHILE_INITIAL_BOUNDS, { animate: false });
+  map.setView(HOME_VIEW.center, HOME_VIEW.zoom, { animate: false });
 }
 
 function getCurrentViewportParams() {
