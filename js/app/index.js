@@ -189,7 +189,7 @@ function updateMobileSummary(projectsInView) {
     desktopSummary.innerHTML = `
       <span class="ds-aprobados">Aprobados <strong>${summary.aprobados}</strong></span>
       <span class="ds-sep">|</span>
-      <span class="ds-calificacion">Calificación <strong>${summary.calificacion}</strong></span>
+      <span class="ds-calificacion">En revisión <strong>${summary.calificacion}</strong></span>
       <span class="ds-sep">|</span>
       <span class="ds-rechazados">Rechazados <strong>${summary.rechazados}</strong></span>
     `;
