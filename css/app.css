@@ -533,13 +533,13 @@ input:focus-visible {
   color: #ef4444;
 }
 
+.ms-sep {
+  color: #cbd5e1;
+}
+}
+
 .desktop-summary {
   display: none;
-  margin-top: 0;
-  padding: 0 1.5rem 0.9rem;
-  font-size: 0.84rem;
-  color: #64748b;
-  text-align: center;
 }
 
 .desktop-summary strong {
@@ -563,11 +563,6 @@ input:focus-visible {
   margin: 0 6px;
   color: #cbd5e1;
   opacity: 0.75;
-}
-
-.ms-sep {
-  color: #cbd5e1;
-}
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -746,6 +741,8 @@ input:focus-visible {
     left: 50%;
     transform: translateX(-50%);
     z-index: 700;
+    pointer-events: none;
+    white-space: nowrap;
 
     background: rgba(15, 23, 42, 0.75);
     color: #e2e8f0;
