@@ -496,8 +496,8 @@ input:focus-visible {
 
   .project-search {
     top: 8px;
-    left: 8px;
-    width: calc(100% - 16px);
+    left: 56px;
+    width: calc(100% - 64px);
   }
 
   .project-search__label {
@@ -563,6 +563,26 @@ input:focus-visible {
   margin: 0 6px;
   color: #cbd5e1;
   opacity: 0.75;
+}
+
+.app-title {
+  font-size: 0.98rem;
+  line-height: 1.02;
+}
+
+.region-selector-container {
+  padding: 0.3rem 0.55rem;
+  border-radius: 10px;
+}
+
+.region-select {
+  padding: 0.4rem 1.7rem 0.4rem 0.55rem;
+  font-size: 0.8rem;
+  min-width: auto;
+}
+
+.leaflet-top.leaflet-left {
+  top: 6px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -753,5 +773,27 @@ input:focus-visible {
 
     backdrop-filter: blur(6px);
     box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+}
+
+@media (max-width: 768px) {
+
+  .app-header__content {
+    padding: 0.7rem 0.8rem;
+    gap: 0.4rem;
+  }
+
+  .app-title {
+    font-size: 0.95rem;
+    line-height: 1.05;
+  }
+
+  .app-subtitle {
+    font-size: 0.72rem;
+  }
+
+  .app-hint {
+    font-size: 0.65rem;
+    opacity: 0.75;
   }
 }

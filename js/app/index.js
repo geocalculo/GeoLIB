@@ -543,10 +543,7 @@ function initMap() {
     applyChileInitialViewport(map);
   }
 
-  scheduleAfterLoad(
-    showUserLocationPrompt,
-    0
-  );
+
 
   scheduleWhenIdle(() => initMapCursorHint(map), 2000);
 
