@@ -468,20 +468,34 @@ function buildCrossSiteUrl(baseUrl) {
 }
 
 function initCrossSitePortal() {
-  const crossSiteLinks = document.querySelectorAll("[data-cross-site='side-banner']");
+  const crossSiteLinks = document.querySelectorAll(
+    "[data-cross-site='side-banner'], #ecosystem-bar a[href]"
+  );
+
+  const isMobileNav = window.matchMedia("(max-width: 767px)").matches;
+
   crossSiteLinks.forEach((anchor) => {
     if (!(anchor instanceof HTMLAnchorElement)) return;
     if (anchor.dataset.crossSiteBound === "true") return;
 
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
+
       const rawHref = anchor.getAttribute("href");
       if (!rawHref) return;
 
       const enrichedUrl = buildCrossSiteUrl(rawHref);
+
+      // En mobile: misma pestaña
+      if (isMobileNav || anchor.closest("#ecosystem-bar")) {
+        window.location.href = enrichedUrl;
+        return;
+      }
+
+      // En desktop: nueva pestaña para cards laterales
       const popup = window.open(enrichedUrl, "_blank", "noopener");
       if (!popup) {
-        warn("[cross-site] No se pudo abrir nueva pestaña para card lateral.");
+        window.location.href = enrichedUrl;
       }
     });
 
