@@ -618,8 +618,8 @@ async function loadRegions() {
 
     state.regiones.forEach((region) => {
       const option = document.createElement("option");
-      option.value = region.id;
-      option.textContent = region.nombre;
+      option.value = String(region.id ?? "");
+      option.textContent = region.nombre || "Sin nombre";
       select.appendChild(option);
     });
   } catch (fetchError) {
@@ -628,18 +628,55 @@ async function loadRegions() {
     return;
   }
 
-  select.addEventListener("change", (event) => {
-    const region = state.regiones.find((item) => item.id === event.target.value);
-    if (!region || !state.map) return;
+  if (!select.dataset.bound) {
+    select.addEventListener("change", (event) => {
+      const selectedId = String(event.target.value || "");
 
-    incomingViewportApplied = false;
+      const region = state.regiones.find(
+        (item) => String(item.id) === selectedId
+      );
 
-    if (region.centro && region.zoom) {
-      state.map.setView(region.centro, region.zoom);
-    }
-  });
+      if (!region || !state.map) {
+        console.warn("[GeoEVA] Región no encontrada:", {
+          selectedId,
+          regiones: state.regiones,
+        });
+        return;
+      }
+
+      incomingViewportApplied = false;
+      hasUrlViewportParams = false;
+
+      if (Array.isArray(region.bbox) && region.bbox.length === 4) {
+        state.map.fitBounds(
+          [
+            [Number(region.bbox[2]), Number(region.bbox[3])],
+            [Number(region.bbox[0]), Number(region.bbox[1])],
+          ],
+          { animate: true }
+        );
+        return;
+      }
+
+      if (
+        Array.isArray(region.centro) &&
+        region.centro.length === 2 &&
+        region.zoom != null
+      ) {
+        state.map.setView(
+          [Number(region.centro[0]), Number(region.centro[1])],
+          Number(region.zoom),
+          { animate: true }
+        );
+        return;
+      }
+
+      console.warn("[GeoEVA] Región sin bbox ni centro/zoom válidos:", region);
+    });
+
     select.dataset.bound = "true";
   }
+}
 
 
 function normalizeSearchText(value) {
