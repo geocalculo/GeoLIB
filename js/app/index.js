@@ -628,18 +628,19 @@ async function loadRegions() {
     return;
   }
 
-  if (!select.dataset.bound) {
-    select.addEventListener("change", (event) => {
-      const region = state.regiones.find((item) => item.id === event.target.value);
-      if (!region || !state.map) return;
-      if (incomingViewportApplied) return;
-      if (region.centro && region.zoom) {
-        state.map.setView(region.centro, region.zoom);
-      }
-    });
+  select.addEventListener("change", (event) => {
+    const region = state.regiones.find((item) => item.id === event.target.value);
+    if (!region || !state.map) return;
+
+    incomingViewportApplied = false;
+
+    if (region.centro && region.zoom) {
+      state.map.setView(region.centro, region.zoom);
+    }
+  });
     select.dataset.bound = "true";
   }
-}
+
 
 function normalizeSearchText(value) {
   return normalizeSimple(String(value || ""))
