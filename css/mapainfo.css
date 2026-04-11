@@ -107,6 +107,37 @@ gap: 1rem;
 position: relative;
 }
 
+
+.home-floating-btn {
+position: absolute;
+top: 14px;
+right: 14px;
+z-index: 5100;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+min-height: 40px;
+padding: 0.5rem 0.8rem;
+border-radius: 10px;
+border: 1px solid rgba(15, 23, 42, 0.15);
+background: rgba(255, 255, 255, 0.96);
+color: #0f172a;
+font-size: 0.88rem;
+font-weight: 700;
+line-height: 1;
+text-decoration: none;
+box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
+}
+
+.home-floating-btn:hover {
+background: #ffffff;
+}
+
+.home-floating-btn:focus-visible {
+outline: 2px solid #2563eb;
+outline-offset: 2px;
+}
+
 /* Mapa – ratio único para HTML y PDF */
 .map-square {
   flex: 1;
@@ -476,6 +507,13 @@ font-weight: 700; text-decoration: none;
    UN SOLO MEDIA QUERY CONSOLIDADO
    =========================== */
 @media (max-width: 768px) {
+  .home-floating-btn {
+    top: 8px;
+    right: 8px;
+    min-height: 42px;
+    padding: 0.55rem 0.85rem;
+  }
+
   
   /* ========== LAYOUT VERTICAL ========== */
   body {
