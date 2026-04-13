@@ -18,6 +18,7 @@ import {
   renderKmlBalloonHtml,
   renderKmlBalloonForQuery,
 } from "../report/htmlRenderer.js";
+import { trackEvent } from "../core/tracking.js";
 
 // ---------------------------
 // Helpers KML
@@ -140,6 +141,8 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     fileName ||
     `GeoEVA_${q.modo || "proximidad"}_${lat.toFixed(5)}_${lng.toFixed(5)}_${radioFinal.toFixed(2)}km`;
   const kmzName = safeFileName(baseName) + ".kmz";
+  const proyectos = Array.isArray(model.projects) ? model.projects.length : null;
+  const radioKm = Number.isFinite(radioFinal) ? Number(radioFinal.toFixed(2)) : null;
 
   const zip = new window.JSZip();
   const kmlName = "doc.kml";
@@ -147,6 +150,16 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
   let objectUrl = null;
 
   try {
+    trackEvent("geoeva_download_kmz", {
+      event_category: "entregables",
+      event_label: "mapainfo_kmz",
+      file_name: kmzName,
+      radio_km: radioKm,
+      modo: q?.modo || null,
+      proyectos,
+      non_interaction: true,
+    });
+
     let kml = "";
     kml += kmlHeader("GeoEVA - Proximidad");
     kml += kmlStyleDefs();
@@ -204,16 +217,18 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     a.download = kmzName;
     document.body.appendChild(a);
 
-    // 🔥 TRACKING (igual que GeoIPT)
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      event: "download_kmz",
+    a.click();
+
+    trackEvent("geoeva_download_kmz_success", {
+      value: 1,
+      event_category: "entregables",
       event_label: "mapainfo_kmz",
       file_name: kmzName,
+      radio_km: radioKm,
+      modo: q?.modo || null,
+      proyectos,
       ts: Date.now(),
     });
-
-    a.click();
     a.remove();
 
   } catch (err) {

@@ -1618,14 +1618,6 @@ async function main() {
 
     window.__geoeva_model = model;
 
-  const btn = document.getElementById("btn-download-kmz");
-
-  if (btn) {
-    btn.addEventListener("click", () => {
-      downloadProximityKMZ({ model });
-    });
-  }
-
     setLoadingProgress(82, "Renderizando panel y mapa...");
     renderInfoBar(model);
     renderExecutiveAnalysis(model);
@@ -1665,32 +1657,7 @@ async function main() {
     bindKmzButton({
       buttonId: "btnKmz",
       getModel: () => model,
-      exporter: async (...args) => {
-        const m = model;
-        const radio = Number(
-          m?.query?.radioKmFinal ?? m?.query?.radioKm ?? m?.query?.radio ?? NaN
-        );
-
-        trackEvent("geoeva_download_kmz", {
-          event_category: "entregables",
-          event_label: "mapainfo_kmz",
-          radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
-          modo: m?.query?.modo || null,
-          proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
-        });
-
-      trackEvent("geoeva_download_kmz_success", {
-        value: 1,
-        event_category: "entregables",
-        event_label: "mapainfo_kmz",
-        radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
-        modo: m?.query?.modo || null,
-        proyectos: Array.isArray(m?.projects) ? m.projects.length : null,
-        ts: Date.now(),
-      });
-
-      return await downloadProximityKMZ(...args);
-      },
+      exporter: async (...args) => await downloadProximityKMZ(...args),
       attachGlobalName: "downloadProximityKMZ",
     });
 

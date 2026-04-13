@@ -27,6 +27,8 @@ export function bindKmzButton({
   }
 
   if (btn) {
+    if (btn.dataset.boundKmz === "1") return { run };
+    btn.dataset.boundKmz = "1";
     btn.disabled = false;
     btn.addEventListener("click", (e) => {
       e.preventDefault();
