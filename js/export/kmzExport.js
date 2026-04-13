@@ -20,6 +20,15 @@ import {
 } from "../report/htmlRenderer.js";
 import { trackEvent } from "../core/tracking.js";
 
+const RUNTIME_DEBUG_KMZ =
+  window.__GEOEVA_RUNTIME_DEBUG__ === true ||
+  new URLSearchParams(window.location.search).get("debugRuntime") === "1";
+
+function kmzDebugLog(...args) {
+  if (!RUNTIME_DEBUG_KMZ) return;
+  console.log("[GeoEVA][KMZ]", ...args);
+}
+
 // ---------------------------
 // Helpers KML
 // ---------------------------
@@ -115,6 +124,11 @@ function safeFileName(s) {
 // ---------------------------
 
 export async function downloadProximityKMZ({ model, fileName } = {}) {
+  kmzDebugLog("enter downloadProximityKMZ", {
+    hasModel: Boolean(model),
+    hasQuery: Boolean(model?.query),
+  });
+
   if (!model || !model.query) {
     throw new Error("downloadProximityKMZ: model inválido.");
   }
@@ -150,6 +164,7 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
   let objectUrl = null;
 
   try {
+    kmzDebugLog("before trackEvent geoeva_download_kmz", { kmzName, radioKm, proyectos });
     trackEvent("geoeva_download_kmz", {
       event_category: "entregables",
       event_label: "mapainfo_kmz",
@@ -159,6 +174,7 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
       proyectos,
       non_interaction: true,
     });
+    kmzDebugLog("after trackEvent geoeva_download_kmz");
 
     let kml = "";
     kml += kmlHeader("GeoEVA - Proximidad");
@@ -209,16 +225,16 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     zip.file(kmlName, kml);
 
     const blob = await zip.generateAsync({ type: "blob" });
+    kmzDebugLog("blob generated", { size: blob?.size ?? null, type: blob?.type ?? null });
 
     const a = document.createElement("a");
     objectUrl = URL.createObjectURL(blob);
+    kmzDebugLog("objectUrl created");
 
-    a.href = objectUrl;
-    a.download = kmzName;
-    document.body.appendChild(a);
-
-    a.click();
-
+    kmzDebugLog("before trackEvent geoeva_download_kmz_success", {
+      kmzName,
+      stage: "blob_ready_pre_click",
+    });
     trackEvent("geoeva_download_kmz_success", {
       value: 1,
       event_category: "entregables",
@@ -227,14 +243,26 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
       radio_km: radioKm,
       modo: q?.modo || null,
       proyectos,
+      stage: "blob_ready_pre_click",
       ts: Date.now(),
     });
-    a.remove();
+    kmzDebugLog("after trackEvent geoeva_download_kmz_success");
 
+    a.href = objectUrl;
+    a.download = kmzName;
+    document.body.appendChild(a);
+
+    kmzDebugLog("before a.click()");
+    a.click();
+    kmzDebugLog("after a.click()");
+    a.remove();
+    kmzDebugLog("anchor removed");
   } catch (err) {
+    kmzDebugLog("error in downloadProximityKMZ", err);
     throw err;
   } finally {
     if (objectUrl) {
+      kmzDebugLog("schedule URL.revokeObjectURL");
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
     }
   }

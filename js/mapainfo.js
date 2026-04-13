@@ -27,6 +27,14 @@ import { log, warn, error } from "./core/logger.js";
 import { trackEvent } from "./core/tracking.js";
 
 const DATA_URL = "capas/nacional.compact.v2.json";
+const RUNTIME_DEBUG =
+  window.__GEOEVA_RUNTIME_DEBUG__ === true ||
+  new URLSearchParams(window.location.search).get("debugRuntime") === "1";
+
+function runtimeDebugLog(...args) {
+  if (!RUNTIME_DEBUG) return;
+  console.log("[GeoEVA][Runtime]", ...args);
+}
 
 
 
@@ -1079,6 +1087,10 @@ function addPdfFooter(doc, { margin = 15 } = {}) {
 // =====================================================
 async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   log("📄 Generando PDF...");
+  runtimeDebugLog("enter downloadPDFDirect", {
+    params,
+    proyectos: Array.isArray(proyectos) ? proyectos.length : null,
+  });
 
 
   if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -1430,11 +1442,7 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   // ✅ Footer con hipervínculos en todas las páginas
   addPdfFooter(doc, { margin });
 
-
-
-  doc.save(filename);
-
-  // ✅ GA4: conversión cuando el PDF ya fue “entregado”
+  runtimeDebugLog("before trackEvent geoeva_download_pdf_success", { filename });
   trackEvent("geoeva_download_pdf_success", {
     value: 1,
     event_category: "entregables",
@@ -1455,6 +1463,10 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
     proyectos: Array.isArray(proyectos) ? proyectos.length : null,
     ts: Date.now(),
   });
+  runtimeDebugLog("after trackEvent geoeva_download_pdf_success");
+  runtimeDebugLog("before doc.save", { filename });
+  doc.save(filename);
+  runtimeDebugLog("after doc.save", { filename });
 
   log("✅ PDF:", filename);
 }
@@ -1467,6 +1479,11 @@ function bindPdfButtonOnce() {
   btn.dataset.bound = "1";
 
   btn.addEventListener("click", async () => {
+    runtimeDebugLog("btnPdf click handler enter", {
+      disabled: btn.disabled,
+      bound: btn.dataset.bound,
+      hasModel: Boolean(model),
+    });
     try {
       if (!model) {
         alert("Espera a que carguen los datos...");
@@ -1495,7 +1512,9 @@ function bindPdfButtonOnce() {
         proyectos: Array.isArray(model?.projects) ? model.projects.length : null,
         non_interaction: true,
       });
+      runtimeDebugLog("after trackEvent geoeva_download_pdf");
 
+      runtimeDebugLog("before downloadPDFDirect()");
       await downloadPDFDirect({
         params: {
           lat: model.query.lat,
@@ -1511,6 +1530,7 @@ function bindPdfButtonOnce() {
         proyectos: Array.isArray(model.projects) ? model.projects : [],
         model,
       });
+      runtimeDebugLog("after downloadPDFDirect()");
 
       btn.textContent = "✅ Listo";
       setTimeout(() => {
@@ -1518,6 +1538,7 @@ function bindPdfButtonOnce() {
         btn.disabled = false;
       }, 2000);
     } catch (err) {
+      runtimeDebugLog("btnPdf click handler error", err);
       error("❌ Error:", err);
       alert(`Error: ${err.message}`);
       btn.textContent = "🖨️ PDF";
