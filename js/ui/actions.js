@@ -8,14 +8,30 @@ export function bindKmzButton({
   attachGlobalName = "downloadProximityKMZ",
 } = {}) {
   const btn = document.getElementById(buttonId);
+  const runtimeDebug =
+    window.__GEOEVA_RUNTIME_DEBUG__ === true ||
+    new URLSearchParams(window.location.search).get("debugRuntime") === "1";
+
+  const debugLog = (...args) => {
+    if (!runtimeDebug) return;
+    console.log("[GeoEVA][KMZ][bind]", ...args);
+  };
 
   const run = async () => {
     const model = typeof getModel === "function" ? getModel() : null;
+    debugLog("run()", {
+      buttonId,
+      hasModel: Boolean(model),
+      hasQuery: Boolean(model?.query),
+    });
     if (!model) return;
 
     try {
+      debugLog("before exporter()");
       await exporter({ model });
+      debugLog("after exporter()");
     } catch (err) {
+      debugLog("error in exporter()", err);
       console.error("❌ Error exportando KMZ:", err);
       alert("No se pudo exportar KMZ. Revisa la consola.");
     }
@@ -31,6 +47,7 @@ export function bindKmzButton({
     btn.dataset.boundKmz = "1";
     btn.disabled = false;
     btn.addEventListener("click", (e) => {
+      debugLog("btn click", { disabled: btn.disabled, boundKmz: btn.dataset.boundKmz });
       e.preventDefault();
       run();
     });
