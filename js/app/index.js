@@ -472,32 +472,34 @@ function initCrossSitePortal() {
     "[data-cross-site='side-banner'], #ecosystem-bar a[href]"
   );
 
-  const isMobileNav = window.matchMedia("(max-width: 767px)").matches;
-
   crossSiteLinks.forEach((anchor) => {
     if (!(anchor instanceof HTMLAnchorElement)) return;
     if (anchor.dataset.crossSiteBound === "true") return;
 
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
 
       const rawHref = anchor.getAttribute("href");
       if (!rawHref) return;
 
       const enrichedUrl = buildCrossSiteUrl(rawHref);
+      const isMobileNav = window.matchMedia("(max-width: 767px)").matches;
+      const isMobileBarLink = Boolean(anchor.closest("#ecosystem-bar"));
 
       // En mobile: misma pestaña
-      if (isMobileNav || anchor.closest("#ecosystem-bar")) {
+      if (isMobileNav || isMobileBarLink) {
         window.location.href = enrichedUrl;
         return;
       }
 
       // En desktop: nueva pestaña para cards laterales
-      const popup = window.open(enrichedUrl, "_blank", "noopener");
+      const popup = window.open(enrichedUrl, "_blank", "noopener,noreferrer");
       if (!popup) {
         window.location.href = enrichedUrl;
       }
-    });
+    }, { capture: true });
 
     anchor.dataset.crossSiteBound = "true";
   });
