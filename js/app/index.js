@@ -970,25 +970,24 @@ function initMapCursorHint(map) {
   if (!isDesktop) return;
 
   let visible = false;
-  let timeout;
+  let dismissed = localStorage.getItem("geoevaHintDismissed") === "1";
+
+  if (dismissed) return;
 
   function showHint() {
     hint.classList.add("show");
     visible = true;
-
-    timeout = setTimeout(() => {
-      hideHint();
-    }, 4000);
   }
 
   function hideHint() {
     hint.classList.remove("show");
     visible = false;
-    clearTimeout(timeout);
+    dismissed = true;
+    localStorage.setItem("geoevaHintDismissed", "1");
   }
 
   map.getContainer().addEventListener("mouseenter", () => {
-    if (!visible) showHint();
+    if (!visible && !dismissed) showHint();
   });
 
   map.getContainer().addEventListener("mousemove", (e) => {
@@ -996,10 +995,10 @@ function initMapCursorHint(map) {
     hint.style.top = `${e.clientY + 12}px`;
   });
 
-  map.getContainer().addEventListener("mouseleave", hideHint);
-  map.getContainer().addEventListener("mousedown", hideHint);
+  map.getContainer().addEventListener("mousedown", () => {
+    if (!dismissed) hideHint();
+  });
 }
-
 async function runDeferredDataWarmup() {
   setLoadingProgress(30, "Cargando regiones...");
   await loadRegions();
