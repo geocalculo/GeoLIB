@@ -15,9 +15,12 @@ const CHILE_INITIAL_BOUNDS = [
 ];
 const USER_ZOOM = 12;
 const SEARCH_FLY_ZOOM = 13;
+const VIEWPORT_STORAGE_KEY = "ms:lastViewport:geoeva";
+const VIEWPORT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 let incomingViewportApplied = false;
 let locationPromptShown = false;
 let hasUrlViewportParams = false;
+let userViewportInteractionArmed = false;
 
 const PROJECT_MARKER_STYLE = {
   radius: 3,
@@ -315,10 +318,12 @@ function centerOnUser() {
       state.map.setView([coords.latitude, coords.longitude], USER_ZOOM, {
         animate: true,
       });
+      persistCurrentViewport(state.map);
     },
     (geoError) => {
       warn("[geo] No se pudo obtener la ubicación; usando fallback.", geoError);
       state.map.setView(FALLBACK_VIEW.center, FALLBACK_VIEW.zoom);
+      persistCurrentViewport(state.map);
     },
     {
       enableHighAccuracy: true,
@@ -403,6 +408,163 @@ function parseBBoxFromQuery(searchParams) {
   };
 }
 
+function isValidBBox(bbox) {
+  if (!bbox || typeof bbox !== "object") return false;
+
+  const { north, east, south, west } = bbox;
+  const values = [north, east, south, west];
+  if (values.some((value) => !Number.isFinite(Number(value)))) return false;
+
+  const parsedNorth = Number(north);
+  const parsedEast = Number(east);
+  const parsedSouth = Number(south);
+  const parsedWest = Number(west);
+
+  if (parsedNorth <= parsedSouth || parsedEast <= parsedWest) return false;
+  if (parsedNorth > 90 || parsedSouth < -90) return false;
+  if (parsedEast > 180 || parsedWest < -180) return false;
+
+  return true;
+}
+
+function persistCurrentViewport(map) {
+  if (!map) return;
+
+  const bounds = map.getBounds();
+  if (!bounds) return;
+
+  const bbox = {
+    north: Number(bounds.getNorth()),
+    east: Number(bounds.getEast()),
+    south: Number(bounds.getSouth()),
+    west: Number(bounds.getWest()),
+  };
+
+  if (!isValidBBox(bbox)) return;
+
+  try {
+    localStorage.setItem(
+      VIEWPORT_STORAGE_KEY,
+      JSON.stringify({
+        bbox,
+        timestamp: Date.now(),
+      })
+    );
+  } catch (storageError) {
+    warn("[viewport] No se pudo persistir viewport", storageError);
+  }
+}
+
+function readStoredViewport() {
+  let parsed = null;
+  try {
+    const raw = localStorage.getItem(VIEWPORT_STORAGE_KEY);
+    if (!raw) return null;
+    parsed = JSON.parse(raw);
+  } catch (_error) {
+    localStorage.removeItem(VIEWPORT_STORAGE_KEY);
+    return null;
+  }
+
+  const bbox = parsed?.bbox;
+  const timestamp = Number(parsed?.timestamp);
+  const expired = !Number.isFinite(timestamp) || Date.now() - timestamp > VIEWPORT_TTL_MS;
+
+  if (!isValidBBox(bbox) || expired) {
+    localStorage.removeItem(VIEWPORT_STORAGE_KEY);
+    return null;
+  }
+
+  return {
+    bbox: {
+      north: Number(bbox.north),
+      east: Number(bbox.east),
+      south: Number(bbox.south),
+      west: Number(bbox.west),
+    },
+    timestamp,
+  };
+}
+
+function applyStoredViewport(map) {
+  if (!map) return false;
+
+  const stored = readStoredViewport();
+  if (!stored) return false;
+
+  map.fitBounds(
+    [
+      [stored.bbox.south, stored.bbox.west],
+      [stored.bbox.north, stored.bbox.east],
+    ],
+    { animate: false }
+  );
+  return true;
+}
+
+async function resolveUserInitialViewport() {
+  const fallback = { center: HOME_VIEW.center, zoom: HOME_VIEW.zoom };
+
+  if (!("geolocation" in navigator)) return fallback;
+
+  try {
+    const permissions = navigator.permissions;
+    if (permissions?.query) {
+      const permissionStatus = await permissions.query({ name: "geolocation" });
+      if (permissionStatus.state === "granted") {
+        const viewport = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            ({ coords }) => {
+              resolve({
+                center: [coords.latitude, coords.longitude],
+                zoom: USER_ZOOM,
+              });
+            },
+            reject,
+            {
+              enableHighAccuracy: true,
+              timeout: 6000,
+              maximumAge: 300000,
+            }
+          );
+        });
+        return viewport;
+      }
+    }
+  } catch (gpsError) {
+    warn("[geo] GPS sin fricción no disponible.", gpsError);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 3000);
+
+  try {
+    const response = await fetch("https://ipapi.co/json/", {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const payload = await response.json();
+    const lat = Number(payload?.latitude);
+    const lon = Number(payload?.longitude);
+
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      return {
+        center: [lat, lon],
+        zoom: USER_ZOOM,
+      };
+    }
+  } catch (ipError) {
+    warn("[geo] Fallback IP no disponible.", ipError);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  return fallback;
+}
+
 function applyIncomingViewport(map) {
   if (!map) return false;
 
@@ -417,6 +579,7 @@ function applyIncomingViewport(map) {
       ],
       { animate: false }
     );
+    persistCurrentViewport(map);
     return true;
   }
 
@@ -427,6 +590,7 @@ function applyIncomingViewport(map) {
   if (lat == null || lon == null || zoom == null) return false;
 
   map.setView([lat, lon], zoom, { animate: false });
+  persistCurrentViewport(map);
   return true;
 }
 
@@ -524,9 +688,38 @@ function initMap() {
 
   state.map = map;
   state.markersLayer = L.layerGroup().addTo(map);
+  const mapContainer = map.getContainer();
+  userViewportInteractionArmed = false;
+
+  mapContainer.addEventListener(
+    "pointerdown",
+    () => {
+      userViewportInteractionArmed = true;
+    },
+    { passive: true }
+  );
+  mapContainer.addEventListener(
+    "wheel",
+    () => {
+      userViewportInteractionArmed = true;
+    },
+    { passive: true }
+  );
+  mapContainer.addEventListener(
+    "touchstart",
+    () => {
+      userViewportInteractionArmed = true;
+    },
+    { passive: true }
+  );
 
   const refreshOnMoveEnd = debounce(refreshVisibleProjects, 180);
+  const debouncedPersistViewport = debounce(() => {
+    if (!userViewportInteractionArmed) return;
+    persistCurrentViewport(map);
+  }, 500);
   map.on("moveend", refreshOnMoveEnd);
+  map.on("moveend", debouncedPersistViewport);
   map.on("click", handleMapClick);
   map.on("movestart", clearSearchHighlight);
 
@@ -551,10 +744,28 @@ function initMap() {
   hasUrlViewportParams = hasUrlParams();
   if (hasUrlViewportParams) {
     incomingViewportApplied = applyIncomingViewport(map);
-    if (!incomingViewportApplied) applyChileInitialViewport(map);
+    if (!incomingViewportApplied) {
+      if (!applyStoredViewport(map)) {
+        resolveUserInitialViewport()
+          .then((viewport) => {
+            map.setView(viewport.center, viewport.zoom, { animate: false });
+          })
+          .catch(() => {
+            applyChileInitialViewport(map);
+          });
+      }
+    }
   } else {
     incomingViewportApplied = false;
-    applyChileInitialViewport(map);
+    if (!applyStoredViewport(map)) {
+      resolveUserInitialViewport()
+        .then((viewport) => {
+          map.setView(viewport.center, viewport.zoom, { animate: false });
+        })
+        .catch(() => {
+          applyChileInitialViewport(map);
+        });
+    }
   }
 
 
