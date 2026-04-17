@@ -395,6 +395,48 @@ input:focus-visible {
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
+.map-hint-fade {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5100;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(255, 145, 0, 0.95);
+  color: #1a1a1a;
+  font-size: clamp(0.95rem, 2.8vw, 1.05rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.35),
+    0 8px 25px rgba(255, 145, 0, 0.6);
+}
+
+.map-hint-fade.is-visible {
+  opacity: 1;
+  visibility: visible;
+  animation: hintPulse 0.9s ease-in-out 2;
+}
+
+@keyframes hintPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .map-hint.is-visible {
   opacity: 1;
   transform: translateY(0);

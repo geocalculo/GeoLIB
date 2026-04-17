@@ -21,6 +21,7 @@ let incomingViewportApplied = false;
 let locationPromptShown = false;
 let hasUrlViewportParams = false;
 let userViewportInteractionArmed = false;
+let hasShownMapHintFade = false;
 
 const PROJECT_MARKER_STYLE = {
   radius: 3,
@@ -667,6 +668,31 @@ function initCrossSitePortal() {
   });
 }
 
+function showMapHintFade() {
+  if (hasShownMapHintFade) return;
+
+  const hint = document.getElementById("map-hint-fade");
+  if (!hint) return;
+
+  hasShownMapHintFade = true;
+
+  const showDelayMs = 2000;
+  const visibleTimeMs = 1800;
+
+  setTimeout(() => {
+    hint.classList.add("is-visible");
+
+    setTimeout(() => {
+      hint.classList.remove("is-visible");
+    }, visibleTimeMs);
+  }, showDelayMs);
+}
+
+function initMapHintFade(map) {
+  if (!map) return;
+  map.whenReady(showMapHintFade);
+}
+
 function initMap() {
   const map = L.map("map", {
     center: FALLBACK_VIEW.center,
@@ -687,6 +713,7 @@ function initMap() {
   map.addControl(new (createLocateControl())());
 
   state.map = map;
+  initMapHintFade(map);
   state.markersLayer = L.layerGroup().addTo(map);
   const mapContainer = map.getContainer();
   userViewportInteractionArmed = false;
