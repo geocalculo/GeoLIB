@@ -17,11 +17,11 @@ const USER_ZOOM = 12;
 const SEARCH_FLY_ZOOM = 13;
 const VIEWPORT_STORAGE_KEY = "ms:lastViewport:geoeva";
 const VIEWPORT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const INTRO_DISMISSED_KEY = "geoeva_intro_dismissed";
 let incomingViewportApplied = false;
 let locationPromptShown = false;
 let hasUrlViewportParams = false;
 let userViewportInteractionArmed = false;
-let hasShownMapHintFade = false;
 
 const PROJECT_MARKER_STYLE = {
   radius: 3,
@@ -619,6 +619,83 @@ function getCurrentViewportParams() {
   };
 }
 
+function showSummary() {
+  const desktopSummary = document.getElementById("desktopSummary");
+  const mobileSummary = document.getElementById("mobileSummary");
+  desktopSummary?.classList.add("is-visible");
+  mobileSummary?.classList.add("is-visible");
+}
+
+function initIntroOverlay() {
+  const overlay = document.getElementById("intro-overlay");
+  const startButton = document.getElementById("intro-overlay-start");
+  const dismissCheckbox = document.getElementById("intro-overlay-dismiss");
+  const map = state.map;
+  const mapContainer = map ? map.getContainer() : null;
+
+  if (!overlay) {
+    showSummary();
+    return;
+  }
+
+  const dismissed = localStorage.getItem(INTRO_DISMISSED_KEY) === "1";
+  if (dismissed) {
+    overlay.classList.remove("is-visible");
+    overlay.classList.add("is-hidden");
+    showSummary();
+    return;
+  }
+
+  overlay.classList.add("is-visible");
+
+  let closed = false;
+  const closeOverlay = () => {
+    if (closed) return;
+    closed = true;
+
+    if (dismissCheckbox?.checked) {
+      localStorage.setItem(INTRO_DISMISSED_KEY, "1");
+    }
+
+    overlay.classList.remove("is-visible");
+    overlay.classList.add("is-hidden");
+    showSummary();
+    detachListeners();
+  };
+
+  const onMapInteraction = () => closeOverlay();
+
+  const detachListeners = () => {
+    if (mapContainer) {
+      ["pointerdown", "wheel", "touchstart", "mousedown"].forEach((eventName) => {
+        mapContainer.removeEventListener(eventName, onMapInteraction);
+      });
+    }
+
+    if (map) {
+      map.off("movestart", onMapInteraction);
+      map.off("zoomstart", onMapInteraction);
+      map.off("click", onMapInteraction);
+      map.off("dragstart", onMapInteraction);
+    }
+  };
+
+  startButton?.addEventListener("click", closeOverlay, { once: true });
+
+  if (mapContainer) {
+    ["pointerdown", "wheel", "touchstart", "mousedown"].forEach((eventName) => {
+      mapContainer.addEventListener(eventName, onMapInteraction, { passive: true });
+    });
+  }
+
+  if (map) {
+    map.on("movestart", onMapInteraction);
+    map.on("zoomstart", onMapInteraction);
+    map.on("click", onMapInteraction);
+    map.on("dragstart", onMapInteraction);
+  }
+}
+
 function buildCrossSiteUrl(baseUrl) {
   const targetUrl = new URL(baseUrl, window.location.href);
   const params = targetUrl.searchParams;
@@ -668,121 +745,6 @@ function initCrossSitePortal() {
   });
 }
 
-function showMapHintFade() {
-  if (hasShownMapHintFade) return;
-
-  const hint = document.getElementById("map-hint-fade");
-  const desktopSummary = document.getElementById("desktopSummary");
-  const mobileSummary = document.getElementById("mobileSummary");
-  let summaryShown = false;
-  const showSummary = () => {
-    if (summaryShown) return;
-    summaryShown = true;
-    desktopSummary?.classList.add("is-visible");
-    mobileSummary?.classList.add("is-visible");
-  };
-
-  hasShownMapHintFade = true;
-  const showDelayMs = 120;
-  const hideAfterMapReadyMs = 1800;
-  const mapReadyFallbackMs = 3200;
-  const hintTransitionMs = 450;
-
-  const map = state.map;
-  const mapContainer = map ? map.getContainer() : null;
-  let isHidden = false;
-  let hideScheduled = false;
-  let showTimer = null;
-  let hideTimer = null;
-  let fallbackTimer = null;
-  const cleanupHandlers = [];
-  let hasStarted = false;
-
-  const clearTimers = () => {
-    if (showTimer) {
-      window.clearTimeout(showTimer);
-      showTimer = null;
-    }
-    if (hideTimer) {
-      window.clearTimeout(hideTimer);
-      hideTimer = null;
-    }
-    if (fallbackTimer) {
-      window.clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-  };
-
-  const teardownListeners = () => {
-    cleanupHandlers.forEach((cleanup) => cleanup());
-    cleanupHandlers.length = 0;
-  };
-
-  const hideHint = () => {
-    if (isHidden) return;
-    isHidden = true;
-    clearTimers();
-    teardownListeners();
-    hint.classList.remove("is-visible");
-    window.setTimeout(() => {
-      hint.style.display = "none";
-      showSummary();
-    }, hintTransitionMs);
-  };
-
-  const scheduleHideAfterReady = () => {
-    if (!hasStarted || isHidden || hideScheduled) return;
-    hideScheduled = true;
-    hideTimer = window.setTimeout(hideHint, hideAfterMapReadyMs);
-  };
-
-  const dismissOnInteraction = () => {
-    hideHint();
-  };
-
-  const start = () => {
-    if (hasStarted) return;
-    hasStarted = true;
-
-    if (!hint) {
-      showSummary();
-      return;
-    }
-
-    showTimer = window.setTimeout(() => {
-      if (!isHidden) {
-        hint.classList.add("is-visible");
-      }
-    }, showDelayMs);
-
-    fallbackTimer = window.setTimeout(scheduleHideAfterReady, mapReadyFallbackMs);
-  };
-
-  if (mapContainer) {
-    ["pointerdown", "wheel", "touchstart", "mousedown"].forEach((eventName) => {
-      const listener = () => dismissOnInteraction();
-      mapContainer.addEventListener(eventName, listener, { passive: true });
-      cleanupHandlers.push(() =>
-        mapContainer.removeEventListener(eventName, listener)
-      );
-    });
-  }
-
-  if (map) {
-    map.on("movestart", dismissOnInteraction);
-    map.on("zoomstart", dismissOnInteraction);
-    map.on("click", dismissOnInteraction);
-    cleanupHandlers.push(() => map.off("movestart", dismissOnInteraction));
-    cleanupHandlers.push(() => map.off("zoomstart", dismissOnInteraction));
-    cleanupHandlers.push(() => map.off("click", dismissOnInteraction));
-  }
-
-  return {
-    start,
-    scheduleHideAfterReady,
-  };
-}
-
 function initMap() {
   const map = L.map("map", {
     center: FALLBACK_VIEW.center,
@@ -803,7 +765,6 @@ function initMap() {
   map.addControl(new (createLocateControl())());
 
   state.map = map;
-  const mapHintFade = showMapHintFade();
   state.markersLayer = L.layerGroup().addTo(map);
   const mapContainer = map.getContainer();
   userViewportInteractionArmed = false;
@@ -853,17 +814,13 @@ function initMap() {
     overlayHidden = true;
     setLoadingProgress(100, "Mapa listo");
     hideLoadingOverlay();
-    mapHintFade?.start();
+    initIntroOverlay();
   };
 
   baseLayer.once("load", () => {
     revealMapShell();
-    mapHintFade?.scheduleHideAfterReady();
   });
   window.setTimeout(revealMapShell, 1200);
-  window.setTimeout(() => {
-    mapHintFade?.scheduleHideAfterReady();
-  }, 2200);
 
   hasUrlViewportParams = hasUrlParams();
   if (hasUrlViewportParams) {
