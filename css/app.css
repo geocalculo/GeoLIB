@@ -731,22 +731,6 @@ input:focus-visible {
   }
 }
 
-@media (min-width: 1024px) {
-  .desktop-summary {
-    display: block;
-  }
-
-  .desktop-summary.is-visible {
-    display: block;
-    opacity: 1;
-    visibility: visible;
-  }
-
-  .mobile-summary {
-    display: none;
-  }
-}
-
 #map-hint-cursor {
   position: fixed;
   z-index: 9999;
@@ -894,7 +878,7 @@ input:focus-visible {
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 769px) {
   .desktop-summary {
     display: block;
     position: absolute;
@@ -920,6 +904,10 @@ input:focus-visible {
     display: block;
     opacity: 1;
     visibility: visible;
+  }
+
+  .mobile-summary {
+    display: none;
   }
 }
 
