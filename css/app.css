@@ -398,9 +398,10 @@ input:focus-visible {
 .map-hint-fade {
   position: fixed;
   inset: 0;
-  z-index: 5100;
+  z-index: 10010;
   display: grid;
   place-items: center;
+  padding: 16px;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
@@ -409,6 +410,8 @@ input:focus-visible {
 }
 
 .map-hint-fade__card {
+  position: relative;
+  z-index: 10011;
   width: min(92vw, 660px);
   border-radius: 18px;
   padding: clamp(1rem, 1.6vw, 1.35rem) clamp(1.1rem, 2.3vw, 1.85rem);
