@@ -675,22 +675,91 @@ function showMapHintFade() {
   if (!hint) return;
 
   hasShownMapHintFade = true;
+  const showDelayMs = 120;
+  const hideAfterMapReadyMs = 1800;
+  const mapReadyFallbackMs = 3200;
+  const hintTransitionMs = 450;
 
-  const showDelayMs = 2000;
-  const visibleTimeMs = 1800;
+  const map = state.map;
+  const mapContainer = map ? map.getContainer() : null;
+  let isHidden = false;
+  let hideScheduled = false;
+  let showTimer = null;
+  let hideTimer = null;
+  let fallbackTimer = null;
+  const cleanupHandlers = [];
 
-  setTimeout(() => {
-    hint.classList.add("is-visible");
+  const clearTimers = () => {
+    if (showTimer) {
+      window.clearTimeout(showTimer);
+      showTimer = null;
+    }
+    if (hideTimer) {
+      window.clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    if (fallbackTimer) {
+      window.clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+  };
 
-    setTimeout(() => {
-      hint.classList.remove("is-visible");
-    }, visibleTimeMs);
+  const teardownListeners = () => {
+    cleanupHandlers.forEach((cleanup) => cleanup());
+    cleanupHandlers.length = 0;
+  };
+
+  const hideHint = () => {
+    if (isHidden) return;
+    isHidden = true;
+    clearTimers();
+    teardownListeners();
+    hint.classList.remove("is-visible");
+    window.setTimeout(() => {
+      hint.style.display = "none";
+    }, hintTransitionMs);
+  };
+
+  const scheduleHideAfterReady = () => {
+    if (isHidden || hideScheduled) return;
+    hideScheduled = true;
+    hideTimer = window.setTimeout(hideHint, hideAfterMapReadyMs);
+  };
+
+  const dismissOnInteraction = () => {
+    hideHint();
+  };
+
+  showTimer = window.setTimeout(() => {
+    if (!isHidden) {
+      hint.classList.add("is-visible");
+    }
   }, showDelayMs);
-}
 
-function initMapHintFade(map) {
-  if (!map) return;
-  map.whenReady(showMapHintFade);
+  fallbackTimer = window.setTimeout(scheduleHideAfterReady, mapReadyFallbackMs);
+
+  if (mapContainer) {
+    ["pointerdown", "wheel", "touchstart", "mousedown"].forEach((eventName) => {
+      const listener = () => dismissOnInteraction();
+      mapContainer.addEventListener(eventName, listener, { passive: true });
+      cleanupHandlers.push(() =>
+        mapContainer.removeEventListener(eventName, listener)
+      );
+    });
+  }
+
+  if (map) {
+    map.on("movestart", dismissOnInteraction);
+    map.on("zoomstart", dismissOnInteraction);
+    map.on("click", dismissOnInteraction);
+    cleanupHandlers.push(() => map.off("movestart", dismissOnInteraction));
+    cleanupHandlers.push(() => map.off("zoomstart", dismissOnInteraction));
+    cleanupHandlers.push(() => map.off("click", dismissOnInteraction));
+  }
+
+  return {
+    scheduleHideAfterReady,
+  };
 }
 
 function initMap() {
@@ -713,7 +782,7 @@ function initMap() {
   map.addControl(new (createLocateControl())());
 
   state.map = map;
-  initMapHintFade(map);
+  const mapHintFade = showMapHintFade();
   state.markersLayer = L.layerGroup().addTo(map);
   const mapContainer = map.getContainer();
   userViewportInteractionArmed = false;
@@ -765,8 +834,14 @@ function initMap() {
     hideLoadingOverlay();
   };
 
-  baseLayer.once("load", revealMapShell);
+  baseLayer.once("load", () => {
+    revealMapShell();
+    mapHintFade?.scheduleHideAfterReady();
+  });
   window.setTimeout(revealMapShell, 1200);
+  window.setTimeout(() => {
+    mapHintFade?.scheduleHideAfterReady();
+  }, 2200);
 
   hasUrlViewportParams = hasUrlParams();
   if (hasUrlViewportParams) {
