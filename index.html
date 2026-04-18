@@ -148,20 +148,6 @@
 
           <div id="map" class="map-main"></div>
 
-          <div id="map-hint-fade" class="map-hint-fade" aria-hidden="true">
-            <div class="map-hint-fade__card">
-              <p class="map-hint-fade__value">
-                Explora proyectos y expedientes ambientales
-              </p>
-              <p class="map-hint-fade__value map-hint-fade__value--secondary">
-                cerca del lugar que te interesa.
-              </p>
-              <p class="map-hint-fade__action">
-                Haz clic en el mapa para ver el detalle.
-              </p>
-            </div>
-          </div>
-
           <div id="desktop-map-hint" class="map-hint map-hint--desktop" aria-hidden="true">
             Haz clic en el mapa para abrir el análisis del punto.
           </div>
@@ -188,6 +174,24 @@
         </a>
       </aside>
     </main>
+  </div>
+
+
+  <div id="intro-overlay" class="intro-overlay" role="dialog" aria-modal="true" aria-labelledby="intro-overlay-title">
+    <div class="intro-overlay__card">
+      <h2 id="intro-overlay-title" class="intro-overlay__title">Bienvenido a GeoEVA</h2>
+      <p class="intro-overlay__text">
+        Visualiza proyectos del SEA, su estado y contexto territorial en un mapa interactivo.
+      </p>
+      <p class="intro-overlay__text intro-overlay__text--muted">
+        Puedes comenzar con el botón o interactuar directamente con el mapa para continuar.
+      </p>
+      <label class="intro-overlay__checkbox-row">
+        <input id="intro-overlay-dismiss" type="checkbox" class="intro-overlay__checkbox" />
+        <span>No volver a mostrar</span>
+      </label>
+      <button id="intro-overlay-start" type="button" class="intro-overlay__button">Comenzar</button>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
