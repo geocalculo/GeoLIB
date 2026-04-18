@@ -137,6 +137,9 @@ input:focus-visible {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
   padding: 0 1rem 1rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 220ms ease, visibility 220ms ease;
 }
 
 .ms-card {
@@ -669,6 +672,9 @@ input:focus-visible {
 
 .desktop-summary {
   display: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 220ms ease, visibility 220ms ease;
 }
 
 .desktop-summary strong {
@@ -728,6 +734,12 @@ input:focus-visible {
 @media (min-width: 1024px) {
   .desktop-summary {
     display: block;
+  }
+
+  .desktop-summary.is-visible {
+    display: block;
+    opacity: 1;
+    visibility: visible;
   }
 
   .mobile-summary {
@@ -903,9 +915,24 @@ input:focus-visible {
     backdrop-filter: blur(6px);
     box-shadow: 0 8px 24px rgba(0,0,0,0.25);
   }
+
+  .desktop-summary.is-visible {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+  }
 }
 
 @media (max-width: 768px) {
+  .mobile-summary {
+    display: none;
+  }
+
+  .mobile-summary.compact.is-visible {
+    display: flex;
+    opacity: 1;
+    visibility: visible;
+  }
 
   .app-header__content {
     padding: 0.7rem 0.8rem;
