@@ -682,11 +682,6 @@ function showMapHintFade() {
     mobileSummary?.classList.add("is-visible");
   };
 
-  if (!hint) {
-    showSummary();
-    return;
-  }
-
   hasShownMapHintFade = true;
   const showDelayMs = 120;
   const hideAfterMapReadyMs = 1800;
@@ -701,6 +696,7 @@ function showMapHintFade() {
   let hideTimer = null;
   let fallbackTimer = null;
   const cleanupHandlers = [];
+  let hasStarted = false;
 
   const clearTimers = () => {
     if (showTimer) {
@@ -735,7 +731,7 @@ function showMapHintFade() {
   };
 
   const scheduleHideAfterReady = () => {
-    if (isHidden || hideScheduled) return;
+    if (!hasStarted || isHidden || hideScheduled) return;
     hideScheduled = true;
     hideTimer = window.setTimeout(hideHint, hideAfterMapReadyMs);
   };
@@ -744,13 +740,23 @@ function showMapHintFade() {
     hideHint();
   };
 
-  showTimer = window.setTimeout(() => {
-    if (!isHidden) {
-      hint.classList.add("is-visible");
-    }
-  }, showDelayMs);
+  const start = () => {
+    if (hasStarted) return;
+    hasStarted = true;
 
-  fallbackTimer = window.setTimeout(scheduleHideAfterReady, mapReadyFallbackMs);
+    if (!hint) {
+      showSummary();
+      return;
+    }
+
+    showTimer = window.setTimeout(() => {
+      if (!isHidden) {
+        hint.classList.add("is-visible");
+      }
+    }, showDelayMs);
+
+    fallbackTimer = window.setTimeout(scheduleHideAfterReady, mapReadyFallbackMs);
+  };
 
   if (mapContainer) {
     ["pointerdown", "wheel", "touchstart", "mousedown"].forEach((eventName) => {
@@ -772,6 +778,7 @@ function showMapHintFade() {
   }
 
   return {
+    start,
     scheduleHideAfterReady,
   };
 }
@@ -846,6 +853,7 @@ function initMap() {
     overlayHidden = true;
     setLoadingProgress(100, "Mapa listo");
     hideLoadingOverlay();
+    mapHintFade?.start();
   };
 
   baseLayer.once("load", () => {
