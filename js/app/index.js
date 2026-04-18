@@ -672,7 +672,20 @@ function showMapHintFade() {
   if (hasShownMapHintFade) return;
 
   const hint = document.getElementById("map-hint-fade");
-  if (!hint) return;
+  const desktopSummary = document.getElementById("desktopSummary");
+  const mobileSummary = document.getElementById("mobileSummary");
+  let summaryShown = false;
+  const showSummary = () => {
+    if (summaryShown) return;
+    summaryShown = true;
+    desktopSummary?.classList.add("is-visible");
+    mobileSummary?.classList.add("is-visible");
+  };
+
+  if (!hint) {
+    showSummary();
+    return;
+  }
 
   hasShownMapHintFade = true;
   const showDelayMs = 120;
@@ -717,6 +730,7 @@ function showMapHintFade() {
     hint.classList.remove("is-visible");
     window.setTimeout(() => {
       hint.style.display = "none";
+      showSummary();
     }, hintTransitionMs);
   };
 
