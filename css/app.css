@@ -448,6 +448,9 @@ input:focus-visible {
 .map-hint-fade.is-visible {
   opacity: 1;
   visibility: visible;
+}
+
+.map-hint-fade.is-visible .map-hint-fade__card {
   animation: hintPulse 1.7s ease-in-out 1;
 }
 
