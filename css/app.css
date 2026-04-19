@@ -383,7 +383,8 @@ input:focus-visible {
 }
 
 
-.intro-overlay {
+
+.welcome-modal {
   position: fixed;
   inset: 0;
   z-index: 10020;
@@ -392,25 +393,13 @@ input:focus-visible {
   justify-content: center;
   padding: 16px;
   background: radial-gradient(circle at 50% 30%, rgba(15, 23, 42, 0.56), rgba(2, 6, 23, 0.82));
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 280ms ease, visibility 280ms ease;
 }
 
-.intro-overlay.is-visible {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
+.welcome-modal[hidden] {
+  display: none;
 }
 
-.intro-overlay.is-hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.intro-overlay__card {
+.welcome-modal__content {
   width: min(94vw, 640px);
   border-radius: 18px;
   padding: clamp(1rem, 2vw, 1.5rem);
@@ -420,40 +409,18 @@ input:focus-visible {
   color: #f8fafc;
 }
 
-.intro-overlay__title {
+.welcome-modal__content h2 {
   margin: 0 0 0.5rem;
   font-size: clamp(1.15rem, 2.2vw, 1.55rem);
 }
 
-.intro-overlay__text {
+.welcome-modal__content p {
   margin: 0;
   line-height: 1.45;
   color: rgba(226, 232, 240, 0.96);
 }
 
-.intro-overlay__text + .intro-overlay__text {
-  margin-top: 0.45rem;
-}
-
-.intro-overlay__text--muted {
-  color: rgba(191, 219, 254, 0.92);
-}
-
-.intro-overlay__checkbox-row {
-  margin-top: 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  color: rgba(226, 232, 240, 0.95);
-}
-
-.intro-overlay__checkbox {
-  width: 16px;
-  height: 16px;
-}
-
-.intro-overlay__button {
+.welcome-btn {
   margin-top: 0.95rem;
   border: 0;
   border-radius: 10px;
@@ -464,9 +431,28 @@ input:focus-visible {
   cursor: pointer;
 }
 
-.intro-overlay__button:hover {
+.welcome-btn:hover {
   background: #1d4ed8;
 }
+
+.welcome-checkbox {
+  margin-top: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: rgba(226, 232, 240, 0.95);
+}
+
+.welcome-checkbox input {
+  width: 16px;
+  height: 16px;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
 
 .map-hint {
   position: absolute;

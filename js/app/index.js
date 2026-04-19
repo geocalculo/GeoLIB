@@ -17,7 +17,7 @@ const USER_ZOOM = 12;
 const SEARCH_FLY_ZOOM = 13;
 const VIEWPORT_STORAGE_KEY = "ms:lastViewport:geoeva";
 const VIEWPORT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const INTRO_DISMISSED_KEY = "geoeva_intro_dismissed";
+const WELCOME_DISMISSED_KEY = "hideWelcomeGeoEVA";
 let incomingViewportApplied = false;
 let locationPromptShown = false;
 let hasUrlViewportParams = false;
@@ -626,75 +626,62 @@ function showSummary() {
   mobileSummary?.classList.add("is-visible");
 }
 
-function initIntroOverlay() {
-  const overlay = document.getElementById("intro-overlay");
-  const startButton = document.getElementById("intro-overlay-start");
-  const dismissCheckbox = document.getElementById("intro-overlay-dismiss");
-  const map = state.map;
-  const mapContainer = map ? map.getContainer() : null;
+function initWelcomeModal() {
+  const modal = document.getElementById("welcomeModal");
+  const startButton = document.getElementById("startBtn");
+  const dismissCheckbox = document.getElementById("dontShowAgain");
 
-  if (!overlay) {
+  if (!modal) {
     showSummary();
     return;
   }
 
-  const dismissed = localStorage.getItem(INTRO_DISMISSED_KEY) === "1";
+  const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY) === "1";
   if (dismissed) {
-    overlay.classList.remove("is-visible");
-    overlay.classList.add("is-hidden");
+    modal.hidden = true;
+    document.body.classList.remove("modal-open");
     showSummary();
     return;
   }
 
-  overlay.classList.add("is-visible");
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
 
-  let closed = false;
-  const closeOverlay = () => {
-    if (closed) return;
-    closed = true;
-
+  const closeModal = () => {
     if (dismissCheckbox?.checked) {
-      localStorage.setItem(INTRO_DISMISSED_KEY, "1");
+      localStorage.setItem(WELCOME_DISMISSED_KEY, "1");
     }
 
-    overlay.classList.remove("is-visible");
-    overlay.classList.add("is-hidden");
+    modal.hidden = true;
+    document.body.classList.remove("modal-open");
     showSummary();
     detachListeners();
   };
 
-  const onMapInteraction = () => closeOverlay();
-
-  const detachListeners = () => {
-    if (mapContainer) {
-      ["pointerdown", "wheel", "touchstart", "mousedown"].forEach((eventName) => {
-        mapContainer.removeEventListener(eventName, onMapInteraction);
-      });
-    }
-
-    if (map) {
-      map.off("movestart", onMapInteraction);
-      map.off("zoomstart", onMapInteraction);
-      map.off("click", onMapInteraction);
-      map.off("dragstart", onMapInteraction);
+  const onDocumentKeydown = (event) => {
+    if (event.key === "Escape" || event.key === "Esc") {
+      event.preventDefault();
+      closeModal();
     }
   };
 
-  startButton?.addEventListener("click", closeOverlay, { once: true });
+  const onOverlayClick = (event) => {
+    if (event.target === modal) {
+      closeModal();
+    }
+  };
 
-  if (mapContainer) {
-    ["pointerdown", "wheel", "touchstart", "mousedown"].forEach((eventName) => {
-      mapContainer.addEventListener(eventName, onMapInteraction, { passive: true });
-    });
-  }
+  const detachListeners = () => {
+    startButton?.removeEventListener("click", closeModal);
+    modal.removeEventListener("click", onOverlayClick);
+    document.removeEventListener("keydown", onDocumentKeydown);
+  };
 
-  if (map) {
-    map.on("movestart", onMapInteraction);
-    map.on("zoomstart", onMapInteraction);
-    map.on("click", onMapInteraction);
-    map.on("dragstart", onMapInteraction);
-  }
+  startButton?.addEventListener("click", closeModal);
+  modal.addEventListener("click", onOverlayClick);
+  document.addEventListener("keydown", onDocumentKeydown);
 }
+
 
 function buildCrossSiteUrl(baseUrl) {
   const targetUrl = new URL(baseUrl, window.location.href);
@@ -814,7 +801,7 @@ function initMap() {
     overlayHidden = true;
     setLoadingProgress(100, "Mapa listo");
     hideLoadingOverlay();
-    initIntroOverlay();
+    initWelcomeModal();
   };
 
   baseLayer.once("load", () => {
