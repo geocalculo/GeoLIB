@@ -98,6 +98,144 @@ function escapeHtml(s) {
     .replaceAll("'", "&#39;");
 }
 
+function slugifyRegion(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "sin-region";
+
+  const slug = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "sin-region";
+}
+
+function buildExportId({ region, now = new Date() } = {}) {
+  const d = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+
+  return `${y}-${m}-${day}_${hh}-${mm}-${ss}_${slugifyRegion(region)}`;
+}
+
+function triggerDownload({ filename, blob, mimeType } = {}) {
+  if (!filename) throw new Error("triggerDownload: filename requerido");
+
+  const fileBlob =
+    blob instanceof Blob
+      ? blob
+      : new Blob([blob ?? ""], { type: mimeType || "application/octet-stream" });
+
+  const url = URL.createObjectURL(fileBlob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function resolveExportRegion({ model, params, proyectos } = {}) {
+  const byParams = String(params?.region ?? params?.regionNombre ?? "").trim();
+  if (byParams) return byParams;
+
+  const byModelQuery = String(model?.query?.region ?? model?.query?.regionNombre ?? "").trim();
+  if (byModelQuery) return byModelQuery;
+
+  const byModelMeta = String(model?.meta?.region ?? model?.meta?.regionNombre ?? "").trim();
+  if (byModelMeta) return byModelMeta;
+
+  const byProjects = (Array.isArray(proyectos) ? proyectos : []).find(
+    (p) => String(p?.region ?? "").trim()
+  )?.region;
+
+  return String(byProjects ?? "").trim() || "sin-region";
+}
+
+async function dataUrlToJpegBlob(dataUrl, { quality = 0.86 } = {}) {
+  if (!dataUrl || typeof dataUrl !== "string") return null;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || img.width || 0;
+        canvas.height = img.naturalHeight || img.height || 0;
+        if (canvas.width <= 0 || canvas.height <= 0) {
+          resolve(null);
+          return;
+        }
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob((blob) => resolve(blob || null), "image/jpeg", quality);
+      } catch (e) {
+        warn("No se pudo convertir la captura a JPG:", e);
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+async function exportMetadataAndThumbnail({ exportId, model, params, proyectos } = {}) {
+  if (!exportId) throw new Error("exportMetadataAndThumbnail: exportId requerido");
+
+  const nowIso = new Date().toISOString();
+  const regionName = resolveExportRegion({ model, params, proyectos });
+  const latNum = Number(params?.lat);
+  const lngNum = Number(params?.lng);
+  const metadata = {
+    fecha: nowIso,
+    titulo: "Consulta territorial",
+    lat: Number.isFinite(latNum) ? Number(latNum.toFixed(6)) : null,
+    lon: Number.isFinite(lngNum) ? Number(lngNum.toFixed(6)) : null,
+    región: regionName || "sin-region",
+  };
+
+  triggerDownload({
+    filename: `${exportId}.json`,
+    blob: JSON.stringify(metadata, null, 2),
+    mimeType: "application/json;charset=utf-8",
+  });
+
+  const mapPng = await captureMapPng();
+  if (!mapPng) {
+    warn("No se pudo capturar mapa para miniatura JPG.");
+    return;
+  }
+
+  const jpgBlob = await dataUrlToJpegBlob(mapPng, { quality: 0.86 });
+  if (!jpgBlob) {
+    warn("No se pudo generar miniatura JPG.");
+    return;
+  }
+
+  triggerDownload({
+    filename: `${exportId}.jpg`,
+    blob: jpgBlob,
+    mimeType: "image/jpeg",
+  });
+}
+
   // =====================================================
   // Helper CANÓNICO para leer Titular (JSON usa 'titular')
   // =====================================================
@@ -1085,7 +1223,7 @@ function addPdfFooter(doc, { margin = 15 } = {}) {
 // =====================================================
 // PDF CON jsPDF + IMAGEN DE MAPA
 // =====================================================
-async function downloadPDFDirect({ params, resumen, proyectos, model }) {
+async function downloadPDFDirect({ params, resumen, proyectos, model, filename }) {
   log("📄 Generando PDF...");
   runtimeDebugLog("enter downloadPDFDirect", {
     params,
@@ -1437,17 +1575,17 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
   doc.setTextColor(150, 150, 150);
   doc.text(`Generado: ${new Date().toLocaleString("es-CL")}`, margin, y);
 
-  const filename = `GeoEVA_informe_${Date.now()}.pdf`;
+  const safeFilename = String(filename || `GeoEVA_informe_${Date.now()}.pdf`).trim();
 
   // ✅ Footer con hipervínculos en todas las páginas
   addPdfFooter(doc, { margin });
 
-  runtimeDebugLog("before trackEvent geoeva_download_pdf_success", { filename });
+  runtimeDebugLog("before trackEvent geoeva_download_pdf_success", { filename: safeFilename });
   trackEvent("geoeva_download_pdf_success", {
     value: 1,
     event_category: "entregables",
     event_label: "mapainfo_pdf",
-    file_name: filename,
+    file_name: safeFilename,
 
     radio_km: Number.isFinite(params?.radio)
       ? Number(Number(params.radio).toFixed(2))
@@ -1464,11 +1602,11 @@ async function downloadPDFDirect({ params, resumen, proyectos, model }) {
     ts: Date.now(),
   });
   runtimeDebugLog("after trackEvent geoeva_download_pdf_success");
-  runtimeDebugLog("before doc.save", { filename });
-  doc.save(filename);
-  runtimeDebugLog("after doc.save", { filename });
+  runtimeDebugLog("before doc.save", { filename: safeFilename });
+  doc.save(safeFilename);
+  runtimeDebugLog("after doc.save", { filename: safeFilename });
 
-  log("✅ PDF:", filename);
+  log("✅ PDF:", safeFilename);
 }
 
 
@@ -1515,6 +1653,12 @@ function bindPdfButtonOnce() {
       runtimeDebugLog("after trackEvent geoeva_download_pdf");
 
       runtimeDebugLog("before downloadPDFDirect()");
+      const exportRegion = resolveExportRegion({
+        model,
+        params: model?.query,
+        proyectos: model?.projects,
+      });
+      const exportId = buildExportId({ region: exportRegion });
       await downloadPDFDirect({
         params: {
           lat: model.query.lat,
@@ -1529,8 +1673,15 @@ function bindPdfButtonOnce() {
         },
         proyectos: Array.isArray(model.projects) ? model.projects : [],
         model,
+        filename: `${exportId}.pdf`,
       });
       runtimeDebugLog("after downloadPDFDirect()");
+      await exportMetadataAndThumbnail({
+        exportId,
+        model,
+        params: model?.query,
+        proyectos: Array.isArray(model.projects) ? model.projects : [],
+      });
 
       btn.textContent = "✅ Listo";
       setTimeout(() => {
