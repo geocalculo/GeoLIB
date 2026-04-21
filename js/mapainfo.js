@@ -1676,12 +1676,13 @@ function bindPdfButtonOnce() {
         filename: `${exportId}.pdf`,
       });
       runtimeDebugLog("after downloadPDFDirect()");
-      await exportMetadataAndThumbnail({
-        exportId,
-        model,
-        params: model?.query,
-        proyectos: Array.isArray(model.projects) ? model.projects : [],
-      });
+      // Temporalmente desactivado: exportación extendida (JSON + JPG)
+      // await exportMetadataAndThumbnail({
+      //   exportId,
+      //   model,
+      //   params: model?.query,
+      //   proyectos: Array.isArray(model.projects) ? model.projects : [],
+      // });
 
       btn.textContent = "✅ Listo";
       setTimeout(() => {
