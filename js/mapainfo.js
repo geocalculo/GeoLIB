@@ -1580,28 +1580,15 @@ async function downloadPDFDirect({ params, resumen, proyectos, model, filename }
   // ✅ Footer con hipervínculos en todas las páginas
   addPdfFooter(doc, { margin });
 
-  runtimeDebugLog("before trackEvent geoeva_download_pdf_success", { filename: safeFilename });
-  trackEvent("geoeva_download_pdf_success", {
-    value: 1,
-    event_category: "entregables",
-    event_label: "mapainfo_pdf",
-    file_name: safeFilename,
-
-    radio_km: Number.isFinite(params?.radio)
-      ? Number(Number(params.radio).toFixed(2))
-      : null,
-    modo: params?.modo || null,
-    lat: Number.isFinite(Number(params?.lat))
-      ? Number(Number(params.lat).toFixed(6))
-      : null,
-    lng: Number.isFinite(Number(params?.lng))
-      ? Number(Number(params.lng).toFixed(6))
-      : null,
-
-    proyectos: Array.isArray(proyectos) ? proyectos.length : null,
-    ts: Date.now(),
+  runtimeDebugLog("before trackEvent geo_download_success/pdf", { filename: safeFilename });
+  trackEvent({
+    event: "geo_download_success",
+    result_type: "mapainfo",
+    file_type: "pdf",
+    method: "button_click",
+    projects_total: Array.isArray(proyectos) ? proyectos.length : 0,
   });
-  runtimeDebugLog("after trackEvent geoeva_download_pdf_success");
+  runtimeDebugLog("after trackEvent geo_download_success/pdf");
   runtimeDebugLog("before doc.save", { filename: safeFilename });
   doc.save(safeFilename);
   runtimeDebugLog("after doc.save", { filename: safeFilename });
@@ -1642,15 +1629,14 @@ function bindPdfButtonOnce() {
         NaN
       );
 
-      trackEvent("geoeva_download_pdf", {
-        event_category: "entregables",
-        event_label: "mapainfo_pdf",
-        radio_km: Number.isFinite(radio) ? Number(radio.toFixed(2)) : null,
-        modo: model?.query?.modo || null,
-        proyectos: Array.isArray(model?.projects) ? model.projects.length : null,
-        non_interaction: true,
+      trackEvent({
+        event: "geo_download_attempt",
+        result_type: "mapainfo",
+        file_type: "pdf",
+        method: "button_click",
+        projects_total: Array.isArray(model?.projects) ? model.projects.length : 0,
       });
-      runtimeDebugLog("after trackEvent geoeva_download_pdf");
+      runtimeDebugLog("after trackEvent geo_download_attempt/pdf");
 
       runtimeDebugLog("before downloadPDFDirect()");
       const exportRegion = resolveExportRegion({
@@ -1731,7 +1717,8 @@ function bindMapainfoDeepScrollTracker({ threshold = 0.75 } = {}) {
   const emit = () => {
     if (sent) return;
     sent = true;
-    trackEvent("geoeva_mapainfo_scroll_deep", {
+    trackEvent({
+      event: "geoeva_mapainfo_scroll_deep",
       page: "mapainfo",
       threshold: Math.round(threshold * 100),
     });
@@ -1788,6 +1775,23 @@ async function main() {
       engineOutput,
       meta: { sourceFile: DATA_URL, generatedAt: new Date().toISOString() },
     });
+
+    trackEvent(
+      {
+        event: "geo_result_open",
+        result_type: "mapainfo",
+        method: "page_load",
+        lat: Number.isFinite(Number(model?.query?.lat))
+          ? Number(Number(model.query.lat).toFixed(6))
+          : null,
+        lng: Number.isFinite(Number(model?.query?.lng))
+          ? Number(Number(model.query.lng).toFixed(6))
+          : null,
+        projects_total: Array.isArray(model?.projects) ? model.projects.length : 0,
+      },
+      {},
+      { dedupeKey: "geo_result_open:mapainfo" }
+    );
 
     window.__geoeva_model = model;
 
