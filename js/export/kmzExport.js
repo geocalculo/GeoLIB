@@ -164,17 +164,15 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
   let objectUrl = null;
 
   try {
-    kmzDebugLog("before trackEvent geoeva_download_kmz", { kmzName, radioKm, proyectos });
-    trackEvent("geoeva_download_kmz", {
-      event_category: "entregables",
-      event_label: "mapainfo_kmz",
-      file_name: kmzName,
-      radio_km: radioKm,
-      modo: q?.modo || null,
-      proyectos,
-      non_interaction: true,
+    kmzDebugLog("before trackEvent geo_download_attempt/kmz", { kmzName, radioKm, proyectos });
+    trackEvent({
+      event: "geo_download_attempt",
+      result_type: "mapainfo",
+      file_type: "kmz",
+      method: "button_click",
+      projects_total: Number.isFinite(proyectos) ? proyectos : 0,
     });
-    kmzDebugLog("after trackEvent geoeva_download_kmz");
+    kmzDebugLog("after trackEvent geo_download_attempt/kmz");
 
     let kml = "";
     kml += kmlHeader("GeoEVA - Proximidad");
@@ -231,22 +229,18 @@ export async function downloadProximityKMZ({ model, fileName } = {}) {
     objectUrl = URL.createObjectURL(blob);
     kmzDebugLog("objectUrl created");
 
-    kmzDebugLog("before trackEvent geoeva_download_kmz_success", {
+    kmzDebugLog("before trackEvent geo_download_success/kmz", {
       kmzName,
       stage: "blob_ready_pre_click",
     });
-    trackEvent("geoeva_download_kmz_success", {
-      value: 1,
-      event_category: "entregables",
-      event_label: "mapainfo_kmz",
-      file_name: kmzName,
-      radio_km: radioKm,
-      modo: q?.modo || null,
-      proyectos,
-      stage: "blob_ready_pre_click",
-      ts: Date.now(),
+    trackEvent({
+      event: "geo_download_success",
+      result_type: "mapainfo",
+      file_type: "kmz",
+      method: "button_click",
+      projects_total: Number.isFinite(proyectos) ? proyectos : 0,
     });
-    kmzDebugLog("after trackEvent geoeva_download_kmz_success");
+    kmzDebugLog("after trackEvent geo_download_success/kmz");
 
     a.href = objectUrl;
     a.download = kmzName;

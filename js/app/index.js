@@ -219,6 +219,15 @@ function refreshVisibleProjects() {
   updateMobileSummary(visibleProjects);
 }
 
+function getVisibleProjectsCount() {
+  if (!state.map || !state.proyectos.length) return 0;
+  const bounds = state.map.getBounds();
+  return state.proyectos.reduce(
+    (count, project) => (bounds.contains([project.lat, project.lon]) ? count + 1 : count),
+    0
+  );
+}
+
 function createLocateControl() {
   return L.Control.extend({
     options: { position: "topleft" },
@@ -714,14 +723,28 @@ function initCrossSitePortal() {
       if (!rawHref) return;
 
       const enrichedUrl = buildCrossSiteUrl(rawHref);
+      const destinationHost = new URL(enrichedUrl, window.location.href).hostname.toLowerCase();
+      const to = destinationHost.includes("geonemo") ? "geonemo" : "geoipt";
 
       // En mobile: misma pestaña
       if (isMobileNav || anchor.closest("#ecosystem-bar")) {
+        trackEvent({
+          event: "geo_cross_navigation",
+          from: "geoeva",
+          to,
+          method: "same_tab",
+        });
         window.location.href = enrichedUrl;
         return;
       }
 
       // En desktop: nueva pestaña para cards laterales
+      trackEvent({
+        event: "geo_cross_navigation",
+        from: "geoeva",
+        to,
+        method: "new_tab",
+      });
       const popup = window.open(enrichedUrl, "_blank", "noopener");
       if (!popup) {
         window.location.href = enrichedUrl;
@@ -849,7 +872,8 @@ function triggerHeavyInteraction() {
   if (state.heavyInteractionTriggered) return;
   state.heavyInteractionTriggered = true;
 
-  trackEvent("geoeva_first_heavy_trigger", {
+  trackEvent({
+    event: "geoeva_first_heavy_trigger",
     event_category: "engagement",
     event_label: "first_map_click",
   });
@@ -866,15 +890,14 @@ function handleMapClick(event) {
     n: 10,
   });
 
-  trackEvent("geoeva_open_mapainfo", {
-    event_category: "engagement",
-    event_label: "index_map_click",
-    source: "index_map_click",
-    modo: "proximidad",
-    radio_km: 10,
+  trackEvent({
+    event: "geo_click_map",
+    result_type: "mapainfo",
+    method: "map_click",
     lat: Number(event.latlng.lat.toFixed(6)),
     lng: Number(event.latlng.lng.toFixed(6)),
-    open_target: "new_tab",
+    projects_total: state.proyectos.length || 0,
+    projects_visible: getVisibleProjectsCount(),
   });
 
   window.open(url, "_blank", "noopener");
@@ -1142,7 +1165,8 @@ function selectSearchResult(item) {
   if (state.searchUi.input) {
     const query = state.searchUi.input.value.trim();
 
-    trackEvent("geoeva_search_select", {
+    trackEvent({
+      event: "geoeva_search_select",
       event_category: "engagement",
       event_label: "project_search_select",
       query,
@@ -1293,7 +1317,8 @@ function bootstrapPhase0And1() {
   try {
     setLoadingProgress(10, "Preparando visor...");
 
-    trackEvent("geoeva_open_geoeva", {
+    trackEvent({
+      event: "geoeva_open_geoeva",
       event_category: "engagement",
       event_label: "index",
     });
