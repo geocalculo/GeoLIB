@@ -512,6 +512,15 @@ function applyStoredViewport(map) {
   return true;
 }
 
+function isNullIsland(center) {
+  if (!Array.isArray(center) || center.length !== 2) return false;
+
+  const [lat, lon] = center;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+
+  return Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001;
+}
+
 async function resolveUserInitialViewport() {
   const fallback = { center: HOME_VIEW.center, zoom: HOME_VIEW.zoom };
 
@@ -538,7 +547,11 @@ async function resolveUserInitialViewport() {
             }
           );
         });
-        return viewport;
+        if (!isNullIsland(viewport?.center)) {
+          return viewport;
+        }
+
+        warn("[geo] Coordenadas GPS inválidas (0,0); usando fallback.");
       }
     }
   } catch (gpsError) {
@@ -561,10 +574,15 @@ async function resolveUserInitialViewport() {
     const lon = Number(payload?.longitude);
 
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      return {
-        center: [lat, lon],
-        zoom: USER_ZOOM,
-      };
+      const center = [lat, lon];
+      if (!isNullIsland(center)) {
+        return {
+          center,
+          zoom: USER_ZOOM,
+        };
+      }
+
+      warn("[geo] Coordenadas IP inválidas (0,0); usando fallback.", payload);
     }
   } catch (ipError) {
     warn("[geo] Fallback IP no disponible.", ipError);
