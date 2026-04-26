@@ -942,3 +942,90 @@ body.modal-open {
   transform: translateY(-1px);
   box-shadow: 0 8px 24px rgba(37, 99, 235, 0.6);
 }
+
+.welcome-modal__content {
+  width: min(94vw, 900px); /* antes 640px */
+  max-height: 90vh; /* clave */
+  overflow-y: auto; /* evita desborde vertical */
+}
+
+/* Imagen del flujo 3 pasos */
+.modal-content img.modal-3-pasos {
+  width: 100%;
+  height: auto;
+  max-height: 60vh; /* clave: evita que se desborde verticalmente */
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 16px auto;
+  border-radius: 12px; /* opcional: look pro */
+}
+
+/* Opcional: mejorar en pantallas chicas (mobile/tiktok UX) */
+@media (max-width: 768px) {
+  .modal-content img.modal-3-pasos {
+    max-height: 38vh;
+  }
+}
+
+/* Modal más ancho y equilibrado */
+.welcome-modal__content {
+  width: min(96vw, 1000px);
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Imagen controlada (clave UX) */
+.welcome-modal__content img.modal-3-pasos {
+  width: 100%;
+  height: auto;
+  max-height: 48vh; /* 🔥 ESTE ES EL AJUSTE CLAVE */
+  object-fit: contain;
+  display: block;
+  margin: 12px auto 12px auto;
+  border-radius: 12px;
+}
+
+/* =========================
+   FIX MODAL 3 PASOS (FINAL)
+========================= */
+
+/* 1. Contenedor más ancho + sin scroll lateral */
+.welcome-modal__content {
+  width: min(96vw, 1000px);
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 2. Imagen controlada (clave UX) */
+.welcome-modal__content img.modal-3-pasos {
+  width: 100%;
+  height: auto;
+  max-height: 46vh; /* balance perfecto */
+  object-fit: contain;
+  display: block;
+  margin: 10px auto 10px auto;
+  border-radius: 12px;
+}
+
+/* 3. CTA más presente */
+.welcome-btn,
+.cta-primary {
+  display: block;
+  margin: 8px auto 0 auto;
+  min-width: 260px;
+  text-align: center;
+}
+
+/* 4. Checkbox más compacto */
+.welcome-checkbox {
+  margin-top: 0.65rem;
+}
+
+/* 5. Mobile (clave LinkedIn) */
+@media (max-width: 768px) {
+  .welcome-modal__content img.modal-3-pasos {
+    max-height: 38vh;
+  }
+}
