@@ -925,3 +925,20 @@ body.modal-open {
     opacity: 0.75;
   }
 }
+
+.cta-primary {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+  transition: all 0.2s ease;
+}
+
+.cta-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.6);
+}
