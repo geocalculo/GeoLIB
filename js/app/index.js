@@ -655,8 +655,13 @@ function showSummary() {
 
 function initWelcomeModal() {
   const modal = document.getElementById("welcomeModal");
-  const startButton = document.getElementById("startBtn");
+  const startButton =
+    document.getElementById("btn-ver-proyectos") || document.getElementById("startBtn");
   const dismissCheckbox = document.getElementById("dontShowAgain");
+
+  if (typeof window.awaitingMapClick !== "boolean") {
+    window.awaitingMapClick = false;
+  }
 
   if (!modal) {
     showSummary();
@@ -674,9 +679,14 @@ function initWelcomeModal() {
   modal.hidden = false;
   document.body.classList.add("modal-open");
 
-  const closeModal = () => {
+  const closeModal = ({ armMapClick = false } = {}) => {
     if (dismissCheckbox?.checked) {
       localStorage.setItem(WELCOME_DISMISSED_KEY, "1");
+    }
+
+    if (armMapClick) {
+      window.awaitingMapClick = true;
+      trackEvent({ event: "cta_ver_proyectos_modal" });
     }
 
     modal.hidden = true;
@@ -698,13 +708,17 @@ function initWelcomeModal() {
     }
   };
 
+  const onStartClick = () => {
+    closeModal({ armMapClick: true });
+  };
+
   const detachListeners = () => {
-    startButton?.removeEventListener("click", closeModal);
+    startButton?.removeEventListener("click", onStartClick);
     modal.removeEventListener("click", onOverlayClick);
     document.removeEventListener("keydown", onDocumentKeydown);
   };
 
-  startButton?.addEventListener("click", closeModal);
+  startButton?.addEventListener("click", onStartClick);
   modal.addEventListener("click", onOverlayClick);
   document.addEventListener("keydown", onDocumentKeydown);
 }
@@ -898,6 +912,10 @@ function triggerHeavyInteraction() {
 }
 
 function handleMapClick(event) {
+  if (window.awaitingMapClick === true) {
+    window.awaitingMapClick = false;
+  }
+
   triggerHeavyInteraction();
 
   const url = buildMapainfoUrl({
