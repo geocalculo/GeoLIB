@@ -67,7 +67,23 @@
       </div>
     </div>
 
+    <section id="heroKpi" class="hero-kpi" aria-live="polite"></section>
+    <section id="shortInsight" class="short-insight" aria-live="polite"></section>
+
+    <button id="mobileFiltersFab" type="button" class="mobile-filters-fab" aria-controls="mobileFiltersSheet">⚙️ Filtros</button>
+
     <div class="map-container">
+      <aside class="filters-panel" id="filtersPanelDesktop">
+        <h3>Filtros</h3>
+        <label>Sector<select id="filterSector" multiple></select></label>
+        <label>Estado<select id="filterEstado" multiple></select></label>
+        <label>Titular<select id="filterTitular"><option value="">Todos</option></select></label>
+        <label>Año desde<input id="filterAnioDesde" type="number" inputmode="numeric" /></label>
+        <label>Año hasta<input id="filterAnioHasta" type="number" inputmode="numeric" /></label>
+        <label>Inversión mín (MMU$)<input id="filterInvMin" type="number" inputmode="decimal" /></label>
+        <label>Inversión máx (MMU$)<input id="filterInvMax" type="number" inputmode="decimal" /></label>
+        <button id="btnClearFiltersDesktop" type="button" class="btn-clear-filters">Limpiar filtros</button>
+      </aside>
       <div class="map-square">
         <!-- ✅ Hint de 2 dedos para móvil -->
         <div id="mapTouchHint" class="map-touch-hint">
@@ -121,6 +137,21 @@
       <a id="msAnx" class="ms-btn ms-btn--secondary" href="#" target="_blank" rel="noopener">Abrir anexos</a>
     </div>
   </section>
+
+  <div id="mobileFiltersBackdrop" class="mobile-backdrop hidden" aria-hidden="true"></div>
+  <section id="mobileFiltersSheet" class="mobile-sheet hidden" aria-hidden="true">
+    <header class="mobile-sheet__header">
+      <div class="mobile-sheet__title">Filtros</div>
+      <button id="mobileFiltersClose" class="mobile-sheet__close" type="button" aria-label="Cerrar">✕</button>
+    </header>
+    <div class="mobile-filters-body" id="mobileFiltersBody"></div>
+    <div class="mobile-filters-actions">
+      <button id="mobileApplyFilters" type="button" class="ms-btn ms-btn--primary">Aplicar filtros</button>
+      <button id="mobileClearFilters" type="button" class="ms-btn ms-btn--secondary">Limpiar</button>
+    </div>
+  </section>
+
+  <div id="filterRibbon" class="filter-ribbon" aria-live="polite"></div>
 
   <!-- Scripts -->
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js?v=gtm-events-20260425"></script>

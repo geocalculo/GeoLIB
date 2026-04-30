@@ -43,6 +43,22 @@ let mapLayers = null;
 let panel = null;
 let model = null;
 
+const state = {
+  baseProjects: [],
+  filteredProjects: [],
+  filters: { sector: [], estado: [], titular: null, anioDesde: null, anioHasta: null, inversionMin: null, inversionMax: null },
+};
+
+function getProjectInv(p){const v=Number(p?.inversionMm ?? p?.inversion);return Number.isFinite(v)?v:null;}
+function getProjectYear(p){const y=Number(p?.anio ?? p?.año ?? p?.year);return Number.isFinite(y)?y:null;}
+function hasActiveFilters(filters=state.filters){return Boolean((filters.sector||[]).length||(filters.estado||[]).length||filters.titular||filters.anioDesde||filters.anioHasta||filters.inversionMin||filters.inversionMax);}
+function applyFilters(projects=[], filters=state.filters){return projects.filter((p)=>{if(filters.sector?.length && !filters.sector.includes(p?.sector)) return false; if(filters.estado?.length && !filters.estado.includes(p?.estado)) return false; if(filters.titular && p?.titular!==filters.titular) return false; const y=getProjectYear(p); if(filters.anioDesde && (!(y>=Number(filters.anioDesde)))) return false; if(filters.anioHasta && (!(y<=Number(filters.anioHasta)))) return false; const inv=getProjectInv(p); if(filters.inversionMin!=null && (!(inv>=Number(filters.inversionMin)))) return false; if(filters.inversionMax!=null && (!(inv<=Number(filters.inversionMax)))) return false; return true;});}
+function getFilterOptions(baseProjects=[]){const sectors=[...new Set(baseProjects.map(p=>p?.sector).filter(Boolean))].sort(); const estados=[...new Set(baseProjects.map(p=>p?.estado).filter(Boolean))].sort(); const titulares=[...new Set(baseProjects.map(p=>p?.titular).filter(Boolean))].sort(); const years=baseProjects.map(getProjectYear).filter(Number.isFinite); return {sectors,estados,titulares,minYear:Math.min(...years),maxYear:Math.max(...years)};}
+function buildFilteredModel(baseModel, projects){const next={...baseModel,projects:[...projects]}; next.query={...baseModel.query,n:projects.length}; return next;}
+function renderHeroKpis(activeModel){const el=document.getElementById('heroKpi'); if(!el) return; const projects=activeModel.projects||[]; const inv=projects.reduce((a,p)=>a+(getProjectInv(p)||0),0); const near=Math.min(...projects.map(p=>Number(p?.distKm)).filter(Number.isFinite)); const dom=(key)=>{const c={}; projects.forEach(p=>{const k=p?.[key]; if(k) c[k]=(c[k]||0)+1}); return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';}; const radio=Number(activeModel?.query?.radioKmFinal ?? activeModel?.query?.radio ?? 0); const cards=[['Proyectos en radio',String(projects.length)],['Inversión total',`${inv.toFixed(1)} MMU$`],['Más cercano',Number.isFinite(near)?`${near.toFixed(1)} km`:'—'],['Radio',`${radio.toFixed(1)} km`],['Estado dominante',dom('estado')],['Sector dominante',dom('sector')]]; el.innerHTML=cards.map(([l,v])=>`<article class="hero-kpi-card"><div class="hero-kpi-label">${l}</div><div class="hero-kpi-value">${v}</div></article>`).join('');}
+function renderShortInsight(activeModel){const el=document.getElementById('shortInsight'); if(!el) return; const p=activeModel.projects||[]; if(!p.length){el.textContent='No hay proyectos para los filtros seleccionados.'; return;} const top=(k)=>{const c={}; p.forEach(x=>{const v=x?.[k]; if(v) c[v]=(c[v]||0)+1}); return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';}; el.textContent=`Alta concentración de proyectos ${top('sector').toLowerCase()} en estado ${top('estado').toLowerCase()} dentro del radio analizado.`;}
+
+
 const REPORT_TITLES = {
   execTitle: (radioKm) =>
     `Análisis técnico en el área de influencia (radio de ${Number.isFinite(radioKm) ? radioKm.toFixed(0) : "—"} km)`,
@@ -1739,6 +1755,13 @@ function bindMapainfoDeepScrollTracker({ threshold = 0.75 } = {}) {
   onScroll();
 }
 
+
+function renderFilterRibbon(filters=state.filters){const el=document.getElementById('filterRibbon'); if(!el) return; const chips=[]; if(filters.sector?.length) chips.push(['sector',`Sector: ${filters.sector.join(', ')}`]); if(filters.estado?.length) chips.push(['estado',`Estado: ${filters.estado.join(', ')}`]); if(filters.titular) chips.push(['titular',`Titular: ${filters.titular}`]); if(filters.anioDesde||filters.anioHasta) chips.push(['anio',`Año: ${filters.anioDesde||'—'}–${filters.anioHasta||'—'}`]); if(filters.inversionMin!=null||filters.inversionMax!=null) chips.push(['inv',`Inv: ${filters.inversionMin??'—'}–${filters.inversionMax??'—'} MMU$`]); if(!chips.length){el.innerHTML='<span class="filter-ribbon-empty">Sin filtros aplicados</span>'; return;} el.innerHTML=`<strong>Filtros activos:</strong>${chips.map(([k,t])=>`<button type="button" class="filter-chip" data-chip="${k}">${t} ×</button>`).join('')}<button type="button" class="filter-chip" data-chip="clear">Limpiar todos</button>`;}
+function clearFilters(){state.filters={ sector: [], estado: [], titular: null, anioDesde: null, anioHasta: null, inversionMin: null, inversionMax: null }; syncFilterInputs(); updateView();}
+function syncFilterInputs(){const set=(id,v)=>{const e=document.getElementById(id); if(e) e.value=v??'';}; set('filterTitular',state.filters.titular||''); set('filterAnioDesde',state.filters.anioDesde); set('filterAnioHasta',state.filters.anioHasta); set('filterInvMin',state.filters.inversionMin); set('filterInvMax',state.filters.inversionMax); ['filterSector','filterEstado'].forEach((id)=>{const el=document.getElementById(id); if(!el) return; [...el.options].forEach(o=>o.selected=(state.filters[id==='filterSector'?'sector':'estado']||[]).includes(o.value));});}
+function updateView(){state.filteredProjects=applyFilters(state.baseProjects,state.filters); const activeModel=buildFilteredModel(model,state.filteredProjects); renderHeroKpis(activeModel); renderShortInsight(activeModel); renderInfoBar(activeModel); renderExecutiveAnalysis(activeModel); mapLayers.renderProjects(activeModel.projects,{onMarkerClick:(id)=>{panel.highlight(id);mapLayers.highlightProject(id);}}); panel.render(activeModel.projects); updateCharts(activeModel); renderFilterRibbon(state.filters); model=activeModel;}
+function initFiltersUI(){const options=getFilterOptions(state.baseProjects); const fill=(id,vals,multi=false)=>{const el=document.getElementById(id); if(!el) return; if(multi) el.innerHTML=vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join(''); else el.innerHTML='<option value="">Todos</option>'+vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');}; fill('filterSector',options.sectors,true); fill('filterEstado',options.estados,true); fill('filterTitular',options.titulares,false); const onApply=()=>{const s=document.getElementById('filterSector'); const e=document.getElementById('filterEstado'); state.filters.sector=[...(s?.selectedOptions||[])].map(o=>o.value); state.filters.estado=[...(e?.selectedOptions||[])].map(o=>o.value); state.filters.titular=document.getElementById('filterTitular')?.value||null; state.filters.anioDesde=document.getElementById('filterAnioDesde')?.value||null; state.filters.anioHasta=document.getElementById('filterAnioHasta')?.value||null; state.filters.inversionMin=document.getElementById('filterInvMin')?.value||null; state.filters.inversionMax=document.getElementById('filterInvMax')?.value||null; updateView();}; let t; ['filterSector','filterEstado','filterTitular','filterAnioDesde','filterAnioHasta','filterInvMin','filterInvMax'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{clearTimeout(t);t=setTimeout(onApply,150);})); document.getElementById('btnClearFiltersDesktop')?.addEventListener('click',clearFilters); document.getElementById('filterRibbon')?.addEventListener('click',(ev)=>{const chip=ev.target.closest('[data-chip]')?.dataset.chip; if(!chip) return; if(chip==='clear') return clearFilters(); if(chip==='sector') state.filters.sector=[]; if(chip==='estado') state.filters.estado=[]; if(chip==='titular') state.filters.titular=null; if(chip==='anio'){state.filters.anioDesde=null;state.filters.anioHasta=null;} if(chip==='inv'){state.filters.inversionMin=null;state.filters.inversionMax=null;} syncFilterInputs(); updateView();});}
+
 async function main() {
   try {
     setLoadingProgress(8, "Preparando análisis...");
@@ -1794,10 +1817,13 @@ async function main() {
     );
 
     window.__geoeva_model = model;
+    state.baseProjects = Array.isArray(model?.projects) ? [...model.projects] : [];
+    state.filteredProjects = [...state.baseProjects];
 
     setLoadingProgress(82, "Renderizando panel y mapa...");
     renderInfoBar(model);
     renderExecutiveAnalysis(model);
+    initFiltersUI();
     bindExecutiveReflow(() => model);
 
     const radioFinal =
@@ -1827,6 +1853,7 @@ async function main() {
 
     setLoadingProgress(92, "Generando gráficos...");
     await updateCharts(model);
+    updateView();
 
     requestAnimationFrame(() => resizeAllPlots());
     setTimeout(resizeAllPlots, 250);
