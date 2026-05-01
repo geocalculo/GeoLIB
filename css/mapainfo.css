@@ -97,6 +97,91 @@ transform: none;
 box-shadow: none;
 }
 
+.hero-kpi {
+margin-top: 1rem;
+display: grid;
+grid-template-columns: repeat(6, minmax(0, 1fr));
+gap: 0.7rem;
+}
+
+.hero-kpi-card {
+background: #ffffff;
+border-radius: 16px;
+padding: 0.7rem 0.8rem;
+box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+display: flex;
+flex-direction: column;
+gap: 0.25rem;
+min-height: 74px;
+}
+
+.hero-kpi-label {
+font-size: 0.72rem;
+color: #64748b;
+font-weight: 600;
+}
+
+.hero-kpi-value {
+font-size: 1rem;
+color: #0f172a;
+font-weight: 800;
+}
+
+.short-insight {
+margin-top: 0.75rem;
+background: #ffffff;
+border-radius: 16px;
+padding: 0.8rem 1rem;
+box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+font-size: 0.9rem;
+line-height: 1.5;
+}
+
+.sector-density {
+margin-top: 0.75rem;
+background: #ffffff;
+border-radius: 16px;
+box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+padding: 0.85rem 0.95rem;
+}
+
+.sector-density__head h2 {
+font-size: 1rem;
+margin-bottom: 0.2rem;
+}
+
+.sector-density__head p {
+font-size: 0.8rem;
+color: #64748b;
+}
+
+.sector-density__table-wrap {
+margin-top: 0.65rem;
+overflow-x: auto;
+}
+
+.sector-density__table {
+width: 100%;
+min-width: 460px;
+border-collapse: collapse;
+font-size: 0.84rem;
+}
+
+.sector-density__table th,
+.sector-density__table td {
+padding: 0.5rem 0.45rem;
+border-bottom: 1px solid #e2e8f0;
+text-align: left;
+white-space: nowrap;
+}
+
+.sector-density__table th {
+color: #334155;
+font-size: 0.74rem;
+text-transform: uppercase;
+letter-spacing: 0.02em;
+}
+
 /* ========================================
 CONTENEDOR DE MAPA + PANEL LATERAL
 ======================================== */
@@ -105,6 +190,37 @@ margin-top: 1rem;
 display: flex;
 gap: 1rem;
 position: relative;
+}
+
+@media (max-width: 1024px) {
+  .hero-kpi {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-kpi {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .hero-kpi-card {
+    min-height: 66px;
+    padding: 0.6rem 0.7rem;
+  }
+
+  .hero-kpi-value {
+    font-size: 0.9rem;
+  }
+
+  .short-insight {
+    font-size: 0.84rem;
+    padding: 0.7rem 0.8rem;
+  }
+
+  .sector-density {
+    padding: 0.7rem 0.75rem;
+  }
 }
 
 

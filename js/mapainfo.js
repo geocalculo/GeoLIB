@@ -910,6 +910,136 @@ function bindExecutiveReflow(modelGetter) {
   });
 }
 
+function getProjectInv(p) {
+  const val = Number(p?.inversionMm ?? p?.inversion);
+  return Number.isFinite(val) ? val : null;
+}
+
+function getProjectLatLng(p) {
+  const latCandidates = [p?.lat, p?.latitude, p?.Latitud, p?.latitud, p?.y];
+  const lngCandidates = [p?.lng, p?.lon, p?.long, p?.longitude, p?.Longitud, p?.longitud, p?.x];
+  const lat = latCandidates.map(Number).find((v) => Number.isFinite(v) && Math.abs(v) <= 90);
+  const lng = lngCandidates.map(Number).find((v) => Number.isFinite(v) && Math.abs(v) <= 180);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+}
+
+function distanceKm(a, b) {
+  if (!a || !b) return null;
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function renderHeroKpis(model) {
+  const el = document.getElementById("heroKpi");
+  if (!el) return;
+  const projects = Array.isArray(model?.projects) ? model.projects : [];
+  const totalInv = projects.reduce((acc, p) => acc + (getProjectInv(p) ?? 0), 0);
+  const nearest = projects
+    .map((p) => Number(p?.distKm))
+    .filter((v) => Number.isFinite(v))
+    .sort((a, b) => a - b)[0];
+  const dominant = (key) => {
+    const counts = new Map();
+    for (const p of projects) {
+      const k = String(p?.[key] ?? "—").trim() || "—";
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+  };
+  const radio = Number(model?.query?.radioKmFinal ?? model?.query?.radioKm ?? model?.query?.radio);
+  const cards = [
+    ["Proyectos en radio", String(projects.length)],
+    ["Inversión total", `${totalInv.toFixed(1)} MMU$`],
+    ["Más cercano", Number.isFinite(nearest) ? `${nearest.toFixed(1)} km` : "—"],
+    ["Radio", Number.isFinite(radio) ? `${radio.toFixed(0)} km` : "—"],
+    ["Estado dominante", dominant("estado")],
+    ["Sector dominante", dominant("sector")],
+  ];
+  el.innerHTML = cards
+    .map(
+      ([label, value]) => `<article class="hero-kpi-card"><span class="hero-kpi-label">${escapeHtml(label)}</span><strong class="hero-kpi-value">${escapeHtml(value)}</strong></article>`
+    )
+    .join("");
+}
+
+function renderShortInsight(model) {
+  const el = document.getElementById("shortInsight");
+  if (!el) return;
+  const projects = Array.isArray(model?.projects) ? model.projects : [];
+  const dominant = (key) => {
+    const counts = new Map();
+    for (const p of projects) {
+      const k = String(p?.[key] ?? "—").trim() || "—";
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+  };
+  el.textContent = `Alta concentración de proyectos del sector ${dominant("sector")}, principalmente en estado ${dominant("estado")}, dentro del radio analizado.`;
+}
+
+function computeSectorDensity(projects = []) {
+  const bySector = new Map();
+  for (const p of projects) {
+    const sector = String(p?.sector ?? "—").trim() || "—";
+    if (!bySector.has(sector)) bySector.set(sector, []);
+    bySector.get(sector).push(p);
+  }
+
+  return [...bySector.entries()]
+    .map(([sector, items]) => {
+      const totalInv = items.reduce((acc, p) => acc + (getProjectInv(p) ?? 0), 0);
+      const coords = items.map(getProjectLatLng).filter(Boolean);
+      if (coords.length < 2) return { sector, totalInv, count: items.length, distMin: null, distAvg: null };
+
+      let distMin = Infinity;
+      const nearestByPoint = [];
+      for (let i = 0; i < coords.length; i++) {
+        let nearest = Infinity;
+        for (let j = 0; j < coords.length; j++) {
+          if (i === j) continue;
+          const d = distanceKm(coords[i], coords[j]);
+          if (!Number.isFinite(d)) continue;
+          if (d < distMin) distMin = d;
+          if (d < nearest) nearest = d;
+        }
+        if (Number.isFinite(nearest)) nearestByPoint.push(nearest);
+      }
+      const distAvg = nearestByPoint.length
+        ? nearestByPoint.reduce((a, b) => a + b, 0) / nearestByPoint.length
+        : null;
+
+      return { sector, totalInv, count: items.length, distMin: Number.isFinite(distMin) ? distMin : null, distAvg };
+    })
+    .sort((a, b) => b.totalInv - a.totalInv)
+    .slice(0, 3);
+}
+
+function renderSectorDensity(model) {
+  const body = document.getElementById("sectorDensityBody");
+  if (!body) return;
+  const rows = computeSectorDensity(Array.isArray(model?.projects) ? model.projects : []);
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="4">No hay suficientes proyectos para calcular densidad territorial.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows
+    .map(
+      (r) => `<tr>
+      <td>${escapeHtml(r.sector)}</td>
+      <td>${Number.isFinite(r.totalInv) ? `${r.totalInv.toFixed(1)} MMU$` : "—"}</td>
+      <td>${Number.isFinite(r.distMin) ? `${r.distMin.toFixed(1)} km` : "—"}</td>
+      <td>${Number.isFinite(r.distAvg) ? `${r.distAvg.toFixed(1)} km` : "—"}</td>
+    </tr>`
+    )
+    .join("");
+}
+
 function drawExecutiveAiBox(doc, { x, y, w, h, title, text }) {
   doc.setDrawColor(210);
   doc.setFillColor(255, 255, 255);
@@ -1718,6 +1848,9 @@ async function main() {
 
     setLoadingProgress(82, "Renderizando panel y mapa...");
     renderInfoBar(model);
+    renderHeroKpis(model);
+    renderShortInsight(model);
+    renderSectorDensity(model);
     renderExecutiveAnalysis(model);
     bindExecutiveReflow(() => model);
 
