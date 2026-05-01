@@ -36,10 +36,10 @@ header p { font-size: 0.85rem; color: #9ca3af; }
 /* Cinta superior */
 .info-bar {
 margin-top: 1rem;
-padding: 0.6rem 1.25rem;
-font-size: 0.85rem;
+padding: 0.55rem 1rem;
+font-size: 0.95rem;
 background: #e5e7eb;
-border-radius: 12px;
+border-radius: 16px;
 display: flex;
 flex-direction: column;
 gap: 0.35rem;
@@ -101,14 +101,14 @@ box-shadow: none;
 margin-top: 1rem;
 display: grid;
 grid-template-columns: repeat(6, minmax(0, 1fr));
-gap: 0.7rem;
+gap: 0.6rem;
 }
 
 .hero-kpi-card {
 background: #ffffff;
 border-radius: 16px;
-padding: 0.7rem 0.8rem;
-box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+padding: 0.65rem 0.75rem;
+box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 display: flex;
 flex-direction: column;
 gap: 0.25rem;
@@ -116,13 +116,13 @@ min-height: 74px;
 }
 
 .hero-kpi-label {
-font-size: 0.72rem;
+font-size: 0.75rem;
 color: #64748b;
 font-weight: 600;
 }
 
 .hero-kpi-value {
-font-size: 1rem;
+font-size: 1.1rem;
 color: #0f172a;
 font-weight: 800;
 }
@@ -131,27 +131,28 @@ font-weight: 800;
 margin-top: 0.75rem;
 background: #ffffff;
 border-radius: 16px;
-padding: 0.8rem 1rem;
-box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
-font-size: 0.9rem;
-line-height: 1.5;
+padding: 0.75rem 0.95rem;
+box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+font-size: 0.85rem;
+line-height: 1.45;
 }
 
 .sector-density {
 margin-top: 0.75rem;
 background: #ffffff;
 border-radius: 16px;
-box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
-padding: 0.85rem 0.95rem;
+box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+padding: 0.75rem 0.9rem;
 }
 
 .sector-density__head h2 {
-font-size: 1rem;
+font-size: 0.95rem;
+font-weight: 800;
 margin-bottom: 0.2rem;
 }
 
 .sector-density__head p {
-font-size: 0.8rem;
+font-size: 0.75rem;
 color: #64748b;
 }
 
@@ -164,7 +165,6 @@ overflow-x: auto;
 width: 100%;
 min-width: 460px;
 border-collapse: collapse;
-font-size: 0.84rem;
 }
 
 .sector-density__table th,
@@ -177,9 +177,14 @@ white-space: nowrap;
 
 .sector-density__table th {
 color: #334155;
-font-size: 0.74rem;
+font-size: 0.75rem;
+font-weight: 800;
 text-transform: uppercase;
 letter-spacing: 0.02em;
+}
+
+.sector-density__table td {
+font-size: 0.85rem;
 }
 
 /* ========================================
@@ -210,16 +215,20 @@ position: relative;
   }
 
   .hero-kpi-value {
-    font-size: 0.9rem;
+    font-size: 1rem;
   }
 
   .short-insight {
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     padding: 0.7rem 0.8rem;
   }
 
   .sector-density {
     padding: 0.7rem 0.75rem;
+  }
+
+  .sector-density__table th {
+    font-size: 0.72rem;
   }
 }
 
@@ -282,8 +291,8 @@ PANEL LATERAL DE PROYECTOS
 .projects-panel {
 width: 320px;
 background: #ffffff;
-border-radius: 14px;
-box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+border-radius: 16px;
+box-shadow: 0 6px 20px rgba(15, 23, 42, 0.14);
 display: flex;
 flex-direction: column;
 transition: all 0.3s ease;
@@ -307,7 +316,7 @@ user-select: none;
 
 .panel-title {
 font-size: 0.95rem;
-font-weight: 600;
+font-weight: 700;
 display: flex;
 align-items: center;
 gap: 0.5rem;
@@ -339,6 +348,7 @@ transition: transform 0.3s ease;
 flex: 1;
 overflow-y: auto;
 padding: 0;
+font-size: 0.85rem;
 }
 
 .projects-panel.collapsed .panel-content { display: none; }
