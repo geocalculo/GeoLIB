@@ -313,85 +313,6 @@ function enableTwoFingerZoomOnly(map) {
   }
 }
 
-function initMobileSheet() {
-  const sheet = document.getElementById("mobileSheet");
-  const backdrop = document.getElementById("mobileSheetBackdrop");
-  const btnClose = document.getElementById("msClose");
-  const handle = document.getElementById("mobileSheetHandle");
-
-  if (!sheet || !backdrop) return;
-
-  function close() {
-    sheet.classList.add("hidden");
-    backdrop.classList.add("hidden");
-    sheet.setAttribute("aria-hidden", "true");
-    backdrop.setAttribute("aria-hidden", "true");
-  }
-
-  function open() {
-    sheet.classList.remove("hidden");
-    backdrop.classList.remove("hidden");
-    sheet.setAttribute("aria-hidden", "false");
-    backdrop.setAttribute("aria-hidden", "false");
-  }
-
-  backdrop.addEventListener("click", close);
-  btnClose?.addEventListener("click", close);
-  handle?.addEventListener("click", close);
-
-  window.__openMobileSheet = open;   // ✅ FIX
-  window.__closeMobileSheet = close;
-}
-
-
-function openMobileSheet(p) {
-  if (!isMobile()) return;
-
-  const title = document.getElementById("msTitle");
-  const meta = document.getElementById("msMeta");
-  const exp = document.getElementById("msExp");
-  const anx = document.getElementById("msAnx");
-
-  if (!title || !meta || !exp || !anx) return;
-
-  title.textContent = p?.nombre || "Proyecto";
-
-  const dist = Number.isFinite(p?.distKm) ? `${p.distKm.toFixed(2)} km` : "—";
-  meta.innerHTML = `
-    <div><b>Distancia:</b> ${dist}</div>
-    <div><b>Estado:</b> ${escapeHtml(p?.estado || "—")}</div>
-    <div><b>Sector:</b> ${escapeHtml(p?.sector || "—")}</div>
-  `;
-
-  const expUrl = (p?.web || "").trim();
-  const anxUrl = (p?.anexos || "").trim();
-
-  if (expUrl) {
-    exp.href = expUrl;
-    exp.style.opacity = "1";
-    exp.style.pointerEvents = "auto";
-  } else {
-    exp.href = "#";
-    exp.style.opacity = "0.5";
-    exp.style.pointerEvents = "none";
-  }
-
-  if (anxUrl) {
-    anx.href = anxUrl;
-    anx.style.opacity = "1";
-    anx.style.pointerEvents = "auto";
-  } else {
-    anx.href = "#";
-    anx.style.opacity = "0.5";
-    anx.style.pointerEvents = "none";
-  }
-
-  window.__openMobileSheet?.();
-}
-
-window.openMobileSheet = openMobileSheet;
-window.__isMobile = isMobile;
-
 
 
 function initMap({ lat, lng }) {
@@ -1854,7 +1775,6 @@ window.addEventListener("orientationchange", () => setTimeout(() => resizeAllPlo
 window.addEventListener("resize", () => setTimeout(() => resizeAllPlots(), 250));
 
 document.addEventListener("DOMContentLoaded", () => {
-  initMobileSheet();
   bindMapainfoDeepScrollTracker({ threshold: 0.75 });
   main();
 });
