@@ -63,14 +63,7 @@ export function createMapLayers(map) {
         fillColor: markerColor(p.bucket),
         fillOpacity: 0.9,
       });
-
-      const isMobile = window.__isMobile
-        ? window.__isMobile()
-        : window.matchMedia("(max-width: 768px)").matches;
-
-      if (!isMobile) {
-        m.bindPopup(renderProjectPopupHtml(p));
-      }
+      m.bindPopup(renderProjectPopupHtml(p));
 
       // etiqueta ID
       const tooltip = m.bindTooltip(String(p.id), {
@@ -80,28 +73,8 @@ export function createMapLayers(map) {
         offset: [0, 0],
       });
 
-      // Click: desktop -> popup; móvil -> bottom sheet (si existe)
-      m.on("click", (e) => {
-        const isMobile = window.__isMobile
-          ? window.__isMobile()
-          : window.matchMedia("(max-width: 768px)").matches;
-
-        if (isMobile) {
-          // 1) Cierra cualquier popup abierto
-          map.closePopup();
-
-          // 2) Evita que Leaflet intente abrir popup por click
-          L.DomEvent.stop(e);
-          if (typeof m.closePopup === "function") m.closePopup();
-
-          // 3) Abre bottom sheet
-          if (typeof window.openMobileSheet === "function") {
-            window.openMobileSheet(p);
-          }
-          return;
-        }
-
-        // Desktop normal
+      // Click: abre popup y sincroniza selección
+      m.on("click", () => {
         m.openPopup();
         if (typeof onMarkerClick === "function") onMarkerClick(p.id);
       });
@@ -125,14 +98,6 @@ export function createMapLayers(map) {
 
     const el = m.getElement?.();
     if (el) el.classList.add("marker-highlighted");
-
-    const isMob = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
-    if (isMob && typeof window.openMobileSheet === "function") {
-      const p = layers.projectById.get(id);
-      if (p) window.openMobileSheet(p);
-      return;
-    }
-
     m.openPopup();
   }
 
