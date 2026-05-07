@@ -795,13 +795,22 @@ function initMap() {
     zoomControl: true,
   });
 
-  const baseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     opacity: 1,
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap contributors",
   });
 
-  baseLayer.addTo(map);
+  const satLayer = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution: "Tiles &copy; Esri",
+    }
+  );
+
+  let activeBasemap = "osm";
+  osmLayer.addTo(map);
 
   L.control.scale().addTo(map);
   map.addControl(new (createLocateControl())());
@@ -843,6 +852,39 @@ function initMap() {
   map.on("click", handleMapClick);
   map.on("movestart", clearSearchHighlight);
 
+  const basemapToggle = document.querySelector(".basemap-toggle");
+  if (basemapToggle) {
+    const toggleButtons = Array.from(basemapToggle.querySelectorAll("button[data-map]"));
+
+    const setActiveBasemap = (targetMap) => {
+      if (targetMap === activeBasemap) return;
+
+      if (targetMap === "sat") {
+        if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+        if (!map.hasLayer(satLayer)) satLayer.addTo(map);
+      } else {
+        if (map.hasLayer(satLayer)) map.removeLayer(satLayer);
+        if (!map.hasLayer(osmLayer)) osmLayer.addTo(map);
+      }
+
+      activeBasemap = targetMap;
+
+      toggleButtons.forEach((button) => {
+        const isActive = button.dataset.map === targetMap;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+    };
+
+    toggleButtons.forEach((button) => {
+      L.DomEvent.disableClickPropagation(button);
+      L.DomEvent.on(button, "click", (ev) => {
+        L.DomEvent.stop(ev);
+        setActiveBasemap(button.dataset.map === "sat" ? "sat" : "osm");
+      });
+    });
+  }
+
   saveBasemapPrefs({
     addOSM: true,
     osmOpacity: 1,
@@ -859,7 +901,7 @@ function initMap() {
     initWelcomeModal();
   };
 
-  baseLayer.once("load", () => {
+  osmLayer.once("load", () => {
     revealMapShell();
   });
   window.setTimeout(revealMapShell, 1200);
