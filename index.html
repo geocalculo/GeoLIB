@@ -55,18 +55,20 @@
     <header class="app-header">
       <div class="app-header__content">
         <div class="app-branding">
-          <h1 class="app-title">GeoEVA | Proyectos y Evaluación Ambiental</h1>
-          <h2 class="app-subtitle">
-            Explora proyectos SEA y su contexto territorial
-          </h2>
-          <h3 class="app-hint">
-            👉 Haz clic en el mapa para analizar proyectos cercanos
-          </h3>
+          <h1 class="app-title">GeoEVA</h1>
+          <h2 class="app-subtitle">Proyectos y Evaluación Ambiental</h2>
+          <p class="app-description">Explora proyectos SEA, inversión y contexto territorial</p>
+        </div>
+
+        <div class="desktop-summary" id="desktopSummary" aria-label="Resumen por estado">
+          <span class="ds-inline ds-aprobados">Aprobados <strong data-key="aprobados">—</strong></span>
+          <span class="ds-inline ds-calificacion">En revisión <strong data-key="calificacion">—</strong></span>
+          <span class="ds-inline ds-rechazados">Rechazados <strong data-key="rechazados">—</strong></span>
         </div>
 
         <div class="app-toolbar">
           <div class="region-selector-container">
-            <label for="region-select" class="region-label">📍 Región</label>
+            <label for="region-select" class="region-label">Explorar región</label>
             <select id="region-select" class="region-select">
               <option value="">Cargando regiones...</option>
             </select>
@@ -75,53 +77,15 @@
       </div>
 
       <div class="mobile-summary compact" id="mobileSummary" aria-label="Resumen por estado">
-      <span class="ms-inline ms-aprobados">
-        Aprobados <strong data-key="aprobados">—</strong>
-      </span>
-      <span class="ms-sep">|</span>
-      <span class="ms-inline ms-calificacion">
-        En revisión <strong data-key="calificacion">—</strong>
-      </span>
-      <span class="ms-sep">|</span>
-      <span class="ms-inline ms-rechazados">
-        Rechazados <strong data-key="rechazados">—</strong>
-      </span>
-    </div>
-
-    <div class="desktop-summary" id="desktopSummary" aria-label="Resumen por estado">
-      <span class="ds-inline ds-aprobados">
-        Aprobados <strong data-key="aprobados">—</strong>
-      </span>
-      <span class="ds-sep">|</span>
-      <span class="ds-inline ds-calificacion">
-        En revisión <strong data-key="calificacion">—</strong>
-      </span>
-      <span class="ds-sep">|</span>
-      <span class="ds-inline ds-rechazados">
-        Rechazados <strong data-key="rechazados">—</strong>
-      </span>
-    </div>
-
+        <span class="ms-inline ms-aprobados">Aprobados <strong data-key="aprobados">—</strong></span>
+        <span class="ms-inline ms-calificacion">En revisión <strong data-key="calificacion">—</strong></span>
+        <span class="ms-inline ms-rechazados">Rechazados <strong data-key="rechazados">—</strong></span>
+      </div>
     </header>
 
     <main class="app-main">
-      <!-- IZQUIERDA: GeoIPT -->
-      <aside class="geoeva-side-banner geoeva-side-banner--left" aria-label="Card ecosistema GeoIPT">
-        <h3 class="geoeva-side-banner__title">GeoIPT</h3>
-        <p class="geoeva-side-banner__text">
-          Consulta normativa urbana (PRC, SCC) directamente sobre el mapa.
-        </p>
-        <a
-          class="geoeva-side-banner__link"
-          data-cross-site="side-banner"
-          href="https://geoipt.cl/?utm_source=geoeva&utm_medium=card&utm_campaign=cruce_portales&utm_content=geoipt_lateral"
-          target="_blank"
-          rel="noopener noreferrer">
-          Ir a GeoIPT
-        </a>
-      </aside>
+      <aside class="geoeva-side-banner geoeva-side-banner--left" aria-hidden="true"></aside>
 
-      <!-- CENTRO: MAPA -->
       <section class="map-section" aria-label="Mapa principal GeoEVA">
         <div class="map-stage">
           <div id="project-search-wrap" class="project-search" role="search" aria-label="Buscar proyecto">
@@ -132,50 +96,30 @@
               type="search"
               autocomplete="off"
               spellcheck="false"
-              placeholder="Ej: planta solar domeyko"
+              placeholder="Buscar proyecto SEA, titular o comuna..."
               aria-expanded="false"
               aria-controls="project-search-results"
             />
-            <div
-              id="project-search-results"
-              class="project-search__results"
-              role="listbox"
-              hidden
-            ></div>
+            <div id="project-search-results" class="project-search__results" role="listbox" hidden></div>
           </div>
 
-          <a class="home-floating-btn" href="https://geoeva.cl" aria-label="Ir al inicio">⌂ Inicio</a>
+          <a class="home-floating-btn" href="https://geoeva.cl" aria-label="Ir al inicio">⌂</a>
 
           <div id="map" class="map-main"></div>
 
           <div id="desktop-map-hint" class="map-hint map-hint--desktop" aria-hidden="true">
-            Haz clic en el mapa para abrir el análisis del punto.
+            Haz clic en el mapa para abrir el análisis ambiental del punto consultado.
           </div>
 
           <div id="mobile-map-hint" class="map-hint map-hint--mobile" aria-hidden="true">
-            Toca el mapa para abrir el análisis del punto.
+            Toca el mapa para abrir el análisis ambiental del punto.
           </div>
         </div>
       </section>
 
-      <!-- DERECHA: GeoNEMO -->
-      <aside class="geoeva-side-banner geoeva-side-banner--right" aria-label="Card ecosistema GeoNEMO">
-        <h3 class="geoeva-side-banner__title">GeoNEMO</h3>
-        <p class="geoeva-side-banner__text">
-          Explora capas ambientales y áreas protegidas dentro del mismo entorno geográfico.
-        </p>
-        <a
-          class="geoeva-side-banner__link"
-          data-cross-site="side-banner"
-          href="https://geonemo.cl/?utm_source=geoeva&utm_medium=card&utm_campaign=cruce_portales&utm_content=geonemo_lateral"
-          target="_blank"
-          rel="noopener noreferrer">
-          Ir a GeoNEMO
-        </a>
-      </aside>
+      <aside class="geoeva-side-banner geoeva-side-banner--right" aria-hidden="true"></aside>
     </main>
   </div>
-
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js?v=gtm-events-20260425"></script>
   <script type="module" src="js/app/index.js?v=gtm-events-20260425"></script>
@@ -184,34 +128,22 @@
     Haz clic en el mapa y descubre proyectos + su permisología
   </div>
 
-  <!-- Contador de visitas -->
-  <div id="visitor-counter" style="
-    position:fixed;
-    bottom:10px;
-    right:12px;
-    font-size:12px;
-    font-family:Inter, Arial, sans-serif;
-    color:#9ca3af;
-    background:rgba(0,0,0,0.6);
-    padding:6px 10px;
-    border-radius:8px;
-    backdrop-filter: blur(6px);
-    z-index:9999;
-  ">
-    Visitas:
-    <img
-      src="https://api.visitorbadge.io/api/visitors?path=geoeva.cl&countColor=%2322c55e"
-      alt="contador visitas"
-      style="vertical-align:middle;"
-    >
+  <div id="visitor-counter">Visitas:
+    <img src="https://api.visitorbadge.io/api/visitors?path=geoeva.cl&countColor=%2322c55e" alt="contador visitas" style="vertical-align:middle;">
   </div>
 
   <div id="ecosystem-bar">
-    <a href="https://geoipt.cl?utm_source=geoeva&utm_medium=mobile_bar&utm_campaign=ecosistema">
-      GeoIPT.cl
+    <a data-site="geoipt" data-cross-site="ecosystem-ribbon" href="https://geoipt.cl/?utm_source=geoeva&utm_medium=ribbon&utm_campaign=cruce_portales&utm_content=geoipt">
+      <span class="eco-name">GeoIPT</span><span class="eco-sub">Planificación urbana</span>
     </a>
-    <a href="https://geonemo.cl?utm_source=geoeva&utm_medium=mobile_bar&utm_campaign=ecosistema">
-      GeoNEMO.cl
+    <a data-site="geoeva" data-cross-site="ecosystem-ribbon" class="is-active" href="https://geoeva.cl/?utm_source=geoeva&utm_medium=ribbon&utm_campaign=cruce_portales&utm_content=geoeva">
+      <span class="eco-name">GeoEVA</span><span class="eco-sub">Evaluación ambiental</span>
+    </a>
+    <a data-site="geonemo" data-cross-site="ecosystem-ribbon" href="https://geonemo.cl/?utm_source=geoeva&utm_medium=ribbon&utm_campaign=cruce_portales&utm_content=geonemo">
+      <span class="eco-name">GeoNEMO</span><span class="eco-sub">Sitios protegidos</span>
+    </a>
+    <a data-site="geonoxa" data-cross-site="ecosystem-ribbon" href="https://geonoxa.cl/?utm_source=geoeva&utm_medium=ribbon&utm_campaign=cruce_portales&utm_content=geonoxa">
+      <span class="eco-name">GeoNOXA</span><span class="eco-sub">Riesgo territorial</span>
     </a>
   </div>
 
@@ -228,7 +160,6 @@
         📄 Informe PDF profesional en segundos
       </p><br>
 
-      <!-- Imagen 3 pasos -->
       <div class="modal-steps">
         <img src="assets/modal-3-pasos.png" class="modal-3-pasos" alt="Cómo usar la plataforma">
       </div>
