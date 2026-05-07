@@ -25,7 +25,7 @@ button,select,input{font:inherit}
 .app-description{margin:.2rem 0 0;font-size:.82rem;color:var(--muted)}
 
 /* Summary */
-.desktop-summary,.mobile-summary.compact{display:flex;gap:10px;align-items:stretch}
+.desktop-summary{display:flex;gap:10px;align-items:stretch}
 .ds-inline,.ms-inline{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:10px 12px;background:rgba(15,23,42,.78);border:1px solid var(--border);border-radius:12px;font-size:.76rem;color:#cbd5e1;min-width:96px}
 .ds-inline strong,.ms-inline strong{font-size:1.1rem;line-height:1;font-weight:800}
 .ds-aprobados strong,.ms-aprobados strong{color:#34d399}.ds-calificacion strong,.ms-calificacion strong{color:#fbbf24}.ds-rechazados strong,.ms-rechazados strong{color:#f87171}
