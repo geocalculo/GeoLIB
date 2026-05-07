@@ -809,8 +809,17 @@ function initMap() {
     }
   );
 
-  let activeBasemap = "osm";
   osmLayer.addTo(map);
+
+  const baseLayers = {
+    OSM: osmLayer,
+    "Satélite": satLayer,
+  };
+  const basemapControl = L.control.layers(baseLayers, null, {
+    position: "topright",
+    collapsed: false,
+  }).addTo(map);
+  basemapControl.getContainer()?.classList.add("leaflet-control-layers-expanded");
 
   L.control.scale().addTo(map);
   map.addControl(new (createLocateControl())());
@@ -851,39 +860,6 @@ function initMap() {
   map.on("moveend", debouncedPersistViewport);
   map.on("click", handleMapClick);
   map.on("movestart", clearSearchHighlight);
-
-  const basemapToggle = document.querySelector(".basemap-toggle");
-  if (basemapToggle) {
-    const toggleButtons = Array.from(basemapToggle.querySelectorAll("button[data-map]"));
-
-    const setActiveBasemap = (targetMap) => {
-      if (targetMap === activeBasemap) return;
-
-      if (targetMap === "sat") {
-        if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
-        if (!map.hasLayer(satLayer)) satLayer.addTo(map);
-      } else {
-        if (map.hasLayer(satLayer)) map.removeLayer(satLayer);
-        if (!map.hasLayer(osmLayer)) osmLayer.addTo(map);
-      }
-
-      activeBasemap = targetMap;
-
-      toggleButtons.forEach((button) => {
-        const isActive = button.dataset.map === targetMap;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-pressed", isActive ? "true" : "false");
-      });
-    };
-
-    toggleButtons.forEach((button) => {
-      L.DomEvent.disableClickPropagation(button);
-      L.DomEvent.on(button, "click", (ev) => {
-        L.DomEvent.stop(ev);
-        setActiveBasemap(button.dataset.map === "sat" ? "sat" : "osm");
-      });
-    });
-  }
 
   saveBasemapPrefs({
     addOSM: true,
