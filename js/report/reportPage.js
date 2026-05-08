@@ -113,13 +113,6 @@ function renderKpis(m) {
         ? Math.min(...dists)
         : NaN;
 
-  const distMaxKm =
-    m.stats && Number.isFinite(m.stats.distMaxKm)
-      ? m.stats.distMaxKm
-      : dists.length
-        ? Math.max(...dists)
-        : NaN;
-
   const distAvgKm =
     m.stats && Number.isFinite(m.stats.distAvgKm)
       ? m.stats.distAvgKm
@@ -134,12 +127,24 @@ function renderKpis(m) {
         ? invs.reduce((a, b) => a + b, 0)
         : 0;
 
+  const nearest = rows.find((r) => Number.isFinite(r.distKm));
+  const mode = (key) => {
+    const tally = new Map();
+    for (const row of rows) {
+      const v = String(row?.[key] ?? "").trim();
+      if (!v) continue;
+      tally.set(v, (tally.get(v) || 0) + 1);
+    }
+    return [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+  };
+
   const items = [
     { label: "Proyectos", value: String(total) },
-    { label: "Dist. mínima", value: Number.isFinite(distMinKm) ? `${distMinKm.toFixed(2)} km` : "—" },
-    { label: "Dist. promedio", value: Number.isFinite(distAvgKm) ? `${distAvgKm.toFixed(2)} km` : "—" },
-    { label: "Dist. máxima", value: Number.isFinite(distMaxKm) ? `${distMaxKm.toFixed(2)} km` : "—" },
-    { label: "Inversión total", value: formatMMU(invTotal) },
+    { label: "Inversión", value: formatMMU(invTotal) },
+    { label: "Más cercano", value: nearest?.nombre || "—" },
+    { label: "Radio", value: `${Number(m?.query?.radioKmFinal || m?.query?.radioKm || 0).toFixed(1)} km` },
+    { label: "Estado dominante", value: mode("estado") },
+    { label: "Sector dominante", value: mode("sector") },
   ];
 
   for (const it of items) {
@@ -148,6 +153,68 @@ function renderKpis(m) {
     div.innerHTML = `<div class="label">${escapeHtml(it.label)}</div><div class="value">${escapeHtml(it.value)}</div>`;
     grid.appendChild(div);
   }
+}
+
+function sectorClass(sector) {
+  const s = String(sector || "").toLowerCase();
+  if (s.includes("energ")) return "sector-energia";
+  if (s.includes("miner")) return "sector-mineria";
+  if (s.includes("infra")) return "sector-infraestructura";
+  if (s.includes("sane")) return "sector-saneamiento";
+  return "sector-default";
+}
+
+function renderExecutivePanels(m) {
+  const summary = document.getElementById("executiveSummary");
+  const tbody = document.querySelector("#densityTable tbody");
+  const list = document.getElementById("projectsList");
+  const rows = Array.isArray(m?.projects) ? m.projects : [];
+  if (summary) {
+    const avg = rows.length
+      ? rows.reduce((a, r) => a + (Number(r.distKm) || 0), 0) / rows.length
+      : NaN;
+    summary.textContent = `Se identifican ${rows.length} proyectos dentro del radio consultado, con distancia media de ${Number.isFinite(avg) ? avg.toFixed(1) : "—"} km e inversión agregada de ${formatMMU(m?.stats?.invTotal)}.`;
+  }
+
+  if (tbody) {
+    const agg = new Map();
+    for (const r of rows) {
+      const key = r.sector || "No informado";
+      if (!agg.has(key)) agg.set(key, { sector: key, inv: 0, dmin: Infinity, dsum: 0, n: 0 });
+      const item = agg.get(key);
+      item.inv += Number(r.inversion) || 0;
+      const d = Number(r.distKm);
+      if (Number.isFinite(d)) {
+        item.dmin = Math.min(item.dmin, d);
+        item.dsum += d;
+        item.n += 1;
+      }
+    }
+    const data = [...agg.values()].sort((a, b) => b.inv - a.inv).slice(0, 6);
+    tbody.innerHTML = data.map((x) => `<tr><td><span class="dot" style="background:${sectorColor(x.sector)}"></span>${escapeHtml(x.sector)}</td><td>${escapeHtml(formatMMU(x.inv))}</td><td>${Number.isFinite(x.dmin) ? `${x.dmin.toFixed(1)} km` : "—"}</td><td>${x.n ? `${(x.dsum / x.n).toFixed(1)} km` : "—"}</td></tr>`).join("");
+  }
+
+  if (list) {
+    list.innerHTML = rows.slice(0, 14).map((p) => `
+      <article class="project-item ${sectorClass(p.sector)}">
+        <div class="project-title">${escapeHtml(p.nombre || "Proyecto sin nombre")}</div>
+        <div class="project-meta">
+          <span class="badge">${escapeHtml(p.estado || "—")}</span>
+          <span class="badge">${escapeHtml(p.sector || "—")}</span>
+          <span class="badge">${Number.isFinite(p.distKm) ? `${p.distKm.toFixed(1)} km` : "—"}</span>
+        </div>
+      </article>
+    `).join("");
+  }
+}
+
+function sectorColor(sector) {
+  const s = String(sector || "").toLowerCase();
+  if (s.includes("energ")) return "#93c5fd";
+  if (s.includes("miner")) return "#fdba74";
+  if (s.includes("infra")) return "#cbd5e1";
+  if (s.includes("sane")) return "#86efac";
+  return "#d1d5db";
 }
 
 /* =========================
@@ -357,6 +424,7 @@ async function main() {
 
   // 5) KPIs
   renderKpis(model);
+  renderExecutivePanels(model);
 
   // 6) Mapa: punto + círculo + proyectos
   const radioFinal =
