@@ -91,7 +91,7 @@ export function formatMMU(value) {
   if (!Number.isFinite(value) || value <= 0) return "—";
   return (
     value.toLocaleString("es-CL", {
-      minimumFractionDigits: 1,
+      minimumFractionDigits: value >= 100 ? 0 : 1,
       maximumFractionDigits: 1,
     }) + " MMU$"
   );

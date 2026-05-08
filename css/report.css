@@ -69,7 +69,7 @@ body {
   background: var(--brand);
   color: #e5e7eb;
   border-radius: 14px;
-  padding: 1rem 1.25rem;
+  padding: 0.8rem 1rem;
 }
 
 .report-header h1 {
@@ -97,8 +97,8 @@ body {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 1rem 1.25rem;
-  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  margin-top: 0.7rem;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
 }
 
@@ -109,30 +109,58 @@ body {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.45rem;
 }
 
 .kpi {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 0.75rem;
-  background: #fff;
+  padding: 0.55rem 0.65rem;
+  background: #f7f8fb;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
 }
 
 .kpi .label { font-size: 0.8rem; color: var(--muted); }
-.kpi .value { font-size: 1.15rem; font-weight: 900; margin-top: 0.15rem; }
+.kpi .value { font-size: 1.25rem; font-weight: 900; margin-top: 0.1rem; line-height: 1.2; }
+
+.executive-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0.6rem; margin-top: 0.6rem; }
+.executive-panel { background: #fcfcfd; border: 1px solid var(--border); border-radius: 12px; padding: 0.55rem 0.7rem; }
+.executive-panel h3 { margin: 0 0 0.3rem; font-size: 0.88rem; }
+.compact-text { margin: 0; font-size: 0.82rem; line-height: 1.35; }
+
+.map-projects-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 0.7rem; align-items: start; }
+.map-card, .projects-panel { margin-top: 0.7rem; }
 
 .map-frame {
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
 #map {
   width: 100%;
-  height: 520px;
+  height: 380px;
 }
+
+.projects-panel { background: #fbfbfc; padding: 0.85rem; }
+.projects-list { display: flex; flex-direction: column; gap: 0.45rem; max-height: 418px; overflow: auto; padding-right: 0.2rem; }
+.project-item { border: 1px solid var(--border); border-left: 4px solid #cbd5e1; border-radius: 10px; background: #fff; padding: 0.45rem 0.55rem; }
+.project-title { font-size: 0.8rem; font-weight: 700; line-height: 1.25; }
+.project-meta { display: flex; gap: 0.35rem; margin-top: 0.35rem; flex-wrap: wrap; }
+.badge { font-size: 0.7rem; border-radius: 999px; padding: 0.1rem 0.45rem; border: 1px solid #e2e8f0; color: #334155; background: #f8fafc; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 0.3rem; }
+
+.report-table.compact { font-size: 0.8rem; }
+.report-table.compact th, .report-table.compact td { padding: 0.32rem 0.4rem; }
+
+.sector-energia { --sector: #93c5fd; }
+.sector-mineria { --sector: #fdba74; }
+.sector-infraestructura { --sector: #cbd5e1; }
+.sector-saneamiento { --sector: #86efac; }
+.sector-default { --sector: #d1d5db; }
+.project-item { border-left-color: var(--sector, #cbd5e1); }
 
 .charts-grid {
   display: grid;
@@ -186,7 +214,9 @@ body {
 }
 
 @media (max-width: 900px) {
-  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .executive-grid { grid-template-columns: 1fr; }
+  .map-projects-grid { grid-template-columns: 1fr; }
   .charts-grid { grid-template-columns: 1fr; }
   #map { height: 420px; }
 }
@@ -208,10 +238,14 @@ body {
   .leaflet-control-container { display: none !important; }
 
   /* Ajustar mapa a página */
-  #map { height: 160mm; }
+  #map { height: 105mm; }
+
+  .map-projects-grid { gap: 4mm; grid-template-columns: 1.45fr 1fr; }
+  .projects-list { max-height: 112mm; }
+  .executive-grid { gap: 4mm; }
 
   /* Evitar cortes feos */
-  .card { break-inside: avoid; page-break-inside: avoid; }
+  .card { break-inside: avoid; page-break-inside: avoid; margin-top: 3mm; }
   table, tr, td, th { break-inside: avoid; page-break-inside: avoid; }
 
   /* Encabezados de tabla sin sticky en print */

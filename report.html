@@ -41,21 +41,51 @@
     </header>
 
     <!-- Resumen ejecutivo -->
-    <section class="card">
+    <section class="card executive-card">
       <h2>Resumen ejecutivo</h2>
       <div class="kpi-grid" id="kpiGrid">
         <!-- KPIs inyectados por JS -->
       </div>
+      <div class="executive-grid">
+        <div class="executive-panel">
+          <h3>Síntesis operativa</h3>
+          <p id="executiveSummary" class="muted compact-text">—</p>
+        </div>
+        <div class="executive-panel">
+          <h3>Concentración territorial de inversión</h3>
+          <div class="table-wrap compact">
+            <table class="report-table compact" id="densityTable">
+              <thead>
+                <tr>
+                  <th>Sector</th>
+                  <th>Inversión</th>
+                  <th>Dist. mínima</th>
+                  <th>Dist. media</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <p class="muted" id="notes">Fuente: e-SEIA / dataset local (capas/nacional.xlsx). Distancias calculadas por Haversine.</p>
     </section>
 
-    <!-- Mapa -->
-    <section class="card">
-      <h2>Mapa de proximidad</h2>
-      <div class="map-frame">
-        <div id="map"></div>
-      </div>
-      <div class="small muted">*En impresión PDF, el mapa se renderiza como imagen de los tiles visibles.</div>
+    <section class="map-projects-grid">
+      <!-- Mapa -->
+      <section class="card map-card">
+        <h2>Mapa de proximidad</h2>
+        <div class="map-frame">
+          <div id="map"></div>
+        </div>
+        <div class="small muted">*En impresión PDF, el mapa se renderiza como imagen de los tiles visibles.</div>
+      </section>
+
+      <!-- Panel proyectos -->
+      <section class="card projects-panel">
+        <h2>Lista de proyectos</h2>
+        <div class="projects-list" id="projectsList"></div>
+      </section>
     </section>
 
     <!-- Gráficos -->
