@@ -1040,6 +1040,100 @@ function renderSectorDensity(model) {
     .join("");
 }
 
+
+function computeExecutiveBlocksData(model = {}, params = {}) {
+  const projects = Array.isArray(model?.projects) && model.projects.length
+    ? model.projects
+    : (Array.isArray(model?.allNearby) ? model.allNearby : []);
+
+  const totalInv = projects.reduce((acc, p) => acc + (getProjectInv(p) ?? 0), 0);
+  const nearest = projects
+    .map((p) => Number(p?.distKm))
+    .filter((v) => Number.isFinite(v))
+    .sort((a, b) => a - b)[0];
+
+  const dominant = (key) => {
+    const counts = new Map();
+    for (const p of projects) {
+      const k = String(p?.[key] ?? "—").trim() || "—";
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+  };
+
+  const radio = Number(model?.query?.radioKmFinal ?? model?.query?.radioKm ?? params?.radio);
+  const estadoDominante = dominant("estado");
+  const sectorDominante = dominant("sector");
+
+  return {
+    kpis: [
+      ["Proyectos en radio", String(projects.length)],
+      ["Inversión total", `${totalInv.toFixed(1)} MMU$`],
+      ["Más cercano", Number.isFinite(nearest) ? `${nearest.toFixed(1)} km` : "—"],
+      ["Radio", Number.isFinite(radio) ? `${radio.toFixed(0)} km` : "—"],
+      ["Estado dominante", estadoDominante],
+      ["Sector dominante", sectorDominante],
+    ],
+    shortText: `Alta concentración de proyectos del sector ${sectorDominante}, principalmente en estado ${estadoDominante}, dentro del radio analizado.`,
+    densityRows: computeSectorDensity(projects),
+  };
+}
+
+function drawExecutivePdfBlocks(doc, { x, y, w, pageBottom, data }) {
+  let cursorY = y;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Bloque KPI', x, cursorY);
+  cursorY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  for (const [label, value] of data.kpis) {
+    if (cursorY + 5 > pageBottom) break;
+    doc.text(`${label}: ${value}`, x + 1, cursorY);
+    cursorY += 4.5;
+  }
+
+  cursorY += 3;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Resumen ejecutivo corto', x, cursorY);
+  cursorY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const shortLines = doc.splitTextToSize(String(data.shortText || ''), w);
+  doc.text(shortLines, x + 1, cursorY);
+  cursorY += shortLines.length * 4.2 + 4;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Densidad territorial por sector', x, cursorY);
+  cursorY += 2;
+
+  const body = (Array.isArray(data.densityRows) && data.densityRows.length)
+    ? data.densityRows.map((r) => [
+      r.sector,
+      Number.isFinite(r.totalInv) ? `${r.totalInv.toFixed(1)} MMU$` : '—',
+      Number.isFinite(r.distMin) ? `${r.distMin.toFixed(1)} km` : '—',
+      Number.isFinite(r.distAvg) ? `${r.distAvg.toFixed(1)} km` : '—',
+    ])
+    : [["Sin datos", "—", "—", "—"]];
+
+  doc.autoTable({
+    startY: cursorY + 2,
+    head: [["Sector", "Inversión", "Dist. mínima", "Dist. media"]],
+    body,
+    theme: 'grid',
+    margin: { left: x, right: x },
+    tableWidth: w,
+    styles: { fontSize: 8, cellPadding: 1.4 },
+    headStyles: { fillColor: [242, 242, 242], textColor: 20 },
+  });
+
+  return doc.lastAutoTable?.finalY ?? cursorY + 20;
+}
 function drawExecutiveAiBox(doc, { x, y, w, h, title, text }) {
   doc.setDrawColor(210);
   doc.setFillColor(255, 255, 255);
@@ -1352,6 +1446,18 @@ async function downloadPDFDirect({ params, resumen, proyectos, model, filename }
   });
 
   y += 5;
+
+  // =====================================================
+  // BLOQUES EJECUTIVOS (KPI + RESUMEN + DENSIDAD)
+  // =====================================================
+  const executiveData = computeExecutiveBlocksData(model, params);
+  y = drawExecutivePdfBlocks(doc, {
+    x: margin,
+    y,
+    w: contentWidth,
+    pageBottom,
+    data: executiveData,
+  }) + 6;
 
   // =====================================================
   // MAPA + PANEL (SIN DEFORMAR)
