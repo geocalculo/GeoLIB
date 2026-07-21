@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoQuery | GeoEVA</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --header-bg: #1d4ed8;
+      --header-border: #60a5fa;
+      --page-bg: #f4f6f8;
+      --text: #1f2933;
+      --muted: #64748b;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --border: #d9e2ec;
+      --accent: #2563eb;
+      --accent-dark: #1e40af;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--page-bg);
+      color: var(--text);
+    }
+
+    body {
+      line-height: 1.5;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-header {
+      background: var(--header-bg);
+      color: #ffffff;
+      display: grid;
+      grid-template-columns: minmax(260px, 420px) 1fr;
+      align-items: center;
+      gap: 16px;
+      min-height: 86px;
+      padding: 12px 18px;
+      border-bottom: 3px solid var(--header-border);
+    }
+
+    .brand-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .site-title {
+      margin: 0;
+      color: #ffffff;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .site-subtitle {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .site-description {
+      margin: 0;
+      color: #dbeafe;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .header-note {
+      justify-self: end;
+      max-width: 420px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e0f2fe;
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .content {
+      width: min(1120px, calc(100% - 32px));
+      margin: 18px auto 32px;
+      flex: 1;
+    }
+
+    .top-actions {
+      width: min(1120px, calc(100% - 32px));
+      margin: 18px auto 0;
+      display: flex;
+      justify-content: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .card {
+      padding: 16px;
+      min-height: 104px;
+    }
+
+    .card-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .card-value {
+      display: block;
+      margin-top: 8px;
+      color: #102a43;
+      font-size: clamp(18px, 2.4vw, 24px);
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .card-value.status-ok {
+      color: var(--success);
+    }
+
+    .card-value.status-error {
+      color: var(--warning);
+    }
+
+    .geoquery-section {
+      scroll-margin-top: 18px;
+    }
+
+    .geoquery-primary-grid,
+    .geoquery-secondary-grid {
+      display: grid;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .geoquery-primary-grid {
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      margin-bottom: 18px;
+    }
+
+    .geoquery-secondary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .panel {
+      padding: clamp(18px, 3vw, 28px);
+    }
+
+    .panel h2,
+    .panel h3 {
+      margin: 0 0 16px;
+      color: #102a43;
+      line-height: 1.2;
+    }
+
+    .panel h2 {
+      font-size: 24px;
+    }
+
+    .panel h3 {
+      font-size: 20px;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      color: #102a43;
+      font-size: 20px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .placeholder-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .message {
+      padding: 16px;
+      border-radius: 14px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      font-weight: 700;
+    }
+
+    .details {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+    }
+
+    .detail-row {
+      display: grid;
+      grid-template-columns: minmax(150px, 220px) 1fr;
+      gap: 14px;
+      padding: 13px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: var(--panel-soft);
+    }
+
+    .detail-row dt {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .detail-row dd {
+      margin: 0;
+      color: #0f172a;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .visual-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
+    #geoquery-map {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      margin-top: 14px;
+      border: 1px solid #bfdbfe;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: #e2e8f0;
+    }
+
+    #geoquery-map.geoquery-touch-guard {
+      touch-action: pan-y;
+    }
+
+    .geoquery-touch-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      z-index: 1006;
+      max-width: min(88%, 320px);
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.84);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 8px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .geoquery-touch-hint.visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .map-toggle {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 1005;
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(20, 20, 20, 0.72);
+      backdrop-filter: blur(6px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    }
+
+    .map-toggle-btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      color: #ffffff;
+      background: transparent;
+      transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+    }
+
+    .map-toggle-btn:hover {
+      background: transparent;
+      transform: translateY(-1px);
+    }
+
+    .map-toggle-btn.active {
+      color: #111111;
+      background: #ffffff;
+    }
+
+    .visual-caption {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .analysis-summary {
+      display: grid;
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+
+    .analysis-category {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .analysis-category:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .analysis-category-title {
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      max-width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #1e3a8a;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+
+    .analysis-table-wrap {
+      overflow-x: auto;
+    }
+
+    .analysis-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .analysis-table th,
+    .analysis-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .analysis-table th {
+      color: #334155;
+      background: #f1f5f9;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .analysis-table a {
+      color: var(--accent-dark);
+      font-weight: 700;
+    }
+
+    .metadata-project-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .metadata-project-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #ffffff;
+      padding: 12px;
+    }
+
+    .metadata-project-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .metadata-project-title {
+      font-size: 14px;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+
+    .metadata-project-details {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 14px;
+      font-size: 12px;
+      color: #334155;
+      padding-left: 34px;
+    }
+
+    .metadata-project-details span {
+      line-height: 1.35;
+    }
+
+    .metadata-project-details b {
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    .project-expediente-badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      color: #1e3a8a;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .project-expediente-badge:hover {
+      background: #dbeafe;
+      text-decoration: none;
+    }
+
+    .project-expediente-badge.disabled {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      color: #94a3b8;
+    }
+
+    @media (max-width: 700px) {
+      .metadata-project-details {
+        grid-template-columns: 1fr;
+        padding-left: 34px;
+      }
+    }
+
+    .geoeva-project-sector-label {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    .actions {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .back-button,
+    .download-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 18px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-weight: 800;
+      text-decoration: none;
+      transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .back-button {
+      background: #ffffff;
+      color: #1f2a35;
+      cursor: pointer;
+      opacity: 1;
+    }
+
+    .back-button:hover,
+    .back-button:focus {
+      background: #eef3f8;
+      color: #102a43;
+      transform: translateY(-1px);
+    }
+
+    .download-button {
+      background: #e2e8f0;
+      color: #64748b;
+    }
+
+    .download-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    @media (max-width: 860px) {
+      .main-header,
+      .geoquery-primary-grid,
+      .geoquery-secondary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header-note {
+        justify-self: stretch;
+        text-align: left;
+      }
+
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .content,
+      .top-actions {
+        width: min(100% - 20px, 1120px);
+        margin-top: 16px;
+      }
+
+      #geoquery-map {
+        height: 320px;
+      }
+
+      .cards,
+      .detail-row {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        min-height: auto;
+      }
+    }
+
+
+    /* Compact analytical body aligned with GeoIPT GeoQuery. */
+    .geoquery-analysis {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .geoquery-analysis.content {
+      margin-top: 14px;
+      margin-bottom: 24px;
+    }
+
+    .geoquery-analysis .cards {
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .geoquery-analysis .card,
+    .geoquery-analysis .panel {
+      border-color: #dfe6ee;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
+    }
+
+    .geoquery-analysis .card {
+      min-height: 76px;
+      padding: 10px 12px;
+    }
+
+    .geoquery-analysis .card-label {
+      font-size: 11px;
+      letter-spacing: 0.055em;
+      line-height: 1.2;
+    }
+
+    .geoquery-analysis .card-value {
+      margin-top: 4px;
+      font-size: clamp(16px, 1.8vw, 20px);
+      line-height: 1.22;
+      font-weight: 750;
+    }
+
+    .geoquery-analysis .geoquery-primary-grid,
+    .geoquery-analysis .geoquery-secondary-grid,
+    .geoquery-analysis .group-grid,
+    .geoquery-analysis .relaves-report-grid,
+    .geoquery-analysis .zonas-report-grid {
+      gap: 12px;
+      align-items: start;
+    }
+
+    .geoquery-analysis .geoquery-primary-grid {
+      margin-bottom: 12px;
+    }
+
+    .geoquery-analysis .group-section {
+      margin-top: 12px;
+    }
+
+    .geoquery-analysis .panel {
+      padding: clamp(12px, 2vw, 18px);
+    }
+
+    .geoquery-analysis .panel h2,
+    .geoquery-analysis .panel h3,
+    .geoquery-analysis .section-title {
+      margin-bottom: 10px;
+      line-height: 1.18;
+      letter-spacing: -0.01em;
+    }
+
+    .geoquery-analysis .panel h2 {
+      font-size: 20px;
+    }
+
+    .geoquery-analysis .panel h3,
+    .geoquery-analysis .section-title {
+      font-size: 17px;
+    }
+
+    .geoquery-analysis .placeholder-text,
+    .geoquery-analysis .panel-header p,
+    .geoquery-analysis .visual-caption,
+    .geoquery-analysis .panel > p {
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .geoquery-analysis .panel-header p,
+    .geoquery-analysis .panel > p {
+      margin-bottom: 10px;
+    }
+
+    .geoquery-analysis .details,
+    .geoquery-analysis .analysis-summary {
+      gap: 7px;
+    }
+
+    .geoquery-analysis .detail-row {
+      grid-template-columns: minmax(132px, 190px) 1fr;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 9px;
+    }
+
+    .geoquery-analysis .detail-row dt,
+    .geoquery-analysis .detail-row dd {
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .geoquery-analysis #geoquery-map {
+      height: 360px;
+      margin-top: 10px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    }
+
+    .geoquery-analysis .visual-caption {
+      margin-top: 8px;
+    }
+
+    .geoquery-analysis .analysis-category {
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+    }
+
+    .geoquery-analysis .analysis-category-title,
+    .geoquery-analysis .status-pill,
+    .geoquery-analysis .subsection-pill {
+      padding: 5px 9px;
+      font-size: 11px;
+      line-height: 1.2;
+      letter-spacing: 0.055em;
+    }
+
+    .geoquery-analysis .analysis-table {
+      font-size: 12px;
+    }
+
+    .geoquery-analysis .analysis-table th,
+    .geoquery-analysis .analysis-table td {
+      padding: 7px 8px;
+      line-height: 1.3;
+    }
+
+    .geoquery-analysis .group-header {
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .geoquery-analysis .subpanel {
+      border-radius: 9px;
+      padding: 10px;
+    }
+
+    .geoquery-analysis .subpanel h4 {
+      margin-bottom: 8px;
+      font-size: 14px;
+      line-height: 1.25;
+    }
+
+    .geoquery-analysis .metadata-project-list {
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .geoquery-analysis .metadata-project-item {
+      border-radius: 9px;
+      padding: 9px 10px;
+      box-shadow: none;
+    }
+
+    .geoquery-analysis .metadata-project-main {
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    .geoquery-analysis .metadata-project-title {
+      font-size: 13px;
+      line-height: 1.32;
+    }
+
+    .geoquery-analysis .metadata-project-details {
+      gap: 5px 10px;
+      padding-left: 32px;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .geoquery-analysis .metadata-project-details span {
+      line-height: 1.3;
+    }
+
+    .geoquery-analysis .project-expediente-badge {
+      min-width: 24px;
+      height: 24px;
+      font-size: 12px;
+    }
+
+    .geoquery-analysis .actions {
+      margin-top: 12px;
+      gap: 8px;
+    }
+
+    @media (max-width: 860px) {
+      .geoquery-analysis .geoquery-primary-grid,
+      .geoquery-analysis .geoquery-secondary-grid,
+      .geoquery-analysis .group-grid,
+      .geoquery-analysis .relaves-report-grid,
+      .geoquery-analysis .zonas-report-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .geoquery-analysis .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .geoquery-analysis.content {
+        width: min(100% - 20px, 1120px);
+        margin-top: 16px;
+      }
+
+      .geoquery-analysis #geoquery-map {
+        height: 320px;
+      }
+
+      .geoquery-analysis .cards,
+      .geoquery-analysis .detail-row,
+      .geoquery-analysis .metadata-project-details {
+        grid-template-columns: 1fr;
+      }
+
+      .geoquery-analysis .card {
+        min-height: auto;
+      }
+
+      .geoquery-analysis .panel {
+        padding: 14px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- =====================================================
+         01. HEADER GEOQUERY
+    ===================================================== -->
+    <header id="geoquery-header" class="main-header geoquery-section">
+      <h2 class="sr-only">Header GeoQuery</h2>
+      <div class="brand-block">
+        <h1 class="site-title">GeoQuery | GeoEVA</h1>
+        <p class="site-subtitle">Consulta ambiental del punto seleccionado</p>
+        <p class="site-description">Primera prueba de GeoQuery ambiental</p>
+      </div>
+      <div class="header-note" aria-label="Estado de versión">
+        Punto, coordenadas y estado básico para preparar el análisis ambiental.
+      </div>
+    </header>
+
+    <nav id="geoquery-actions" class="top-actions geoquery-section" aria-label="Acciones de GeoQuery">
+      <a class="back-button" id="back-link" href="../index.html">Volver a GeoEVA</a>
+      <button class="download-button" type="button" disabled title="Disponible cuando exista análisis territorial.">Descargar PDF</button>
+      <button class="download-button" type="button" disabled title="Disponible cuando exista análisis territorial.">Descargar KML</button>
+    </nav>
+
+    <main class="content geoquery-analysis">
+      <!-- =====================================================
+           02. CARDS RESUMEN DE GEOQUERY
+      ===================================================== -->
+      <section id="geoquery-summary-cards" class="geoquery-section" aria-label="Resumen de consulta">
+        <h2 class="section-title">Resumen de consulta</h2>
+        <div class="cards">
+        <article class="card">
+          <span class="card-label">Latitud</span>
+          <span class="card-value" id="card-lat">—</span>
+        </article>
+        <article class="card">
+          <span class="card-label">Longitud</span>
+          <span class="card-value" id="card-lon">—</span>
+        </article>
+        <article class="card">
+          <span class="card-label">Sitio origen</span>
+          <span class="card-value" id="card-site">—</span>
+        </article>
+        <article class="card">
+          <span class="card-label">Estado</span>
+          <span class="card-value" id="card-status">—</span>
+        </article>
+        </div>
+      </section>
+
+      <div class="geoquery-primary-grid" aria-label="Paneles principales de GeoQuery">
+        <!-- =====================================================
+             03. DATOS DEL PUNTO CONSULTADO
+        ===================================================== -->
+        <section id="geoquery-point-panel" class="panel geoquery-section">
+          <h2>Punto consultado</h2>
+          <div id="invalid-message" class="message" hidden>No se recibió una coordenada válida.</div>
+          <dl class="details" id="details-panel">
+            <div class="detail-row">
+              <dt>Latitud decimal</dt>
+              <dd id="lat-decimal">—</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Longitud decimal</dt>
+              <dd id="lon-decimal">—</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Latitud GMS</dt>
+              <dd id="lat-dms">—</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Longitud GMS</dt>
+              <dd id="lon-dms">—</dd>
+            </div>
+            <div class="detail-row">
+              <dt>CRS</dt>
+              <dd>WGS84 / EPSG:4326</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Fuente</dt>
+              <dd>parámetro URL</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Estado</dt>
+              <dd id="detail-status">preparado para análisis territorial</dd>
+            </div>
+          </dl>
+        </section>
+
+        <!-- =====================================================
+             04. MAPA DE UBICACIÓN CON FEATURES RELACIONADAS
+        ===================================================== -->
+        <section id="geoquery-map-panel" class="panel visual-panel geoquery-section" aria-label="Mapa de ubicación del punto consultado">
+          <h2>Mapa de ubicación</h2>
+          <p class="placeholder-text">Mapa ajustado al círculo de análisis de proyectos aprobados cercanos.</p>
+          <div id="geoquery-map" data-reference-scale="1:20000"></div>
+          <p class="visual-caption" id="visual-caption">Marcador del punto consultado.</p>
+        </section>
+      </div>
+
+      <div class="geoquery-secondary-grid" aria-label="Paneles futuros de GeoQuery">
+        <!-- =====================================================
+             05. FEATURES RELACIONADAS
+        ===================================================== -->
+        <section id="geoquery-related-features-panel" class="panel geoquery-section">
+          <h3>Proyectos relacionados</h3>
+          <p class="placeholder-text">Cargando proyectos aprobados cercanos...</p>
+        </section>
+
+        <!-- =====================================================
+             06. DESCRIPTORES GEOMÉTRICOS DE FEATURES RELACIONADAS
+        ===================================================== -->
+        <section id="geoquery-geometry-panel" class="panel geoquery-section">
+          <h3>Descriptores geométricos</h3>
+          <p class="placeholder-text">Estado: pendiente de lectura desde capas_query/features.geojson.</p>
+        </section>
+
+        <!-- =====================================================
+             07. METADATA DE FEATURES RELACIONADAS
+        ===================================================== -->
+        <section id="geoquery-metadata-panel" class="panel geoquery-section">
+          <h3>Metadata de features</h3>
+          <p class="placeholder-text">Estado: pendiente de lectura desde capas_query/features.geojson.</p>
+        </section>
+
+        <!-- =====================================================
+             08. INDICADORES DE RELACIÓN ENTRE PUNTO Y FEATURES
+        ===================================================== -->
+        <section id="geoquery-relation-indicators-panel" class="panel geoquery-section">
+          <h3>Indicadores de relación espacial</h3>
+          <p class="placeholder-text">Estado: pendiente de lectura desde capas_query/features.geojson.</p>
+        </section>
+
+        <!-- =====================================================
+             09. PANEL DE GRÁFICOS
+        ===================================================== -->
+        <section id="geoquery-charts-panel" class="panel geoquery-section">
+          <h3>Gráficos</h3>
+          <p class="placeholder-text">Estado: pendiente de lectura desde capas_query/features.geojson.</p>
+        </section>
+
+        <!-- =====================================================
+             10. DESCARGAS PDF Y KML
+        ===================================================== -->
+        <section id="geoquery-downloads-panel" class="panel geoquery-section">
+          <h3>Descargas PDF y KML</h3>
+          <p class="placeholder-text">Disponible cuando exista análisis territorial.</p>
+          <div class="actions">
+            <button class="download-button" type="button" disabled title="Disponible cuando exista análisis territorial.">Descargar PDF</button>
+            <button class="download-button" type="button" disabled title="Disponible cuando exista análisis territorial.">Descargar KML</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="../../shared/geoquery-kml-exporter.js"></script>
+  <script src="pdf/geoEvaPdfConfig.js"></script>
+  <script src="pdf/geoEvaPdfExport.js"></script>
+  <script>
+    const GEOEVA_GEOQUERY_PROJECTS_URL = "../capas_geoquery/geoeva_geoquery_proyectos.geojson";
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function isValidHttpUrl(value) {
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+
+    function decimalToDMS(value, type) {
+      const absolute = Math.abs(value);
+      let degrees = Math.floor(absolute);
+      const minutesFloat = (absolute - degrees) * 60;
+      let minutes = Math.floor(minutesFloat);
+      let seconds = Number(((minutesFloat - minutes) * 60).toFixed(2));
+
+      if (seconds >= 60) {
+        seconds = 0;
+        minutes += 1;
+      }
+
+      if (minutes >= 60) {
+        minutes = 0;
+        degrees += 1;
+      }
+
+      const direction = type === "lat"
+        ? (value >= 0 ? "N" : "S")
+        : (value >= 0 ? "E" : "W");
+
+      return `${degrees}° ${minutes}' ${seconds.toFixed(2)}" ${direction}`;
+    }
+
+    function isValidCoordinate(lat, lon) {
+      return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    }
+
+    function getZoomForApproxScale(lat, scaleDenominator = 20000) {
+      const dpi = 96;
+      const metersPerPixelTarget = scaleDenominator * 0.0254 / dpi;
+      const earthCircumference = 156543.03392;
+      const latRad = lat * Math.PI / 180;
+      const zoom = Math.log2((earthCircumference * Math.cos(latRad)) / metersPerPixelTarget);
+      return Math.max(0, Math.min(20, zoom));
+    }
+
+    function getParam(params, key, fallback) {
+      return params.get(key) || fallback;
+    }
+
+    function buildReturnUrl(lat, lon, zoom, basemap, viewLat = null, viewLon = null) {
+      if (lat === null || lon === null) {
+        return "../index.html";
+      }
+
+      const sourceParams = new URLSearchParams(window.location.search);
+      const centerLat = sourceParams.get("mapCenterLat") || viewLat;
+      const centerLon = sourceParams.get("mapCenterLon") || viewLon;
+      const returnZoom = sourceParams.get("mapZoom") || zoom || "14";
+      const backParams = new URLSearchParams({
+        from: sourceParams.get("from") === "crossaccess" ? "crossaccess" : "geoquery",
+        lat: String(lat),
+        lon: String(lon),
+        queryLat: sourceParams.get("queryLat") || String(lat),
+        queryLon: sourceParams.get("queryLon") || String(lon),
+        zoom: String(returnZoom),
+        mapZoom: String(returnZoom),
+        basemap: basemap || "osm"
+      });
+      if (Number.isFinite(Number(centerLat)) && Number.isFinite(Number(centerLon))) {
+        backParams.set("viewLat", String(centerLat));
+        backParams.set("viewLon", String(centerLon));
+        backParams.set("mapCenterLat", String(centerLat));
+        backParams.set("mapCenterLon", String(centerLon));
+      }
+      ["viewWest", "viewSouth", "viewEast", "viewNorth", "restoreViewport"].forEach((key) => {
+        const value = sourceParams.get(key);
+        if (value !== null) backParams.set(key, value);
+      });
+
+      return `../index.html?${backParams.toString()}`;
+    }
+    async function loadGeoEvaProjects() {
+      if (Array.isArray(window.geoEvaProjectsCache)) {
+        return window.geoEvaProjectsCache;
+      }
+
+      const url = GEOEVA_GEOQUERY_PROJECTS_URL;
+      console.log("[GeoQuery GeoEVA] usando capas_geoquery/geoeva_geoquery_proyectos.geojson");
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`No se pudo cargar ${url}`);
+      }
+
+      const geojson = await response.json();
+      const features = Array.isArray(geojson.features) ? geojson.features : [];
+
+      window.geoEvaProjectsCache = features;
+      console.log("[GeoQuery GeoEVA] proyectos cargados", features.length);
+
+      // Optimización futura:
+      // Separar geoeva_geoquery_proyectos.geojson por región en capas_geoquery/capas_XX/
+      // y cargar primero región visible o región del punto.
+      // Para esta primera implementación se usa el GeoJSON nacional.
+      return features;
+    }
+
+    function normalizeStatus(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function isApprovedProject(feature) {
+      const estado = normalizeStatus(feature.properties?.estado);
+      return estado === "aprobado" || estado === "aprobada" || estado === "proyecto aprobado";
+    }
+
+    function isRejectedProject(feature) {
+      return normalizeStatus(feature.properties?.estado) === "rechazado";
+    }
+
+    function isInQualificationProject(feature) {
+      return normalizeStatus(feature.properties?.estado) === "en calificación";
+    }
+
+    function normalizeSector(value) {
+      const sector = String(value || "").trim().replace(/\s+/g, " ");
+      return sector || "Sin sector informado";
+    }
+
+    function getProjectLatLon(feature) {
+      if (feature.geometry && feature.geometry.type === "Point" && Array.isArray(feature.geometry.coordinates)) {
+        const lon = Number(feature.geometry.coordinates[0]);
+        const lat = Number(feature.geometry.coordinates[1]);
+        if (isValidCoordinate(lat, lon)) return { lat, lon };
+      }
+
+      const props = feature.properties || {};
+      const lat = Number(props.lat);
+      const lon = Number(props.lon);
+      if (isValidCoordinate(lat, lon)) return { lat, lon };
+      return null;
+    }
+
+    function calculateProjectDistance(queryLat, queryLon, feature) {
+      const coords = getProjectLatLon(feature);
+      if (!coords || !window.turf) return null;
+      const queryPoint = turf.point([queryLon, queryLat]);
+      const projectPoint = turf.point([coords.lon, coords.lat]);
+      const distanceKm = turf.distance(queryPoint, projectPoint, { units: "kilometers" });
+      if (!Number.isFinite(distanceKm)) return null;
+      return { feature, lat: coords.lat, lon: coords.lon, distance_km: distanceKm, distance_m: distanceKm * 1000 };
+    }
+
+    function getNearestApprovedProjects(queryLat, queryLon, features, limit = 10) {
+      return features
+        .filter(isApprovedProject)
+        .map(feature => calculateProjectDistance(queryLat, queryLon, feature))
+        .filter(Boolean)
+        .sort((a, b) => a.distance_km - b.distance_km)
+        .slice(0, limit);
+    }
+
+    function getAnalysisRadiusMeters(baseApprovedCluster) {
+      if (!baseApprovedCluster.length) return null;
+      const last = baseApprovedCluster[baseApprovedCluster.length - 1];
+      return Number.isFinite(last.distance_m) ? last.distance_m : null;
+    }
+
+    function formatDistance(km) {
+      const num = Number(km);
+      if (!Number.isFinite(num)) return "N/D";
+      return `${num.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`;
+    }
+
+    function getProjectsWithinRadius(queryLat, queryLon, features, radiusMeters) {
+      if (!Number.isFinite(radiusMeters)) return [];
+      return features
+        .map(feature => calculateProjectDistance(queryLat, queryLon, feature))
+        .filter(item => item && item.distance_m <= radiusMeters);
+    }
+
+    function getProjectInvestment(feature) {
+      const value = Number(feature.properties?.inversion_mmusd);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function calculatePointToProjectsStats(queryPoint, projects) {
+      const queryLat = Number(queryPoint?.lat);
+      const queryLon = Number(queryPoint?.lon);
+      const result = { count: 0, minKm: null, meanKm: null, maxKm: null };
+      if (!isValidCoordinate(queryLat, queryLon) || !Array.isArray(projects) || !window.turf) return result;
+
+      const referencePoint = turf.point([queryLon, queryLat]);
+      let totalKm = 0;
+      let minKm = Infinity;
+      let maxKm = -Infinity;
+
+      projects.forEach(item => {
+        const lat = Number(item?.lat);
+        const lon = Number(item?.lon);
+        if (!isValidCoordinate(lat, lon)) return;
+
+        const distanceKm = turf.distance(
+          referencePoint,
+          turf.point([lon, lat]),
+          { units: "kilometers" }
+        );
+
+        if (!Number.isFinite(distanceKm)) return;
+        totalKm += distanceKm;
+        minKm = Math.min(minKm, distanceKm);
+        maxKm = Math.max(maxKm, distanceKm);
+        result.count += 1;
+      });
+
+      if (result.count) {
+        result.minKm = minKm;
+        result.meanKm = totalKm / result.count;
+        result.maxKm = maxKm;
+      }
+
+      return result;
+    }
+
+    function calculatePairDistanceStats(projects) {
+      const validProjects = projects.filter(item => Number.isFinite(item.lat) && Number.isFinite(item.lon));
+      const result = { count: validProjects.length, pairCount: 0, minKm: null, meanKm: null };
+      if (validProjects.length < 2 || !window.turf) return result;
+
+      let totalKm = 0;
+      let minKm = Infinity;
+
+      for (let i = 0; i < validProjects.length - 1; i += 1) {
+        for (let j = i + 1; j < validProjects.length; j += 1) {
+          const distanceKm = turf.distance(
+            turf.point([validProjects[i].lon, validProjects[i].lat]),
+            turf.point([validProjects[j].lon, validProjects[j].lat]),
+            { units: "kilometers" }
+          );
+          if (!Number.isFinite(distanceKm)) continue;
+          totalKm += distanceKm;
+          minKm = Math.min(minKm, distanceKm);
+          result.pairCount += 1;
+        }
+      }
+
+      if (result.pairCount) {
+        result.minKm = minKm;
+        result.meanKm = totalKm / result.pairCount;
+      }
+      return result;
+    }
+
+    function calculateDominantSector(baseApprovedCluster) {
+      const sectorCounts = new Map();
+      baseApprovedCluster.forEach(item => {
+        const sector = normalizeSector(item.feature.properties?.sector);
+        sectorCounts.set(sector, (sectorCounts.get(sector) || 0) + 1);
+      });
+
+      let dominantSector = baseApprovedCluster.length ? "Sin sector informado" : "Sin proyectos aprobados disponibles";
+      let dominantSectorCount = 0;
+      sectorCounts.forEach((count, sector) => {
+        if (count > dominantSectorCount) {
+          dominantSector = sector;
+          dominantSectorCount = count;
+        }
+      });
+
+      const dominantSectorProjects = baseApprovedCluster.filter(item => normalizeSector(item.feature.properties?.sector) === dominantSector);
+      return { dominantSector, dominantSectorCount, dominantSectorProjects };
+    }
+
+    function calculateTerritorialGroup(projectsInsideRadius, baseApprovedCluster, queryPoint) {
+      const total = projectsInsideRadius.length;
+      const approved = projectsInsideRadius.filter(item => isApprovedProject(item.feature)).length;
+      const rejected = projectsInsideRadius.filter(item => isRejectedProject(item.feature)).length;
+      const inQualification = projectsInsideRadius.filter(item => isInQualificationProject(item.feature)).length;
+      const totalInvestment = projectsInsideRadius.reduce((sum, item) => sum + getProjectInvestment(item.feature), 0);
+      const approvedInvestment = projectsInsideRadius.filter(item => isApprovedProject(item.feature)).reduce((sum, item) => sum + getProjectInvestment(item.feature), 0);
+      const { dominantSector, dominantSectorCount, dominantSectorProjects } = calculateDominantSector(baseApprovedCluster);
+      const dominantSectorShare = baseApprovedCluster.length ? (dominantSectorCount / baseApprovedCluster.length) * 100 : null;
+
+      return {
+        total,
+        approved,
+        rejected,
+        inQualification,
+        totalInvestment,
+        approvedInvestment,
+        dominantSector,
+        dominantSectorCount,
+        dominantSectorShare,
+        dominantSectorProjects,
+        approvedPairStats: calculatePairDistanceStats(baseApprovedCluster),
+        dominantSectorPairStats: calculatePairDistanceStats(dominantSectorProjects),
+        approvedPointRelationStats: calculatePointToProjectsStats(queryPoint, baseApprovedCluster),
+        dominantSectorPointRelationStats: calculatePointToProjectsStats(queryPoint, dominantSectorProjects)
+      };
+    }
+
+    function formatPercent(value) {
+      if (!Number.isFinite(value)) return "N/D";
+      return `${value.toLocaleString("es-CL", { maximumFractionDigits: 1 })} %`;
+    }
+
+    function formatInvestment(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return "Sin información";
+      return `US$ ${num.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MM`;
+    }
+
+    function formatInvestmentMMUSD(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return "Sin información";
+
+      return `US$ ${num.toLocaleString("es-CL", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })} MM`;
+    }
+
+    function formatDistanceKm(value) {
+      return formatDistance(value);
+    }
+
+    function formatLength(meters) {
+      const num = Number(meters);
+      if (!Number.isFinite(num)) return "N/D";
+      return formatDistance(num / 1000);
+    }
+
+    function renderNearestProjectsOnMap(nearestProjects, geoQueryMap) {
+      nearestProjects.forEach((item) => {
+        const props = item.feature.properties || {};
+        const sector = props.sector || "Proyecto";
+        const marker = L.circleMarker([item.lat, item.lon], {
+          radius: 6,
+          weight: 2,
+          fillOpacity: 0.9
+        }).addTo(geoQueryMap);
+
+        marker.bindTooltip(sector, {
+          permanent: true,
+          direction: "top",
+          className: "geoeva-project-sector-label"
+        });
+      });
+    }
+
+    function renderDetailRow(label, value) {
+      return `<div class="detail-row"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
+    }
+
+    function renderAnalysisCategory(title, rows) {
+      return `<div class="analysis-category"><h4 class="analysis-category-title">${escapeHtml(title)}</h4><dl class="details">${rows.join("")}</dl></div>`;
+    }
+
+    function renderGeoEvaPanels({ baseApprovedCluster, radiusMeters, territorialGroup }) {
+      const baseTitle = "Clúster base";
+      const insideTitle = "Proyectos dentro del radio";
+
+      document.getElementById("geoquery-related-features-panel").innerHTML = `
+        <h3>Proyectos relacionados</h3>
+        ${renderAnalysisCategory(baseTitle, [
+          renderDetailRow("Proyectos aprobados más cercanos", String(baseApprovedCluster.length)),
+          renderDetailRow("Radio del clúster", formatLength(radiusMeters)),
+          renderDetailRow("Sector dominante", escapeHtml(territorialGroup.dominantSector)),
+          renderDetailRow("Participación del sector dominante", formatPercent(territorialGroup.dominantSectorShare))
+        ])}
+        ${renderAnalysisCategory(insideTitle, [
+          renderDetailRow("Total de proyectos", String(territorialGroup.total)),
+          renderDetailRow("Aprobados", String(territorialGroup.approved)),
+          renderDetailRow("En calificación", String(territorialGroup.inQualification)),
+          renderDetailRow("Rechazados", String(territorialGroup.rejected)),
+          renderDetailRow("Inversión total del grupo", formatInvestment(territorialGroup.totalInvestment)),
+          renderDetailRow("Inversión aprobada", formatInvestment(territorialGroup.approvedInvestment))
+        ])}
+      `;
+
+      const approvedStats = territorialGroup.approvedPairStats;
+      const dominantStats = territorialGroup.dominantSectorPairStats;
+      const dominantTitle = territorialGroup.dominantSectorProjects.length
+        ? `Sector dominante · ${territorialGroup.dominantSector} · ${territorialGroup.dominantSectorProjects.length} proyectos`
+        : `Sector dominante · ${territorialGroup.dominantSector}`;
+
+      document.getElementById("geoquery-geometry-panel").innerHTML = `
+        <h3>Descriptores geométricos</h3>
+        <dl class="details analysis-summary">
+          ${renderDetailRow("Radio del clúster", formatLength(radiusMeters))}
+        </dl>
+        ${renderAnalysisCategory(`Proyectos aprobados · ${baseApprovedCluster.length}`, [
+          renderDetailRow("Distancia media entre proyectos", formatDistance(approvedStats.meanKm)),
+          renderDetailRow("Distancia mínima entre proyectos", formatDistance(approvedStats.minKm))
+        ])}
+        ${renderAnalysisCategory(dominantTitle, [
+          renderDetailRow("Distancia media entre proyectos", formatDistance(dominantStats.meanKm)),
+          renderDetailRow("Distancia mínima entre proyectos", formatDistance(dominantStats.minKm))
+        ])}
+      `;
+
+      const metadataItems = baseApprovedCluster.map((item, index) => {
+        const props = item.feature.properties || {};
+        const rowNumber = index + 1;
+        const nombreProyecto = props.nombre_proyecto || props.nombre_busq || "Proyecto sin nombre";
+        const titular = props.titular || "Sin información";
+        const sector = normalizeSector(props.sector);
+        const estado = props.estado || "Sin información";
+        const web = props.web || "";
+        const projectLinkBadge = isValidHttpUrl(web)
+          ? `<a href="${escapeHtml(web)}" target="_blank" rel="noopener noreferrer" class="project-expediente-badge">${rowNumber}</a>`
+          : `<span class="project-expediente-badge disabled">${rowNumber}</span>`;
+
+        return `<article class="metadata-project-item"><div class="metadata-project-main">${projectLinkBadge}<strong class="metadata-project-title">${escapeHtml(nombreProyecto)}</strong></div><div class="metadata-project-details"><span><b>Titular:</b> ${escapeHtml(titular)}</span><span><b>Sector:</b> ${escapeHtml(sector)}</span><span><b>Estado:</b> ${escapeHtml(estado)}</span><span><b>Inversión:</b> ${formatInvestmentMMUSD(props.inversion_mmusd)}</span><span><b>Distancia:</b> ${formatDistanceKm(item.distance_km)}</span></div></article>`;
+      }).join("");
+      document.getElementById("geoquery-metadata-panel").innerHTML = `<h3>Metadata de proyectos</h3><p>Proyectos aprobados más cercanos usados para construir el clúster base.</p><div class="metadata-project-list">${metadataItems || '<p>Sin proyectos aprobados disponibles.</p>'}</div>`;
+
+      const approvedPointRelationStats = territorialGroup.approvedPointRelationStats;
+      const dominantSectorPointRelationStats = territorialGroup.dominantSectorPointRelationStats;
+      const relationDominantTitle = territorialGroup.dominantSectorProjects.length
+        ? `Sector dominante · ${territorialGroup.dominantSector} · ${territorialGroup.dominantSectorProjects.length} proyectos`
+        : `Sector dominante · ${territorialGroup.dominantSector} · 0 proyectos`;
+
+      document.getElementById("geoquery-relation-indicators-panel").innerHTML = `
+        <h3>Indicadores de relación espacial</h3>
+        <dl class="details analysis-summary">
+          ${renderDetailRow("Tipo de relación", "Cercanía al punto consultado")}
+        </dl>
+        ${renderAnalysisCategory(`Proyectos aprobados · ${baseApprovedCluster.length}`, [
+          renderDetailRow("Distancia media desde el punto consultado", formatDistance(approvedPointRelationStats.meanKm)),
+          renderDetailRow("Distancia mínima al punto consultado", formatDistance(approvedPointRelationStats.minKm))
+        ])}
+        ${renderAnalysisCategory(relationDominantTitle, [
+          renderDetailRow("Distancia media desde el punto consultado", formatDistance(dominantSectorPointRelationStats.meanKm))
+        ])}
+      `;
+    }
+
+
+
+    function appendKmlHtmlRow(rows, label, value) {
+      if (value === undefined || value === null) return;
+      const text = String(value).trim();
+      if (!text || /^(undefined|null|NaN)$/i.test(text)) return;
+      rows.push(`<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(text)}</td></tr>`);
+    }
+
+    function getGeoEvaProjectDisplayName(project) {
+      const props = project?.feature?.properties || {};
+      return props.nombre_proyecto || props.nombre_busq || props.id || "Proyecto relacionado";
+    }
+
+    function getGeoEvaProjectKmlName(project, index) {
+      const rank = Number.isFinite(Number(project?.rank)) ? Number(project.rank) : index + 1;
+      return `${rank}. ${getGeoEvaProjectDisplayName(project)}`;
+    }
+
+    function getGeoEvaProjectInvestmentText(project) {
+      const value = project?.feature?.properties?.inversion_mmusd;
+      return Number.isFinite(Number(value)) ? formatInvestmentMMUSD(value) : "";
+    }
+
+    function getGeoEvaProjectDistanceText(project) {
+      const value = project?.distance_km;
+      return Number.isFinite(Number(value)) ? formatDistanceKm(value) : "";
+    }
+
+    function buildGeoEvaProjectKmlDescription(project, clusterResult, options = {}) {
+      const props = project?.feature?.properties || {};
+      const title = getGeoEvaProjectKmlName(project, (Number(project?.rank) || 1) - 1);
+      const sections = [`<h2>${escapeHtml(title)}</h2>`];
+      const projectRows = [];
+      appendKmlHtmlRow(projectRows, "Titular", props.titular);
+      appendKmlHtmlRow(projectRows, "Sector", normalizeSector(props.sector));
+      appendKmlHtmlRow(projectRows, "Estado", props.estado);
+      appendKmlHtmlRow(projectRows, "Inversión", getGeoEvaProjectInvestmentText(project));
+      appendKmlHtmlRow(projectRows, "Comuna", props.comuna);
+      appendKmlHtmlRow(projectRows, "Región", props.region);
+      appendKmlHtmlRow(projectRows, "Tipo de proyecto", props.tipo_presentacion);
+      appendKmlHtmlRow(projectRows, "Año", props.anio);
+      if (isValidHttpUrl(props.web)) appendKmlHtmlRow(projectRows, "Expediente", props.web);
+      if (projectRows.length) {
+        sections.push(`<h3>Identificación del proyecto</h3><table>${projectRows.join("")}</table>`);
+      }
+
+      const spatialRows = [];
+      const total = Array.isArray(clusterResult?.selectedProjects) ? clusterResult.selectedProjects.length : "";
+      appendKmlHtmlRow(spatialRows, "Ranking", total ? `${project.rank} de ${total}` : project.rank);
+      appendKmlHtmlRow(spatialRows, "Distancia al punto consultado", getGeoEvaProjectDistanceText(project));
+      appendKmlHtmlRow(spatialRows, "Participación en el clúster", options.additional ? "Proyecto adicional dentro del radio" : "Proyecto aprobado utilizado para definir el clúster base");
+      if (spatialRows.length) {
+        sections.push(`<h3>Relación espacial</h3><table>${spatialRows.join("")}</table>`);
+      }
+      return sections.join("");
+    }
+
+    function buildGeoEvaProjectExtendedData(project, clusterResult, options = {}) {
+      const props = project?.feature?.properties || {};
+      const sector = normalizeSector(props.sector);
+      const dominant = clusterResult?.dominantSector && sector === clusterResult.dominantSector ? "Sí" : "No";
+      const data = {
+        ranking: project.rank,
+        nombre_proyecto: getGeoEvaProjectDisplayName(project),
+        id: props.id,
+        titular: props.titular,
+        sector,
+        estado: props.estado,
+        inversion: getGeoEvaProjectInvestmentText(project),
+        distancia_km: getGeoEvaProjectDistanceText(project),
+        comuna: props.comuna,
+        region: props.region,
+        tipo_proyecto: props.tipo_presentacion,
+        fecha: props.anio,
+        fuente: isValidHttpUrl(props.web) ? props.web : "",
+        participacion_cluster: options.additional ? "Proyecto adicional dentro del radio" : "Proyecto aprobado del clúster base",
+        pertenece_sector_dominante: dominant
+      };
+      return Object.fromEntries(Object.entries(data).filter(([, value]) => {
+        if (value === undefined || value === null) return false;
+        const text = String(value).trim();
+        return text && !/^(undefined|null|NaN)$/i.test(text);
+      }));
+    }
+
+    function buildGeoEvaMapExport(baseApprovedCluster, projectsInsideRadius, radiusMeters, territorialGroup) {
+      const state = window.geoQueryState || {};
+      const theme = GeoQueryKmlExporter.themeFor("geoeva");
+      const vectorStyle = (extra = {}) => GeoQueryKmlExporter.themedStyle("geoeva", "line", extra);
+      const labelStyle = { ...vectorStyle({ kmlTextColor: theme.textColor, kmlHaloColor: null, labelScale: 0.9, iconScale: 0 }) };
+      const folders = [{ id: "query", name: "Punto consultado" }, { id: "cluster", name: "Clúster de proyectos aprobados" }, { id: "projects", name: "Proyectos aprobados del clúster" }, { id: "additional", name: "Proyectos adicionales dentro del radio" }, { id: "labels", name: "Etiquetas" }];
+      const registry = GeoQueryKmlExporter.createKmlExportRegistry();
+      GeoQueryKmlExporter.addUniqueKmlItem(registry, { id: "geoeva-query-point", site: "geoeva", groupId: "general", role: "query-point", folderId: "query", type: "point", name: "Punto consultado", geometry: { type: "Point", coordinates: [state.lon, state.lat] }, style: vectorStyle({ fillOpacity: .95, weight: 3 }), extendedData: { Latitud: state.lat_decimal, Longitud: state.lon_decimal, CRS: "WGS84 / EPSG:4326" }, visible: true });
+      if (Number.isFinite(radiusMeters)) {
+        const clusterRadiusKm = radiusMeters / 1000;
+        const clusterCircleFeature = turf.circle([state.lon, state.lat], clusterRadiusKm, { steps: 128, units: "kilometers" });
+        GeoQueryKmlExporter.addUniqueKmlItem(registry, { id: "geoeva-cluster-circle", site: "geoeva", groupId: "cluster", role: "cluster-circle", folderId: "cluster", type: "polygon", name: "Círculo del clúster de proyectos aprobados", description: "Clúster base definido por los 10 proyectos aprobados más cercanos al punto consultado.", geometry: clusterCircleFeature.geometry, style: vectorStyle({ weight: 3, fill: true, outline: true }), extendedData: { "Cantidad de proyectos base": baseApprovedCluster?.length, "Radio del clúster": formatDistanceKm(clusterRadiusKm), "Sector dominante": territorialGroup?.dominantSector, "Cantidad del sector dominante": territorialGroup?.dominantSectorProjects?.length, Participación: formatPercent(territorialGroup?.dominantSectorShare), "Distancia mínima al punto": formatDistance(territorialGroup?.approvedPointRelationStats?.minKm), "Distancia media desde el punto": formatDistance(territorialGroup?.approvedPointRelationStats?.meanKm) }, visible: true });
+      }
+      const baseIds = new Set();
+      const clusterResult = { ...(territorialGroup || {}), selectedProjects: baseApprovedCluster || [] };
+      (baseApprovedCluster || []).forEach((item, i) => { item.rank = i + 1; baseIds.add(item.feature); const name = getGeoEvaProjectKmlName(item, i); const description = buildGeoEvaProjectKmlDescription(item, clusterResult); const extendedData = buildGeoEvaProjectExtendedData(item, clusterResult); const geometry = { type: "Point", coordinates: [item.lon, item.lat] }; GeoQueryKmlExporter.addUniqueKmlItem(registry, { id: `geoeva-project-${i+1}`, site: "geoeva", groupId: "projects", role: "related-point", folderId: "projects", type: "point", name, description, geometry, style: vectorStyle({ fillOpacity: .9, weight: 2, labelScale: .9 }), extendedData, visible: true }); });
+      (projectsInsideRadius || []).filter(item => !baseIds.has(item.feature)).forEach((item, i) => { item.rank = baseApprovedCluster.length + i + 1; const name = getGeoEvaProjectKmlName(item, item.rank - 1); const description = buildGeoEvaProjectKmlDescription(item, clusterResult, { additional: true }); const extendedData = buildGeoEvaProjectExtendedData(item, clusterResult, { additional: true }); GeoQueryKmlExporter.addUniqueKmlItem(registry, { id: `geoeva-additional-project-${i+1}`, site: "geoeva", groupId: "additional", role: "related-point", folderId: "additional", type: "point", name, description, geometry: { type: "Point", coordinates: [item.lon, item.lat] }, style: vectorStyle({ fillOpacity: .75, weight: 1 }), extendedData, visible: true }); });
+      const features = Array.from(registry.values());
+      GeoQueryKmlExporter.validateKmlExportItems(features);
+      return { site: "geoeva", documentName: "GeoQuery | GeoEVA", documentDescription: state.executiveSummary, queryPoint: { lat: state.lat, lon: state.lon }, folders, features };
+    }
+
+    window.geoQueryKmlRefresh = GeoQueryKmlExporter.installGeoQueryKmlButton(() => window.geoQueryState.mapExport);
+
+    (async function initGeoQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const lat = Number.parseFloat(params.get("lat"));
+      const lon = Number.parseFloat(params.get("lon"));
+      const site = getParam(params, "site", "geoeva");
+      const basemapParam = (getParam(params, "basemap", "osm") || "osm").toLowerCase();
+      let currentBasemap = basemapParam === "sat" ? "sat" : "osm";
+      const zoomFromIndex = getParam(params, "zoom", getParam(params, "mapZoom", "14"));
+      const viewLat = getParam(params, "viewLat", getParam(params, "mapCenterLat", null));
+      const viewLon = getParam(params, "viewLon", getParam(params, "mapCenterLon", null));
+      const from = getParam(params, "from", null);
+      const valid = isValidCoordinate(lat, lon);
+
+      const elements = {
+        cardLat: document.getElementById("card-lat"),
+        cardLon: document.getElementById("card-lon"),
+        cardSite: document.getElementById("card-site"),
+        cardStatus: document.getElementById("card-status"),
+        latDecimal: document.getElementById("lat-decimal"),
+        lonDecimal: document.getElementById("lon-decimal"),
+        latDms: document.getElementById("lat-dms"),
+        lonDms: document.getElementById("lon-dms"),
+        detailStatus: document.getElementById("detail-status"),
+        invalidMessage: document.getElementById("invalid-message"),
+        detailsPanel: document.getElementById("details-panel"),
+        backLink: document.getElementById("back-link"),
+        visualCaption: document.getElementById("visual-caption")
+      };
+
+      elements.cardSite.textContent = site;
+
+      if (!valid) {
+        window.geoQueryState = {
+          site,
+          queryContext: { site, queryPoint: null, originalViewport: { centerLat: Number(viewLat), centerLon: Number(viewLon), zoom: Number(zoomFromIndex), basemap: currentBasemap }, from },
+          status: "error",
+          executiveSummary: "Coordenada inválida.",
+          groupResults: [],
+          mapState: { basemap: currentBasemap },
+          exportState: { pdfEnabled: false, kmlEnabled: false },
+          lat: null,
+          lon: null,
+          lat_decimal: null,
+          lon_decimal: null,
+          lat_dms: null,
+          lon_dms: null,
+          view_lat: viewLat,
+          view_lon: viewLon,
+          crs: "WGS84 / EPSG:4326",
+          source: "url_params",
+          basemap: currentBasemap,
+          zoom_from_index: getParam(params, "zoom", null),
+          map_reference_scale: "1:20.000",
+          map_reference_zoom: null,
+          timestamp: new Date().toISOString()
+        };
+
+        elements.cardStatus.textContent = "Sin coordenada";
+        elements.cardStatus.classList.add("status-error");
+        elements.invalidMessage.hidden = false;
+        elements.detailsPanel.hidden = true;
+        elements.backLink.href = "../index.html";
+        elements.visualCaption.textContent = "No se recibió una coordenada válida.";
+        return;
+      }
+
+      const latDecimal = lat.toFixed(6);
+      const lonDecimal = lon.toFixed(6);
+      const latDms = decimalToDMS(lat, "lat");
+      const lonDms = decimalToDMS(lon, "lon");
+      const targetZoom = getZoomForApproxScale(lat, 20000);
+
+      window.geoQueryState = {
+        site,
+        queryContext: { site, queryPoint: { lat, lon }, originalViewport: { centerLat: Number(viewLat), centerLon: Number(viewLon), zoom: Number(zoomFromIndex), basemap: currentBasemap }, from },
+        status: "loading",
+        executiveSummary: "",
+        groupResults: [],
+        mapState: { basemap: currentBasemap, referenceScale: "1:20.000", referenceZoom: targetZoom },
+        exportState: { pdfEnabled: false, kmlEnabled: false },
+        lat,
+        lon,
+        lat_decimal: latDecimal,
+        lon_decimal: lonDecimal,
+        lat_dms: latDms,
+        lon_dms: lonDms,
+        view_lat: viewLat,
+        view_lon: viewLon,
+        crs: "WGS84 / EPSG:4326",
+        source: "url_params",
+        basemap: currentBasemap,
+        zoom_from_index: getParam(params, "zoom", null),
+        map_reference_scale: "1:20.000",
+        map_reference_zoom: targetZoom,
+        timestamp: new Date().toISOString()
+      };
+
+      elements.cardLat.textContent = latDecimal;
+      elements.cardLon.textContent = lonDecimal;
+      elements.cardStatus.textContent = "Analizando";
+      elements.cardStatus.classList.add("status-ok");
+      elements.latDecimal.textContent = latDecimal;
+      elements.lonDecimal.textContent = lonDecimal;
+      elements.latDms.textContent = latDms;
+      elements.lonDms.textContent = lonDms;
+      elements.detailStatus.textContent = "preparado para análisis territorial";
+      elements.visualCaption.textContent = `Punto consultado: ${latDecimal}, ${lonDecimal}`;
+
+      // GeoEVA:
+      // La vista analítica se ajusta al círculo que contiene
+      // los 10 proyectos aprobados más cercanos al punto consultado.
+      const mapElement = document.getElementById("geoquery-map");
+      const isTouchDevice = (
+        window.matchMedia?.("(pointer: coarse)").matches ||
+        Number(navigator.maxTouchPoints) > 0
+      );
+      const geoQueryMap = L.map("geoquery-map", {
+        zoomControl: true,
+        zoomSnap: 0.25,
+        zoomDelta: 0.25
+      });
+      window.geoQueryLeafletMap = geoQueryMap;
+
+      function enableTwoFingerPanOnTouchDevices(map, container) {
+        if (!isTouchDevice || !container) return;
+
+        let hintTimeout = null;
+        const hint = L.DomUtil.create("div", "geoquery-touch-hint", container);
+        hint.textContent = "Usa dos dedos para mover el mapa";
+        container.classList.add("geoquery-touch-guard");
+        map.dragging.disable();
+
+        function showTouchHint() {
+          hint.classList.add("visible");
+          window.clearTimeout(hintTimeout);
+          hintTimeout = window.setTimeout(() => hint.classList.remove("visible"), 1400);
+        }
+
+        container.addEventListener("touchstart", event => {
+          if (event.touches.length >= 2) {
+            map.dragging.enable();
+            hint.classList.remove("visible");
+          } else {
+            map.dragging.disable();
+            showTouchHint();
+          }
+        }, { passive: true });
+
+        container.addEventListener("touchmove", event => {
+          if (event.touches.length >= 2) {
+            map.dragging.enable();
+          } else {
+            map.dragging.disable();
+          }
+        }, { passive: true });
+
+        container.addEventListener("touchend", event => {
+          if (event.touches.length < 2) map.dragging.disable();
+        }, { passive: true });
+
+        container.addEventListener("touchcancel", () => {
+          map.dragging.disable();
+        }, { passive: true });
+      }
+
+      enableTwoFingerPanOnTouchDevices(geoQueryMap, mapElement);
+
+      const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20,
+        attribution: "&copy; OpenStreetMap"
+      });
+
+      const satLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 20,
+        attribution: "Tiles &copy; Esri"
+      });
+
+      const toggle = L.DomUtil.create("div", "map-toggle");
+      toggle.innerHTML = `
+        <button id="geoquery-osm-btn" class="map-toggle-btn" type="button" data-map="osm">OSM</button>
+        <button id="geoquery-sat-btn" class="map-toggle-btn" type="button" data-map="sat">SAT</button>
+      `;
+      mapElement.appendChild(toggle);
+      L.DomEvent.disableClickPropagation(toggle);
+      L.DomEvent.disableScrollPropagation(toggle);
+
+      const osmButton = toggle.querySelector('[data-map="osm"]');
+      const satButton = toggle.querySelector('[data-map="sat"]');
+
+      function updateReturnLink() {
+        elements.backLink.href = buildReturnUrl(lat, lon, zoomFromIndex || "14", currentBasemap, viewLat, viewLon);
+      }
+
+      elements.backLink?.addEventListener("click", (event) => {
+        if (history.length > 1) {
+          event.preventDefault();
+          history.back();
+        }
+      });
+
+      function setBasemapButtonActive(type) {
+        const osmBtn = document.getElementById("geoquery-osm-btn");
+        const satBtn = document.getElementById("geoquery-sat-btn");
+
+        if (!osmBtn || !satBtn) return;
+
+        osmBtn.classList.toggle("active", type === "osm");
+        satBtn.classList.toggle("active", type === "sat");
+      }
+
+      function setBasemap(type) {
+        if (type === currentBasemap && (geoQueryMap.hasLayer(osmLayer) || geoQueryMap.hasLayer(satLayer))) {
+          setBasemapButtonActive(currentBasemap);
+          return;
+        }
+
+        if (geoQueryMap.hasLayer(osmLayer)) geoQueryMap.removeLayer(osmLayer);
+        if (geoQueryMap.hasLayer(satLayer)) geoQueryMap.removeLayer(satLayer);
+
+        if (type === "sat") {
+          satLayer.addTo(geoQueryMap);
+          currentBasemap = "sat";
+        } else {
+          osmLayer.addTo(geoQueryMap);
+          currentBasemap = "osm";
+        }
+
+        setBasemapButtonActive(currentBasemap);
+        window.geoQueryState.basemap = currentBasemap;
+        window.geoQueryState.mapState.basemap = currentBasemap;
+        window.geoQueryState.queryContext.originalViewport.basemap = currentBasemap;
+        updateReturnLink();
+      }
+
+      osmButton.addEventListener("click", () => setBasemap("osm"));
+      satButton.addEventListener("click", () => setBasemap("sat"));
+
+      setBasemap(currentBasemap);
+      geoQueryMap.setView([lat, lon], targetZoom, { animate: false });
+
+      L.circleMarker([lat, lon], {
+        radius: 8,
+        color: "#1d4ed8",
+        fillColor: "#60a5fa",
+        weight: 3,
+        fillOpacity: 0.95
+      }).addTo(geoQueryMap);
+
+      L.control.scale({
+        position: "bottomleft",
+        metric: true,
+        imperial: false,
+        maxWidth: 120
+      }).addTo(geoQueryMap);
+
+      try {
+        const allProjects = await loadGeoEvaProjects();
+        const approvedCandidates = allProjects.filter(isApprovedProject);
+        console.log("[GeoQuery GeoEVA] proyectos aprobados", approvedCandidates.length);
+
+        const projectsWithCoordinates = approvedCandidates.filter(feature => Boolean(getProjectLatLon(feature)));
+        console.log("[GeoQuery GeoEVA] proyectos aprobados con coordenadas válidas", projectsWithCoordinates.length);
+
+        const baseApprovedCluster = getNearestApprovedProjects(lat, lon, allProjects, 10);
+        console.log("[GeoQuery GeoEVA] clúster base aprobado", baseApprovedCluster);
+
+        renderNearestProjectsOnMap(baseApprovedCluster, geoQueryMap);
+
+        const radiusMeters = getAnalysisRadiusMeters(baseApprovedCluster);
+        console.log("[GeoQuery GeoEVA] radio clúster", radiusMeters);
+
+        const analysisCircle = Number.isFinite(radiusMeters) ? L.circle([lat, lon], {
+          radius: radiusMeters,
+          color: "#2563eb",
+          fillColor: "#2563eb",
+          weight: 2,
+          opacity: 0.85,
+          fillOpacity: 0.15
+        }).addTo(geoQueryMap) : null;
+
+        const projectsInsideRadius = getProjectsWithinRadius(lat, lon, allProjects, radiusMeters);
+        console.log("[GeoQuery GeoEVA] proyectos totales dentro del radio", projectsInsideRadius.length);
+        const territorialGroup = calculateTerritorialGroup(projectsInsideRadius, baseApprovedCluster, { lat, lon });
+        console.log("[GeoQuery GeoEVA] grupo territorial calculado", territorialGroup);
+
+        renderGeoEvaPanels({
+          baseApprovedCluster,
+          radiusMeters,
+          totalProjects: allProjects.length,
+          approvedCandidates,
+          projectsInsideRadius,
+          territorialGroup,
+          currentBasemap
+        });
+
+        window.geoQueryState.projects_total = allProjects.length;
+        window.geoQueryState.projects_approved = approvedCandidates.length;
+        window.geoQueryState.projects_selected = baseApprovedCluster.length;
+        window.geoQueryState.projects_in_radius = projectsInsideRadius.length;
+        window.geoQueryState.approved_candidates = approvedCandidates.length;
+        window.geoQueryState.base_approved_cluster = baseApprovedCluster;
+        window.geoQueryState.projects_inside_radius = projectsInsideRadius;
+        window.geoQueryState.dominant_sector_projects = territorialGroup.dominantSectorProjects;
+        window.geoQueryState.territorial_group = territorialGroup;
+        window.geoQueryState.analysis_radius_m = radiusMeters;
+        window.geoQueryState.source_geojson = GEOEVA_GEOQUERY_PROJECTS_URL;
+        window.geoQueryState.status = baseApprovedCluster.length ? "resolved" : "empty";
+        window.geoQueryState.groupResults = [{ groupId: "projects", status: window.geoQueryState.status, relationType: "nearest", selectedFeatures: baseApprovedCluster, normalizedProperties: territorialGroup, geometryStats: territorialGroup?.geometryStats || null, spatialRelationStats: territorialGroup?.spatialRelationStats || null }];
+        window.geoQueryState.executiveSummary = baseApprovedCluster.length ? `Clúster base de ${baseApprovedCluster.length} proyectos aprobados cercanos resuelto.` : "No se identificaron proyectos aprobados cercanos para construir el clúster.";
+        window.geoQueryState.exportState = { pdfEnabled: baseApprovedCluster.length > 0, kmlEnabled: baseApprovedCluster.length > 0 };
+        window.geoQueryState.mapExport = buildGeoEvaMapExport(baseApprovedCluster, projectsInsideRadius, radiusMeters, territorialGroup);
+        window.geoQueryKmlRefresh?.();
+        window.__geoevaReportModel = window.GeoEvaPdfExport?.buildGeoEvaPdfModel?.({ state: window.geoQueryState }) || window.__geoevaReportModel;
+        elements.detailStatus.textContent = baseApprovedCluster.length ? "Análisis del clúster resuelto." : "Sin proyectos aprobados disponibles.";
+        elements.cardStatus.textContent = baseApprovedCluster.length ? "Resuelto" : "Sin resultados";
+
+        if (analysisCircle) {
+          geoQueryMap.fitBounds(analysisCircle.getBounds(), {
+            padding: [30, 30],
+            maxZoom: 14
+          });
+          console.log("[GeoQuery GeoEVA] fitBounds círculo");
+        }
+        elements.visualCaption.textContent = baseApprovedCluster.length
+          ? `Punto consultado y ${baseApprovedCluster.length} proyectos aprobados cercanos. Radio: ${formatLength(radiusMeters)}.`
+          : "Punto consultado. Sin proyectos aprobados disponibles.";
+      } catch (error) {
+        console.error("[GeoQuery GeoEVA] error al cargar proyectos", error);
+        document.getElementById("geoquery-related-features-panel").innerHTML = `<h3>Proyectos relacionados</h3><div class="message">No se pudo cargar el GeoJSON nacional de proyectos.</div>`;
+        window.geoQueryState.status = "error";
+        window.geoQueryState.executiveSummary = "No fue posible cargar el análisis de proyectos aprobados.";
+        elements.cardStatus.textContent = "Error de análisis";
+        elements.cardStatus.classList.remove("status-ok");
+        elements.cardStatus.classList.add("status-error");
+      }
+
+      updateReturnLink();
+      setTimeout(() => {
+        geoQueryMap.invalidateSize();
+      }, 150);
+    })();
+  </script>
+</body>
+</html>

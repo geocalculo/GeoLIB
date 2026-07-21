@@ -1,8 +1,0 @@
-.git
-.github
-.vscode
-*.zip
-*.psd
-*.ai
-node_modules
-.DS_Store

@@ -1,0 +1,95 @@
+{
+  "activo": true,
+  "capas": [
+    {
+      "id": "geoeva_summary",
+      "nombre": "Proyectos de evaluación ambiental",
+      "archivo": "capas_summary/eva_summary.geojson",
+      "tipo": "point"
+    }
+  ],
+  "indicadores": [
+    {
+      "id": "total_proyectos",
+      "label": "Proyectos",
+      "operacion": "count",
+      "capas": [
+        "geoeva_summary"
+      ]
+    },
+    {
+      "id": "total_inversion",
+      "label": "Inversión",
+      "operacion": "sum",
+      "campo": "inversion_mmusd",
+      "capas": [
+        "geoeva_summary"
+      ],
+      "filtros": [
+        {
+          "campo": "estado",
+          "operador": "in",
+          "valores": [
+            "Aprobado",
+            "En Calificación"
+          ]
+        }
+      ],
+      "prefijo": "US$",
+      "sufijo": "MM",
+      "decimales": 0
+    },
+    {
+      "id": "sector_dominante",
+      "label": "Sector dominante",
+      "operacion": "dominant_category_sum",
+      "campo_categoria": "sector",
+      "campo_valor": "inversion_mmusd",
+      "capas": [
+        "geoeva_summary"
+      ],
+      "filtros": [
+        {
+          "campo": "estado",
+          "operador": "in",
+          "valores": [
+            "Aprobado",
+            "En Calificación"
+          ]
+        }
+      ],
+      "decimales": 0,
+      "fallback": "Sin sector visible"
+    },
+    {
+      "id": "proyectos_aprobados",
+      "label": "Aprobados",
+      "operacion": "count",
+      "capas": [
+        "geoeva_summary"
+      ],
+      "filtros": [
+        {
+          "campo": "estado",
+          "operador": "eq",
+          "valor": "Aprobado"
+        }
+      ]
+    },
+    {
+      "id": "proyectos_rechazados",
+      "label": "Rechazados",
+      "operacion": "count",
+      "capas": [
+        "geoeva_summary"
+      ],
+      "filtros": [
+        {
+          "campo": "estado",
+          "operador": "eq",
+          "valor": "Rechazado"
+        }
+      ]
+    }
+  ]
+}
